@@ -11,6 +11,13 @@ export const users = sqliteTable("users", {
     .default("buyer"),
   phone: text("phone"),
   agencyName: text("agency_name"),
+  // "google" accounts get a random unusable passwordHash (see lib/auth.ts) so the
+  // column can stay NOT NULL without a migration; password login is rejected for
+  // them with a clear message instead of a confusing wrong-password error.
+  authProvider: text("auth_provider", { enum: ["password", "google"] })
+    .notNull()
+    .default("password"),
+  googleId: text("google_id").unique(),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

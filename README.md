@@ -36,6 +36,17 @@ npm run dev
 
 Open **http://localhost:3000**.
 
+## "Continue with Google" login
+
+Optional — the app works fine without it (the Google buttons show a friendly error if unset). To enable it:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an **OAuth client ID** of type **Web application**.
+2. Add these **Authorized redirect URIs**:
+   - `http://localhost:3000/api/auth/google/callback` (local dev)
+   - `https://hyderabadnow.in/api/auth/google/callback` (production)
+3. Copy the Client ID and Client Secret into a `.env` file (see `.env.example`) as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. `docker compose` picks these up automatically.
+4. New Google sign-ups default to a "buyer" account and are asked once to confirm their account type (buyer / agent / owner) at `/complete-profile`.
+
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS

@@ -3,12 +3,30 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, type ActionState } from "@/app/actions";
+import GoogleButton from "@/components/GoogleButton";
 
-export default function LoginForm() {
+const GOOGLE_ERRORS: Record<string, string> = {
+  google_denied: "Google sign-in was cancelled.",
+  invalid_state: "That sign-in link expired — please try again.",
+  google_failed: "Google sign-in didn't go through — please try again.",
+  google_email_unverified: "That Google account's email isn't verified. Try a different account or sign up with a password.",
+  google_not_configured: "Google sign-in isn't set up yet.",
+};
+
+export default function LoginForm({ googleError }: { googleError?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(loginAction, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {googleError && GOOGLE_ERRORS[googleError] && (
+        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">{GOOGLE_ERRORS[googleError]}</p>
+      )}
+      <GoogleButton label="Continue with Google" />
+      <div className="flex items-center gap-3 text-xs text-stone-400">
+        <div className="h-px flex-1 bg-stone-200" />
+        or log in with email
+        <div className="h-px flex-1 bg-stone-200" />
+      </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Email</label>
         <input

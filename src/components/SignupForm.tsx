@@ -3,12 +3,19 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signupAction, type ActionState } from "@/app/actions";
+import GoogleButton from "@/components/GoogleButton";
 
 export default function SignupForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(signupAction, null);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      <GoogleButton label="Sign up with Google" />
+      <div className="flex items-center gap-3 text-xs text-stone-400">
+        <div className="h-px flex-1 bg-stone-200" />
+        or sign up with email
+        <div className="h-px flex-1 bg-stone-200" />
+      </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Full name</label>
         <input

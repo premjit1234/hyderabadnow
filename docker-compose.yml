@@ -5,6 +5,8 @@ services:
       - "3000:3000"
     environment:
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-in-production}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     volumes:
       - hyderabadnow_data:/app/data
       - hyderabadnow_uploads:/app/public/uploads

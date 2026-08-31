@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import { cookies } from "next/headers";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-secret-change-in-production";
@@ -14,6 +15,13 @@ export type SessionUser = {
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
+}
+
+// Google-authenticated accounts never log in with a password, but the
+// passwordHash column is NOT NULL — this fills it with a hash of an unguessable
+// value nobody knows or types, so it exists but can never successfully verify.
+export async function unusablePasswordHash() {
+  return hashPassword(crypto.randomBytes(32).toString("hex"));
 }
 
 export async function verifyPassword(password: string, hash: string) {

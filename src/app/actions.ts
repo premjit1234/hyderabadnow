@@ -73,6 +73,9 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   if (!user) {
     return { error: "No account found with that email." };
   }
+  if (user.authProvider === "google") {
+    return { error: "This account signs in with Google — use the \"Continue with Google\" button above." };
+  }
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
     return { error: "Incorrect password." };
@@ -85,6 +88,39 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
 export async function logoutAction() {
   await clearSessionCookie();
   redirect("/");
+}
+
+const completeProfileSchema = z.object({
+  role: z.enum(["buyer", "agent", "seller"]),
+  phone: z.string().optional(),
+  agencyName: z.string().optional(),
+});
+
+// Shown once, right after a brand-new Google sign-up, to collect the account
+// type our own signup form normally asks for up front.
+export async function completeProfileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Your session expired — please sign in again." };
+  }
+
+  const parsed = completeProfileSchema.safeParse({
+    role: formData.get("role"),
+    phone: formData.get("phone") || undefined,
+    agencyName: formData.get("agencyName") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const { role, phone, agencyName } = parsed.data;
+  await db
+    .update(users)
+    .set({ role, phone, agencyName: role === "agent" ? agencyName : null })
+    .where(eq(users.id, session.id));
+
+  await setSessionCookie({ id: session.id, name: session.name, email: session.email, role });
+  redirect("/dashboard");
 }
 
 const listingSchema = z.object({
