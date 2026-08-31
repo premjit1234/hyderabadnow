@@ -12,6 +12,17 @@ export function isGoogleLoginConfigured() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }
 
+// Behind Caddy's reverse proxy, the Next.js server only ever sees the internal
+// connection (Caddy -> localhost:3000), so request.nextUrl.origin resolves to
+// something like "https://0.0.0.0:3000" instead of the public domain — that's
+// not a URL Google (or a browser) can do anything with. APP_URL is the fix:
+// an explicit, always-correct public origin, set once in .env. It also lets a
+// redirect_uri be registered exactly once in Google Cloud Console per
+// environment instead of trusting a client-controlled Host header.
+export function getAppUrl(request: { nextUrl: { origin: string } }) {
+  return (process.env.APP_URL || request.nextUrl.origin).replace(/\/$/, "");
+}
+
 export function buildGoogleAuthUrl(redirectUri: string, state: string) {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,

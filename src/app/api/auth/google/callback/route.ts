@@ -4,11 +4,11 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { users } from "@/db/schema";
 import { setSessionCookie, unusablePasswordHash } from "@/lib/auth";
-import { exchangeCodeForGoogleUser } from "@/lib/google-oauth";
+import { exchangeCodeForGoogleUser, getAppUrl } from "@/lib/google-oauth";
 import { STATE_COOKIE } from "../route";
 
 export async function GET(request: NextRequest) {
-  const origin = request.nextUrl.origin;
+  const origin = getAppUrl(request);
   const loginError = (code: string) => NextResponse.redirect(new URL(`/login?error=${code}`, origin));
 
   const code = request.nextUrl.searchParams.get("code");
