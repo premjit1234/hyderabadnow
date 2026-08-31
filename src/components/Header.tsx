@@ -36,6 +36,11 @@ export default async function Header() {
               My listings
             </Link>
           )}
+          {session?.role === "admin" && (
+            <Link href="/admin" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-4">

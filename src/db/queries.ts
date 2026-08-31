@@ -1,5 +1,5 @@
 import { db } from "./client";
-import { listings, listingImages, users } from "./schema";
+import { listings, listingImages, users, inquiries } from "./schema";
 import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListingFilters = {
@@ -13,9 +13,19 @@ export type ListingFilters = {
   newOnly?: boolean;
 };
 
+// NOTE: the correlation below deliberately references the outer table as raw
+// "listings"."id" rather than interpolating ${listings.id} as a Drizzle column.
+// Both listings and listing_images have a column literally named "id" — when
+// interpolated as a bare column reference inside this subquery (whose own FROM
+// is listing_images), Drizzle renders it unqualified, so SQLite resolves it to
+// the nearest-scope match: listing_images.id (its own primary key), not the
+// outer listings.id. That silently breaks the correlation (verified empirically
+// against seeded data — it returned a same-numbered row's own first image
+// instead of the requested listing's), so every column that could collide with
+// an outer-table column of the same name must be qualified explicitly here.
 const firstImageSubquery = sql<string | null>`(
   select ${listingImages.url} from ${listingImages}
-  where ${listingImages.listingId} = ${listings.id}
+  where ${listingImages.listingId} = "listings"."id"
   order by ${listingImages.sortOrder} asc
   limit 1
 )`.as("imageUrl");
@@ -134,6 +144,67 @@ export async function getHomeCategories(): Promise<HomeCategory[]> {
     categoryTile("rent", "Homes for rent", "/browse?listingType=rent", [eq(listings.listingType, "rent")]),
     categoryTile("featured", "Featured", "/browse?featured=1", [eq(listings.featured, true)]),
   ]);
+}
+
+// ---- Admin dashboard ----
+
+// Same unqualified-column pitfall as firstImageSubquery above — both users and
+// listings have an "id" column, so the correlation must be spelled out explicitly.
+const userListingCountSubquery = sql<number>`(
+  select count(*) from ${listings} where ${listings.ownerId} = "users"."id"
+)`.as("listingCount");
+
+export async function getAllUsersForAdmin() {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      phone: users.phone,
+      authProvider: users.authProvider,
+      createdAt: users.createdAt,
+      listingCount: userListingCountSubquery,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
+}
+
+export async function getAllListingsForAdmin() {
+  return db
+    .select({
+      id: listings.id,
+      title: listings.title,
+      price: listings.price,
+      listingType: listings.listingType,
+      status: listings.status,
+      featured: listings.featured,
+      views: listings.views,
+      createdAt: listings.createdAt,
+      ownerName: users.name,
+      ownerEmail: users.email,
+    })
+    .from(listings)
+    .leftJoin(users, eq(listings.ownerId, users.id))
+    .orderBy(desc(listings.createdAt));
+}
+
+export async function getAdminStats() {
+  const [[userTotal], [listingTotal], [inquiryTotal], usersByRole, listingsByStatus] = await Promise.all([
+    db.select({ n: sql<number>`count(*)` }).from(users),
+    db.select({ n: sql<number>`count(*)` }).from(listings),
+    db.select({ n: sql<number>`count(*)` }).from(inquiries),
+    db.select({ role: users.role, n: sql<number>`count(*)` }).from(users).groupBy(users.role),
+    db.select({ status: listings.status, n: sql<number>`count(*)` }).from(listings).groupBy(listings.status),
+  ]);
+
+  return {
+    totalUsers: userTotal.n,
+    totalListings: listingTotal.n,
+    totalInquiries: inquiryTotal.n,
+    usersByRole,
+    listingsByStatus,
+  };
 }
 
 export async function getListingsByOwner(ownerId: number) {
