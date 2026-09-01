@@ -272,9 +272,15 @@ async function main() {
       })
       .returning();
 
+    // Local placeholders (public/placeholders/property-1..8.jpg), not a random
+    // third-party image service — picsum.photos returned intermittent 503s in
+    // production, which left listing photos broken with no way for us to fix it.
+    // Real listings uploaded by agents/owners are unaffected either way; they
+    // already go through saveUploadedImage() and are stored locally.
+    const PLACEHOLDER_COUNT = 8;
     const imageValues = Array.from({ length: l.images }).map((_, i) => ({
       listingId: inserted.id,
-      url: `https://picsum.photos/seed/hydnow-${idx}-${i}/900/650`,
+      url: `/placeholders/property-${((idx + i) % PLACEHOLDER_COUNT) + 1}.jpg`,
       sortOrder: i,
     }));
     await db.insert(listingImages).values(imageValues);

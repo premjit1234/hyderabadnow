@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
-    "db:create-admin": "tsx src/db/create-admin.ts"
+    "db:create-admin": "tsx src/db/create-admin.ts",
+    "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
