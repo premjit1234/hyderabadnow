@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { getSiteSettings } from "@/db/queries";
 
-export const metadata: Metadata = {
-  title: "HyderabadNow — Property Listings in Hyderabad",
-  description:
-    "Buy and rent apartments, villas, and plots across Hyderabad. Listings posted directly by agents and owners.",
-};
+// The favicon is admin-editable (see /admin/settings), so it can't use the
+// static app/favicon.ico file convention — that's fixed at build time. This
+// reads the current favicon from the database on every request instead,
+// falling back to the bundled default green-H icon when no admin upload
+// has been made yet.
+export async function generateMetadata(): Promise<Metadata> {
+  const { faviconUrl } = await getSiteSettings();
+  return {
+    title: "HyderabadNow — Property Listings in Hyderabad",
+    description:
+      "Buy and rent apartments, villas, and plots across Hyderabad. Listings posted directly by agents and owners.",
+    icons: {
+      icon: faviconUrl || "/favicon-default.ico",
+    },
+  };
+}
 
 // This is the app-wide root layout — it only owns <html>/<body>. The public
 // site's Header/Footer chrome lives in src/app/(site)/layout.tsx, so /admin

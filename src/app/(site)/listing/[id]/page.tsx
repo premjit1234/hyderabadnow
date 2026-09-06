@@ -3,6 +3,8 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getListingById } from "@/db/queries";
 import { formatPrice, propertyTypeLabel } from "@/lib/format";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { getAppUrl } from "@/lib/site";
 import InquiryForm from "@/components/InquiryForm";
 
 function BedIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -77,6 +79,14 @@ function PhoneIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M12 2a10 10 0 0 0-8.6 15.06L2 22l5.1-1.34A10 10 0 1 0 12 2Zm0 18.2a8.16 8.16 0 0 1-4.17-1.14l-.3-.18-3.03.8.81-2.95-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.13c-.24-.13-1.47-.73-1.7-.81-.23-.09-.4-.13-.56.12-.17.24-.65.81-.8.98-.15.17-.29.19-.54.06-.24-.12-1.03-.38-1.97-1.22-.73-.65-1.22-1.45-1.36-1.7-.15-.24-.02-.37.11-.5.11-.11.24-.29.36-.44.12-.14.16-.24.24-.4.08-.17.04-.31-.02-.44-.06-.12-.56-1.36-.77-1.86-.2-.49-.41-.42-.56-.43-.14-.01-.31-.01-.48-.01a.92.92 0 0 0-.67.31c-.23.24-.87.85-.87 2.08s.9 2.41 1.02 2.58c.12.17 1.78 2.72 4.31 3.81.6.26 1.07.42 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.08.14-1.18-.06-.1-.22-.16-.46-.28Z" />
+    </svg>
+  );
+}
+
 export default async function ListingDetailPage({
   params,
 }: {
@@ -91,6 +101,16 @@ export default async function ListingDetailPage({
 
   const images = listing.images.length > 0 ? listing.images : [];
   const extraCount = Math.max(0, images.length - 5);
+
+  const listingUrl = `${await getAppUrl()}/listing/${listing.id}`;
+  const whatsappMessage = `Hi, I'm interested in your listing "${listing.title}" (${formatPrice(
+    listing.price,
+    listing.listingType as "sale" | "rent"
+  )}) in ${listing.locality}, Hyderabad. ${listingUrl}`;
+  const whatsappLink =
+    listing.whatsappEnabled && listing.contactPhone
+      ? buildWhatsAppLink(listing.contactPhone, whatsappMessage)
+      : null;
 
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
@@ -123,12 +143,19 @@ export default async function ListingDetailPage({
           <p className="text-2xl font-extrabold text-emerald-700 sm:text-3xl">
             {formatPrice(listing.price, listing.listingType as "sale" | "rent")}
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             {listing.featured && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
                 Featured
               </span>
             )}
+            <span
+              className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                listing.verified ? "bg-emerald-100 text-emerald-800" : "bg-stone-100 text-stone-500"
+              }`}
+            >
+              {listing.verified ? "✓ Verified" : "Not Verified"}
+            </span>
             <span className="rounded-full bg-stone-900 px-2.5 py-1 text-xs font-semibold text-white">
               {listing.listingType === "sale" ? "For Sale" : "For Rent"}
             </span>
@@ -253,6 +280,33 @@ export default async function ListingDetailPage({
                 {listing.owner.phone}
               </p>
             )}
+
+            {listing.contactPhone && (
+              <div className="mt-4 border-t border-stone-200 pt-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  Contact about this listing
+                </p>
+                <a
+                  href={`tel:${listing.contactPhone}`}
+                  className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-emerald-700"
+                >
+                  <PhoneIcon className="h-4 w-4 text-emerald-700" />
+                  {listing.contactPhone}
+                </a>
+                {whatsappLink && (
+                  <a
+                    href={whatsappLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-2 rounded-md bg-[#25D366] py-2.5 text-sm font-semibold text-white hover:bg-[#20bd5a]"
+                  >
+                    <WhatsAppIcon className="h-4 w-4" />
+                    Connect on WhatsApp
+                  </a>
+                )}
+              </div>
+            )}
+
             <div className="mt-4 border-t border-stone-200 pt-4">
               <p className="mb-3 text-sm font-semibold text-stone-900">Send a message</p>
               <InquiryForm listingId={listing.id} />

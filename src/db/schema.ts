@@ -102,6 +102,16 @@ export const listings = sqliteTable("listings", {
     .notNull()
     .default("active"),
   featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+  // Admin-only trust signal — never set by the listing owner. Defaults to
+  // false/"Not Verified" for every listing until an admin reviews and flips it.
+  verified: integer("verified", { mode: "boolean" }).notNull().default(false),
+  // Per-listing contact details, separate from the owner's account phone
+  // (users.phone) — a seller/agent may want a different number for a
+  // specific property. whatsappEnabled gates whether the "Connect on
+  // WhatsApp" button renders; contactPhone alone still shows as a plain
+  // callable number.
+  contactPhone: text("contact_phone"),
+  whatsappEnabled: integer("whatsapp_enabled", { mode: "boolean" }).notNull().default(false),
   views: integer("views").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
@@ -130,6 +140,19 @@ export const homeTiles = sqliteTable("home_tiles", {
   imageUrl: text("image_url"),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// Singleton row (id is always 1) holding site-wide branding an admin can
+// change without a redeploy: the header logo image and the browser favicon.
+// Both are nullable — null means "use the built-in default" (the text
+// wordmark logo, and the default green-H favicon shipped in public/).
+export const siteSettings = sqliteTable("site_settings", {
+  id: integer("id").primaryKey(),
+  logoUrl: text("logo_url"),
+  faviconUrl: text("favicon_url"),
+  updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });

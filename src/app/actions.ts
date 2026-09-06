@@ -133,6 +133,7 @@ const listingSchema = z.object({
   areaSqft: z.coerce.number().int().positive("Enter a valid area"),
   locality: z.string().min(2, "Enter a locality"),
   address: z.string().optional(),
+  contactPhone: z.string().optional(),
 });
 
 export async function createListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -151,6 +152,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     areaSqft: formData.get("areaSqft"),
     locality: formData.get("locality"),
     address: formData.get("address") || undefined,
+    contactPhone: formData.get("contactPhone") || undefined,
   });
 
   if (!parsed.success) {
@@ -160,6 +162,10 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   const data = parsed.data;
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a phone number to enable the WhatsApp connect button." };
+  }
 
   const [listing] = await db
     .insert(listings)
@@ -175,6 +181,8 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       address: data.address,
       ownerId: session.id,
       projectId,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
     })
     .returning();
 

@@ -19,6 +19,9 @@ type EditableListing = {
   address: string | null;
   status: string;
   featured: boolean;
+  verified: boolean;
+  contactPhone: string | null;
+  whatsappEnabled: boolean;
   projectId: number | null;
   images: { id: number; url: string }[];
 };
@@ -188,9 +191,32 @@ export default function AdminListingEditForm({
         </select>
       </div>
 
+      <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
+        <p className="text-sm font-medium text-stone-700">Contact for this listing</p>
+        <div className="mt-3">
+          <label className="mb-1 block text-sm font-medium text-stone-700">Phone number</label>
+          <input
+            name="contactPhone"
+            type="tel"
+            defaultValue={listing.contactPhone ?? ""}
+            placeholder="e.g. 98480 11223"
+            className="w-full rounded-md border border-stone-200 bg-white px-3 py-2.5 text-sm"
+          />
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-stone-700">
+          <input type="checkbox" name="whatsappEnabled" defaultChecked={listing.whatsappEnabled} className="h-4 w-4" />
+          Connect through WhatsApp
+        </label>
+      </div>
+
       <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
         <input type="checkbox" name="featured" defaultChecked={listing.featured} className="h-4 w-4" />
         Featured on homepage
+      </label>
+
+      <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+        <input type="checkbox" name="verified" defaultChecked={listing.verified} className="h-4 w-4" />
+        Verified listing (shows a &quot;Verified&quot; badge to visitors)
       </label>
 
       {listing.images.length > 0 && (

@@ -53,6 +53,7 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3">Listing</th>
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Verified</th>
                   <th className="px-4 py-3">Views</th>
                 </tr>
               </thead>
@@ -69,6 +70,15 @@ export default async function DashboardPage() {
                       {formatPrice(l.price, l.listingType as "sale" | "rent")}
                     </td>
                     <td className="px-4 py-3 capitalize">{l.status}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          l.verified ? "bg-emerald-100 text-emerald-800" : "bg-stone-100 text-stone-500"
+                        }`}
+                      >
+                        {l.verified ? "✓ Verified" : "Not Verified"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{l.views}</td>
                   </tr>
                 ))}

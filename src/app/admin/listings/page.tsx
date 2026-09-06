@@ -4,6 +4,7 @@ import { formatPrice } from "@/lib/format";
 import {
   adminUpdateListingStatusAction,
   adminToggleFeaturedAction,
+  adminToggleVerifiedAction,
   adminDeleteListingAction,
 } from "@/app/admin/actions";
 
@@ -63,6 +64,7 @@ export default async function AdminListingsPage({
               <th className="px-4 py-3">Price</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Featured</th>
+              <th className="px-4 py-3">Verified</th>
               <th className="px-4 py-3">Views</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -116,6 +118,19 @@ export default async function AdminListingsPage({
                     </button>
                   </form>
                 </td>
+                <td className="px-4 py-3">
+                  <form action={adminToggleVerifiedAction}>
+                    <input type="hidden" name="listingId" value={l.id} />
+                    <button
+                      type="submit"
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        l.verified ? "bg-emerald-100 text-emerald-800" : "bg-stone-100 text-stone-500"
+                      }`}
+                    >
+                      {l.verified ? "✓ Verified" : "Not Verified"}
+                    </button>
+                  </form>
+                </td>
                 <td className="px-4 py-3 text-stone-600">{l.views}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -134,7 +149,7 @@ export default async function AdminListingsPage({
             ))}
             {allListings.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-stone-400">
                   No listings match.
                 </td>
               </tr>

@@ -12,6 +12,7 @@ export type ListingCardData = {
   areaSqft: number | null;
   locality: string;
   featured: boolean;
+  verified?: boolean;
   imageUrl: string | null;
 };
 
@@ -33,11 +34,14 @@ export default function ListingCard({ listing }: { listing: ListingCardData }) {
         ) : (
           <div className="flex h-full items-center justify-center text-stone-400">No photo</div>
         )}
-        {listing.featured && (
-          <span className="absolute left-2 top-2 rounded bg-amber-600 px-2 py-0.5 text-xs font-semibold text-white">
-            Featured
-          </span>
-        )}
+        <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
+          {listing.featured && (
+            <span className="rounded bg-amber-600 px-2 py-0.5 text-xs font-semibold text-white">Featured</span>
+          )}
+          {listing.verified && (
+            <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">✓ Verified</span>
+          )}
+        </div>
         <span className="absolute right-2 top-2 rounded bg-stone-900/80 px-2 py-0.5 text-xs font-semibold text-white">
           {listing.listingType === "sale" ? "For Sale" : "For Rent"}
         </span>

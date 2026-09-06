@@ -123,6 +123,29 @@ export default function PostListingForm({ projects }: { projects: ProjectOption[
         <input name="address" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
       </div>
 
+      <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
+        <p className="text-sm font-medium text-stone-700">Contact for this listing (optional)</p>
+        <p className="mt-0.5 text-xs text-stone-500">
+          Shown on the listing page so buyers/renters can reach you directly about this property.
+        </p>
+        <div className="mt-3">
+          <label className="mb-1 block text-sm font-medium text-stone-700">Phone number</label>
+          <input
+            name="contactPhone"
+            type="tel"
+            placeholder="e.g. 98480 11223"
+            className="w-full rounded-md border border-stone-200 bg-white px-3 py-2.5 text-sm"
+          />
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm font-medium text-stone-700">
+          <input type="checkbox" name="whatsappEnabled" className="h-4 w-4" />
+          Connect through WhatsApp
+        </label>
+        <p className="mt-1 text-xs text-stone-500">
+          Adds a &quot;Connect on WhatsApp&quot; button to your listing, pre-filled with a message about it.
+        </p>
+      </div>
+
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Description</label>
         <textarea

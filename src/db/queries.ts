@@ -1,5 +1,5 @@
 import { db } from "./client";
-import { listings, listingImages, users, inquiries, homeTiles, projects, projectImages } from "./schema";
+import { listings, listingImages, users, inquiries, homeTiles, projects, projectImages, siteSettings } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListingFilters = {
@@ -42,6 +42,7 @@ export async function getFeaturedListings(limit = 6) {
       areaSqft: listings.areaSqft,
       locality: listings.locality,
       featured: listings.featured,
+      verified: listings.verified,
       imageUrl: firstImageSubquery,
     })
     .from(listings)
@@ -80,6 +81,7 @@ export async function searchListings(filters: ListingFilters) {
       areaSqft: listings.areaSqft,
       locality: listings.locality,
       featured: listings.featured,
+      verified: listings.verified,
       imageUrl: firstImageSubquery,
     })
     .from(listings)
@@ -238,6 +240,7 @@ export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: s
       listingType: listings.listingType,
       status: listings.status,
       featured: listings.featured,
+      verified: listings.verified,
       views: listings.views,
       createdAt: listings.createdAt,
       ownerId: listings.ownerId,
@@ -373,6 +376,7 @@ export async function getListingsByProject(projectId: number, listingType?: "sal
       areaSqft: listings.areaSqft,
       locality: listings.locality,
       featured: listings.featured,
+      verified: listings.verified,
       imageUrl: firstImageSubquery,
     })
     .from(listings)
@@ -387,6 +391,25 @@ export async function getProjectsForSelect() {
     .orderBy(asc(projects.name));
 }
 
+// ---- Site settings (logo / favicon) ----
+
+// Singleton row, always id=1. No pre-seeded row is required: reads fall back
+// to nulls (meaning "use the built-in defaults") until an admin saves once.
+//
+// Also called from the ROOT layout's generateMetadata (for the favicon), which
+// runs for every page — including at `next build` time inside the Docker
+// builder stage, against a throwaway sqlite file that has no tables at all yet
+// (schema is only pushed at container start, see docker-entrypoint.sh). So this
+// must tolerate "no such table" rather than fail the whole build.
+export async function getSiteSettings(): Promise<{ logoUrl: string | null; faviconUrl: string | null }> {
+  try {
+    const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
+    return { logoUrl: row?.logoUrl ?? null, faviconUrl: row?.faviconUrl ?? null };
+  } catch {
+    return { logoUrl: null, faviconUrl: null };
+  }
+}
+
 export async function getListingsByOwner(ownerId: number) {
   return db
     .select({
@@ -399,6 +422,7 @@ export async function getListingsByOwner(ownerId: number) {
       areaSqft: listings.areaSqft,
       locality: listings.locality,
       featured: listings.featured,
+      verified: listings.verified,
       status: listings.status,
       views: listings.views,
       imageUrl: firstImageSubquery,

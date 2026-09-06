@@ -184,6 +184,9 @@ async function main() {
     featured: boolean;
     images: number;
     projectId?: number;
+    verified?: boolean;
+    contactPhone?: string;
+    whatsappEnabled?: boolean;
   };
 
   const sampleListings: SeedListing[] = [
@@ -200,6 +203,9 @@ async function main() {
       ownerId: agent1.id,
       featured: true,
       images: 4,
+      verified: true,
+      contactPhone: "+91 98480 11223",
+      whatsappEnabled: true,
     },
     {
       title: "Modern 2BHK for Rent in Kondapur",
@@ -229,6 +235,9 @@ async function main() {
       ownerId: agent1.id,
       featured: true,
       images: 5,
+      verified: true,
+      contactPhone: "+91 98480 11223",
+      whatsappEnabled: true,
     },
     {
       title: "Owner-Listed 2BHK Flat in Miyapur",
@@ -391,6 +400,9 @@ async function main() {
         featured: l.featured,
         views: Math.floor(Math.random() * 500),
         projectId: l.projectId ?? null,
+        verified: l.verified ?? false,
+        contactPhone: l.contactPhone ?? null,
+        whatsappEnabled: l.whatsappEnabled ?? false,
       })
       .returning();
 

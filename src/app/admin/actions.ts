@@ -5,9 +5,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { users, listings, listingImages, homeTiles, projects, projectImages } from "@/db/schema";
+import { users, listings, listingImages, homeTiles, projects, projectImages, siteSettings } from "@/db/schema";
 import { getSession } from "@/lib/auth";
-import { saveUploadedImage } from "@/lib/uploads";
+import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES } from "@/lib/amenities";
 
 export type ActionState = { error?: string; success?: string } | null;
@@ -84,6 +84,19 @@ export async function adminToggleFeaturedAction(formData: FormData) {
   revalidatePath("/admin/listings");
 }
 
+export async function adminToggleVerifiedAction(formData: FormData) {
+  await requireAdmin();
+  const listingId = Number(formData.get("listingId"));
+  if (!listingId) return;
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!listing) return;
+
+  await db.update(listings).set({ verified: !listing.verified }).where(eq(listings.id, listingId));
+  revalidatePath("/admin/listings");
+  revalidatePath(`/listing/${listingId}`);
+}
+
 export async function adminDeleteListingAction(formData: FormData) {
   await requireAdmin();
   const listingId = Number(formData.get("listingId"));
@@ -109,6 +122,7 @@ const editListingSchema = z.object({
   city: z.string().min(2, "Enter a city"),
   address: z.string().optional(),
   status: z.enum(LISTING_STATUSES),
+  contactPhone: z.string().optional(),
 });
 
 export async function adminUpdateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -128,12 +142,18 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     city: formData.get("city"),
     address: formData.get("address") || undefined,
     status: formData.get("status"),
+    contactPhone: formData.get("contactPhone") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
   const featured = formData.get("featured") === "on";
+  const verified = formData.get("verified") === "on";
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a contact phone number to enable the WhatsApp button." };
+  }
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
 
@@ -152,6 +172,9 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       address: data.address || null,
       status: data.status,
       featured,
+      verified,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
       projectId,
     })
     .where(eq(listings.id, listingId));
@@ -466,4 +489,48 @@ export async function adminDeleteProjectAction(formData: FormData) {
   await db.delete(projects).where(eq(projects.id, projectId));
   revalidatePath("/admin/projects");
   revalidatePath("/projects");
+}
+
+// ---- Admin: site branding (logo + favicon) ----
+
+export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const existing = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
+
+  let logoUrl = existing?.logoUrl ?? null;
+  const logoFile = formData.get("logoFile");
+  if (logoFile instanceof File && logoFile.size > 0) {
+    const saved = await saveUploadedImage(logoFile);
+    if (!saved) return { error: "Logo must be a JPG, PNG, WebP, or GIF under 8MB." };
+    logoUrl = saved;
+  } else if (formData.get("removeLogo") === "on") {
+    logoUrl = null;
+  }
+
+  let faviconUrl = existing?.faviconUrl ?? null;
+  const faviconFile = formData.get("faviconFile");
+  if (faviconFile instanceof File && faviconFile.size > 0) {
+    const saved = await saveUploadedFavicon(faviconFile);
+    if (!saved) return { error: "Favicon must be an .ico, .png, or .svg file under 2MB." };
+    faviconUrl = saved;
+  } else if (formData.get("removeFavicon") === "on") {
+    faviconUrl = null;
+  }
+
+  if (existing) {
+    await db
+      .update(siteSettings)
+      .set({ logoUrl, faviconUrl, updatedAt: sql`(current_timestamp)` })
+      .where(eq(siteSettings.id, 1));
+  } else {
+    await db.insert(siteSettings).values({ id: 1, logoUrl, faviconUrl });
+  }
+
+  // The root layout's generateMetadata reads site settings on every request,
+  // and Header reads them too — revalidating "/" with the "layout" type
+  // busts the whole route tree's cache so the new logo/favicon show up
+  // immediately instead of waiting for the next unrelated deploy.
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/settings");
+  return { success: "Site settings updated." };
 }

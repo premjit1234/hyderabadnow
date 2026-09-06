@@ -1,21 +1,33 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { getSiteSettings } from "@/db/queries";
 import { logoutAction } from "@/app/actions";
 
 export default async function Header() {
-  const session = await getSession();
+  const [session, { logoUrl }] = await Promise.all([getSession(), getSiteSettings()]);
   const canPost = session && (session.role === "agent" || session.role === "seller" || session.role === "admin");
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-white">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3.5 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded bg-emerald-700 text-sm font-bold text-white">
-            H
-          </span>
-          <span className="text-lg font-bold tracking-tight text-stone-900">
-            hyderabad<span className="text-emerald-700">now</span>
-          </span>
+          {logoUrl ? (
+            <span className="relative block h-9 w-auto min-w-[36px]">
+              {/* Admin-uploaded logo — unknown dimensions, so an intrinsic-size
+                  <img> (not next/image's fill/width-height modes) fits the header
+                  height while keeping the image's own aspect ratio. */}
+              <img src={logoUrl} alt="HyderabadNow" className="h-9 w-auto object-contain" />
+            </span>
+          ) : (
+            <>
+              <span className="flex h-7 w-7 items-center justify-center rounded bg-emerald-700 text-sm font-bold text-white">
+                H
+              </span>
+              <span className="text-lg font-bold tracking-tight text-stone-900">
+                hyderabad<span className="text-emerald-700">now</span>
+              </span>
+            </>
+          )}
         </Link>
 
         <nav className="hidden items-center gap-6 text-[15px] font-medium text-stone-700 md:flex">
