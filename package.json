@@ -10,7 +10,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "db:create-admin": "tsx src/db/create-admin.ts",
-    "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts"
+    "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts",
+    "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

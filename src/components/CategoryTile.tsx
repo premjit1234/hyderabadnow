@@ -18,9 +18,11 @@ export default function CategoryTile({ category }: { category: HomeCategory }) {
         />
       ) : null}
       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-      <span className="absolute right-2.5 top-2.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-stone-900">
-        {category.count}
-      </span>
+      {category.count != null && (
+        <span className="absolute right-2.5 top-2.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-stone-900">
+          {category.count}
+        </span>
+      )}
       <span className="absolute bottom-3 left-3 right-3 text-[15px] font-semibold text-white">
         {category.label}
       </span>

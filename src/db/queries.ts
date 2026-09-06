@@ -1,6 +1,6 @@
 import { db } from "./client";
-import { listings, listingImages, users, inquiries } from "./schema";
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { listings, listingImages, users, inquiries, homeTiles } from "./schema";
+import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListingFilters = {
   q?: string;
@@ -105,45 +105,88 @@ export async function getListingById(id: number) {
 }
 
 export type HomeCategory = {
-  key: string;
+  id: number;
   label: string;
   href: string;
-  count: number;
+  count: number | null;
   imageUrl: string | null;
 };
 
-async function categoryTile(
-  key: string,
-  label: string,
-  href: string,
-  extraConditions: ReturnType<typeof eq>[]
-): Promise<HomeCategory> {
-  const conditions = [eq(listings.status, "active"), ...extraConditions];
+// Homepage tiles are admin-managed rows (label + image + destination link —
+// see src/app/admin/home-tiles), not auto-computed from listings. We still
+// show a live count badge for tiles whose href is a recognizable /browse
+// filter (the ones the app itself creates), by parsing that query string the
+// same way /browse would filter — but it's best-effort: a tile pointing
+// somewhere else (or a custom admin-added link) just shows no count.
+const KNOWN_TILE_QUERY_PARAMS = new Set(["listingType", "propertyType", "featured", "new"]);
+const KNOWN_PROPERTY_TYPES = [
+  "apartment",
+  "villa",
+  "independent_house",
+  "plot",
+  "commercial",
+] as const;
 
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(listings)
-    .where(and(...conditions));
+function countConditionsForHref(href: string) {
+  if (!href.startsWith("/browse")) return null;
 
-  const [top] = await db
-    .select({ imageUrl: firstImageSubquery })
-    .from(listings)
-    .where(and(...conditions))
-    .orderBy(desc(listings.featured), desc(listings.createdAt))
-    .limit(1);
+  let query: URLSearchParams;
+  try {
+    query = new URL(href, "http://internal").searchParams;
+  } catch {
+    return null;
+  }
 
-  return { key, label, href, count, imageUrl: top?.imageUrl ?? null };
+  // If the tile links somewhere with a query param we don't know how to turn
+  // into a count (e.g. a free-text "q" search, or a min/max price range an
+  // admin typed into a custom tile link), showing a count would just be
+  // wrong — better to show no badge than a misleading one.
+  for (const key of query.keys()) {
+    if (!KNOWN_TILE_QUERY_PARAMS.has(key)) return null;
+  }
+
+  const conditions = [eq(listings.status, "active")];
+  const listingType = query.get("listingType");
+  if (listingType === "sale" || listingType === "rent") {
+    conditions.push(eq(listings.listingType, listingType));
+  }
+  const propertyType = query.get("propertyType");
+  if (propertyType && (KNOWN_PROPERTY_TYPES as readonly string[]).includes(propertyType)) {
+    conditions.push(eq(listings.propertyType, propertyType as (typeof KNOWN_PROPERTY_TYPES)[number]));
+  }
+  if (query.get("featured") === "1") {
+    conditions.push(eq(listings.featured, true));
+  }
+  if (query.get("new") === "1") {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    conditions.push(gte(listings.createdAt, thirtyDaysAgo));
+  }
+  return conditions;
 }
 
 export async function getHomeCategories(): Promise<HomeCategory[]> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const tiles = await db.select().from(homeTiles).orderBy(asc(homeTiles.sortOrder), asc(homeTiles.id));
 
-  return Promise.all([
-    categoryTile("new", "New listings", "/browse?new=1", [gte(listings.createdAt, thirtyDaysAgo)]),
-    categoryTile("sale", "Homes for sale", "/browse?listingType=sale", [eq(listings.listingType, "sale")]),
-    categoryTile("rent", "Homes for rent", "/browse?listingType=rent", [eq(listings.listingType, "rent")]),
-    categoryTile("featured", "Featured", "/browse?featured=1", [eq(listings.featured, true)]),
-  ]);
+  return Promise.all(
+    tiles.map(async (tile) => {
+      const conditions = countConditionsForHref(tile.href);
+      let count: number | null = null;
+      if (conditions) {
+        const [row] = await db
+          .select({ n: sql<number>`count(*)` })
+          .from(listings)
+          .where(and(...conditions));
+        count = row?.n ?? 0;
+      }
+      return { id: tile.id, label: tile.label, href: tile.href, imageUrl: tile.imageUrl, count };
+    })
+  );
+}
+
+// ---- Admin: homepage tiles ----
+
+export async function getHomeTilesForAdmin() {
+  return db.select().from(homeTiles).orderBy(asc(homeTiles.sortOrder), asc(homeTiles.id));
 }
 
 // ---- Admin dashboard ----
@@ -154,7 +197,11 @@ const userListingCountSubquery = sql<number>`(
   select count(*) from ${listings} where ${listings.ownerId} = "users"."id"
 )`.as("listingCount");
 
-export async function getAllUsersForAdmin() {
+export async function getAllUsersForAdmin(q?: string) {
+  const conditions = q
+    ? [sql`(${users.name} like ${"%" + q + "%"} or ${users.email} like ${"%" + q + "%"})`]
+    : [];
+
   return db
     .select({
       id: users.id,
@@ -167,10 +214,19 @@ export async function getAllUsersForAdmin() {
       listingCount: userListingCountSubquery,
     })
     .from(users)
+    .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(users.createdAt));
 }
 
-export async function getAllListingsForAdmin() {
+export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: string }) {
+  const conditions = [];
+  if (filters?.ownerId) conditions.push(eq(listings.ownerId, filters.ownerId));
+  if (filters?.q) {
+    conditions.push(
+      sql`(${listings.title} like ${"%" + filters.q + "%"} or ${listings.locality} like ${"%" + filters.q + "%"})`
+    );
+  }
+
   return db
     .select({
       id: listings.id,
@@ -181,11 +237,13 @@ export async function getAllListingsForAdmin() {
       featured: listings.featured,
       views: listings.views,
       createdAt: listings.createdAt,
+      ownerId: listings.ownerId,
       ownerName: users.name,
       ownerEmail: users.email,
     })
     .from(listings)
     .leftJoin(users, eq(listings.ownerId, users.id))
+    .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(listings.createdAt));
 }
 
@@ -205,6 +263,23 @@ export async function getAdminStats() {
     usersByRole,
     listingsByStatus,
   };
+}
+
+export async function getAllInquiriesForAdmin() {
+  return db
+    .select({
+      id: inquiries.id,
+      name: inquiries.name,
+      email: inquiries.email,
+      phone: inquiries.phone,
+      message: inquiries.message,
+      createdAt: inquiries.createdAt,
+      listingId: listings.id,
+      listingTitle: listings.title,
+    })
+    .from(inquiries)
+    .leftJoin(listings, eq(inquiries.listingId, listings.id))
+    .orderBy(desc(inquiries.createdAt));
 }
 
 export async function getListingsByOwner(ownerId: number) {

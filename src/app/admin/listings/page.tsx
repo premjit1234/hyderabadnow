@@ -7,13 +7,54 @@ import {
   adminDeleteListingAction,
 } from "@/app/admin/actions";
 
-export default async function AdminListingsPage() {
-  const allListings = await getAllListingsForAdmin();
+export default async function AdminListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const ownerParam = typeof sp.owner === "string" ? Number(sp.owner) : undefined;
+  const ownerId = ownerParam && Number.isInteger(ownerParam) ? ownerParam : undefined;
+
+  const allListings = await getAllListingsForAdmin({ ownerId, q });
+  const ownerLabel = ownerId ? allListings[0]?.ownerName ?? `owner #${ownerId}` : null;
 
   return (
     <div>
-      <h2 className="mb-4 text-lg font-bold text-stone-900">All listings ({allListings.length})</h2>
-      <div className="overflow-x-auto rounded-lg border border-stone-200">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900">Listings ({allListings.length})</h1>
+          <p className="mt-1 text-sm text-stone-500">Change status, feature, edit, or remove any listing.</p>
+        </div>
+        <form className="flex gap-2">
+          {ownerId && <input type="hidden" name="owner" value={ownerId} />}
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="Search title or locality…"
+            className="w-56 rounded-md border border-stone-200 px-3 py-1.5 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
+          >
+            Search
+          </button>
+        </form>
+      </div>
+
+      {ownerId && (
+        <p className="mb-4 flex items-center gap-2 rounded-md bg-indigo-50 p-3 text-sm text-indigo-800">
+          Showing listings owned by <strong>{ownerLabel}</strong>.
+          <Link href="/admin/listings" className="font-medium underline">
+            Clear filter
+          </Link>
+        </p>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
@@ -30,7 +71,7 @@ export default async function AdminListingsPage() {
             {allListings.map((l) => (
               <tr key={l.id} className="border-t border-stone-100">
                 <td className="px-4 py-3">
-                  <Link href={`/listing/${l.id}`} className="font-medium text-stone-900 hover:text-emerald-700">
+                  <Link href={`/listing/${l.id}`} className="font-medium text-stone-900 hover:text-indigo-700">
                     {l.title}
                   </Link>
                 </td>
@@ -56,7 +97,7 @@ export default async function AdminListingsPage() {
                     </select>
                     <button
                       type="submit"
-                      className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-emerald-600 hover:text-emerald-700"
+                      className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-indigo-600 hover:text-indigo-700"
                     >
                       Save
                     </button>
@@ -68,7 +109,7 @@ export default async function AdminListingsPage() {
                     <button
                       type="submit"
                       className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        l.featured ? "bg-emerald-100 text-emerald-800" : "bg-stone-100 text-stone-500"
+                        l.featured ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-500"
                       }`}
                     >
                       {l.featured ? "Featured" : "Not featured"}
@@ -77,15 +118,27 @@ export default async function AdminListingsPage() {
                 </td>
                 <td className="px-4 py-3 text-stone-600">{l.views}</td>
                 <td className="px-4 py-3">
-                  <form action={adminDeleteListingAction}>
-                    <input type="hidden" name="listingId" value={l.id} />
-                    <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
-                      Delete
-                    </button>
-                  </form>
+                  <div className="flex items-center gap-3">
+                    <Link href={`/admin/listings/${l.id}/edit`} className="text-xs font-medium text-indigo-600 hover:underline">
+                      Edit
+                    </Link>
+                    <form action={adminDeleteListingAction}>
+                      <input type="hidden" name="listingId" value={l.id} />
+                      <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
+                        Delete
+                      </button>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
+            {allListings.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
+                  No listings match.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

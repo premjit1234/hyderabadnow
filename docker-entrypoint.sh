@@ -25,4 +25,9 @@ else
   echo "Existing data found ($USER_COUNT users) — skipping seed (delete the 'hyderabadnow_data' volume to reseed)."
 fi
 
+# Idempotent — a no-op once homepage tiles exist (fresh seed.ts run above
+# already creates them). Covers servers that were seeded before homepage
+# tiles became an admin-managed table.
+node_modules/.bin/tsx src/db/ensure-home-tiles.ts
+
 exec "$@"

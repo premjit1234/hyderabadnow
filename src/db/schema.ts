@@ -61,6 +61,23 @@ export const listingImages = sqliteTable("listing_images", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+// Homepage category tiles ("New listings", "Homes for sale", ...). These used
+// to be hardcoded in queries.ts with an auto-picked listing photo as the tile
+// image — which meant the image changed underneath the admin and occasionally
+// pointed at a broken/unexpected photo. Now they're rows an admin manages
+// directly (own image + destination link), so the homepage always shows
+// exactly what the admin set.
+export const homeTiles = sqliteTable("home_tiles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  label: text("label").notNull(),
+  href: text("href").notNull(),
+  imageUrl: text("image_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const inquiries = sqliteTable("inquiries", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   listingId: integer("listing_id")

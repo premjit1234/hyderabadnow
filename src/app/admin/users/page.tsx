@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { getAllUsersForAdmin } from "@/db/queries";
 import { adminUpdateUserRoleAction, adminDeleteUserAction } from "@/app/admin/actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  has_listings: "Can't delete that account — it still owns listings. Delete or reassign those first.",
+  has_listings: "Can't delete that account — it still owns listings. Delete or reassign those first (use the link in the Listings column).",
   self_delete: "You can't delete the account you're currently logged in as.",
 };
 
@@ -13,15 +14,38 @@ export default async function AdminUsersPage({
 }) {
   const sp = await searchParams;
   const error = typeof sp.error === "string" ? sp.error : undefined;
-  const allUsers = await getAllUsersForAdmin();
+  const q = typeof sp.q === "string" ? sp.q : undefined;
+  const allUsers = await getAllUsersForAdmin(q);
 
   return (
     <div>
-      <h2 className="mb-4 text-lg font-bold text-stone-900">All users ({allUsers.length})</h2>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900">Users ({allUsers.length})</h1>
+          <p className="mt-1 text-sm text-stone-500">Change roles or remove accounts.</p>
+        </div>
+        <form className="flex gap-2">
+          <input
+            type="text"
+            name="q"
+            defaultValue={q}
+            placeholder="Search name or email…"
+            className="w-56 rounded-md border border-stone-200 px-3 py-1.5 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
+          >
+            Search
+          </button>
+        </form>
+      </div>
+
       {error && ERROR_MESSAGES[error] && (
         <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{ERROR_MESSAGES[error]}</p>
       )}
-      <div className="overflow-x-auto rounded-lg border border-stone-200">
+
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
             <tr>
@@ -40,7 +64,15 @@ export default async function AdminUsersPage({
                 <td className="px-4 py-3 font-medium text-stone-900">{u.name}</td>
                 <td className="px-4 py-3 text-stone-600">{u.email}</td>
                 <td className="px-4 py-3 capitalize text-stone-600">{u.authProvider}</td>
-                <td className="px-4 py-3 text-stone-600">{u.listingCount}</td>
+                <td className="px-4 py-3 text-stone-600">
+                  {u.listingCount > 0 ? (
+                    <Link href={`/admin/listings?owner=${u.id}`} className="text-indigo-600 hover:underline">
+                      {u.listingCount}
+                    </Link>
+                  ) : (
+                    "0"
+                  )}
+                </td>
                 <td className="px-4 py-3">
                   <form action={adminUpdateUserRoleAction} className="flex items-center gap-2">
                     <input type="hidden" name="userId" value={u.id} />
@@ -56,7 +88,7 @@ export default async function AdminUsersPage({
                     </select>
                     <button
                       type="submit"
-                      className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-emerald-600 hover:text-emerald-700"
+                      className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-indigo-600 hover:text-indigo-700"
                     >
                       Save
                     </button>
@@ -79,6 +111,13 @@ export default async function AdminUsersPage({
                 </td>
               </tr>
             ))}
+            {allUsers.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
+                  No users match.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

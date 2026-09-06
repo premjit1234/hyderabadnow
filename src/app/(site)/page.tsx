@@ -14,7 +14,7 @@ export default async function Home() {
         className="relative bg-stone-900 bg-cover bg-center pb-24 pt-16 sm:pb-28 sm:pt-24"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(20,20,18,0.35), rgba(20,20,18,0.65)), url(https://picsum.photos/seed/hyderabad-city/1800/900)",
+            "linear-gradient(rgba(20,20,18,0.35), rgba(20,20,18,0.65)), url(/hero-bg.jpg)",
         }}
       >
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
@@ -35,7 +35,7 @@ export default async function Home() {
           <h2 className="mb-4 text-lg font-bold text-stone-900">Browse homes in Hyderabad</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
             {categories.map((category) => (
-              <CategoryTile key={category.key} category={category} />
+              <CategoryTile key={category.id} category={category} />
             ))}
           </div>
         </div>

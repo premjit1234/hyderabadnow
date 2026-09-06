@@ -1,5 +1,5 @@
 import { db, sqlite } from "./client";
-import { users, listings, listingImages } from "./schema";
+import { users, listings, listingImages, homeTiles } from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
 
@@ -8,7 +8,7 @@ async function main() {
 
   // Clear existing data (dev convenience)
   sqlite.exec(
-    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users;"
+    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles;"
   );
 
   const demoPasswordHash = await hashPassword("password123");
@@ -285,6 +285,15 @@ async function main() {
     }));
     await db.insert(listingImages).values(imageValues);
   }
+
+  // Homepage category tiles — admin-editable from /admin/home-tiles (image +
+  // destination link per tile). These are the starting defaults.
+  await db.insert(homeTiles).values([
+    { label: "New listings", href: "/browse?new=1", imageUrl: "/tiles/new-listings.jpg", sortOrder: 0 },
+    { label: "Homes for sale", href: "/browse?listingType=sale", imageUrl: "/tiles/homes-for-sale.jpg", sortOrder: 1 },
+    { label: "Homes for rent", href: "/browse?listingType=rent", imageUrl: "/tiles/homes-for-rent.jpg", sortOrder: 2 },
+    { label: "Featured", href: "/browse?featured=1", imageUrl: "/tiles/featured.jpg", sortOrder: 3 },
+  ]);
 
   console.log(`Seeded ${sampleListings.length} listings across ${HYDERABAD_LOCALITIES.length} known localities.`);
   console.log("Demo login (any seeded user): password123");
