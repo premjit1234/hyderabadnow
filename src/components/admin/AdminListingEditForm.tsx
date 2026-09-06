@@ -19,10 +19,19 @@ type EditableListing = {
   address: string | null;
   status: string;
   featured: boolean;
+  projectId: number | null;
   images: { id: number; url: string }[];
 };
 
-export default function AdminListingEditForm({ listing }: { listing: EditableListing }) {
+type ProjectOption = { id: number; name: string; locality: string };
+
+export default function AdminListingEditForm({
+  listing,
+  projects,
+}: {
+  listing: EditableListing;
+  projects: ProjectOption[];
+}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminUpdateListingAction, null);
 
   return (
@@ -161,6 +170,22 @@ export default function AdminListingEditForm({ listing }: { listing: EditableLis
           defaultValue={listing.description}
           className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
         />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-stone-700">Part of a project (optional)</label>
+        <select
+          name="projectId"
+          defaultValue={listing.projectId ?? ""}
+          className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+        >
+          <option value="">Not part of a project</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name} — {p.locality}
+            </option>
+          ))}
+        </select>
       </div>
 
       <label className="flex items-center gap-2 text-sm font-medium text-stone-700">

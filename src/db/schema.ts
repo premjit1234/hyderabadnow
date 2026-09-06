@@ -23,6 +23,58 @@ export const users = sqliteTable("users", {
     .default(sql`(current_timestamp)`),
 });
 
+// A "Project" is a developer-built community (e.g. "My Home Udyan") — admin
+// managed, with its own gallery/facts/amenities page. Individual listings
+// (below) can optionally belong to one, the way a resale or rental unit
+// inside a large gated community is still its own listing but is also part
+// of that community's page. A listing with no project is a standalone
+// resale/owner listing, same as before this existed.
+export const projects = sqliteTable("projects", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  developerName: text("developer_name"),
+  developerUrl: text("developer_url"),
+  locality: text("locality").notNull(),
+  city: text("city").notNull().default("Hyderabad"),
+  propertyType: text("property_type", {
+    enum: ["apartment", "villa", "independent_house", "plot", "commercial"],
+  })
+    .notNull()
+    .default("apartment"),
+  constructionStatus: text("construction_status", {
+    enum: ["under_construction", "ready_to_move"],
+  })
+    .notNull()
+    .default("under_construction"),
+  areaAcres: real("area_acres"),
+  totalUnits: integer("total_units"),
+  towers: integer("towers"),
+  maxFloors: integer("max_floors"),
+  unitsPerFloor: text("units_per_floor"), // free text — often a range, e.g. "8-10"
+  minAreaSqft: integer("min_area_sqft"),
+  maxAreaSqft: integer("max_area_sqft"),
+  bhkOptions: text("bhk_options"), // comma-separated, e.g. "2,2.5,3,4" (Indian listings do use half-BHK)
+  reraApprovalYear: integer("rera_approval_year"),
+  possessionYear: integer("possession_year"),
+  unitDensityPerAcre: integer("unit_density_per_acre"),
+  floorAreaRatio: real("floor_area_ratio"),
+  description: text("description"),
+  amenities: text("amenities"), // JSON-encoded string[] of amenity keys — see lib/amenities.ts
+  brochureUrl: text("brochure_url"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const projectImages = sqliteTable("project_images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
 export const listings = sqliteTable("listings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),
@@ -42,6 +94,10 @@ export const listings = sqliteTable("listings", {
   ownerId: integer("owner_id")
     .notNull()
     .references(() => users.id),
+  // Optional — a listing keeps existing fine with no project (a plain resale
+  // or owner listing). Deliberately not cascade-on-delete: removing a project
+  // should detach its listings, not delete other people's listings.
+  projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
   status: text("status", { enum: ["active", "pending", "sold", "rented"] })
     .notNull()
     .default("active"),

@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { users, listings, listingImages, homeTiles } from "@/db/schema";
+import { users, listings, listingImages, homeTiles, projects, projectImages } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
+import { AMENITIES } from "@/lib/amenities";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -133,6 +134,8 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
   }
   const data = parsed.data;
   const featured = formData.get("featured") === "on";
+  const projectIdRaw = formData.get("projectId");
+  const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
 
   await db
     .update(listings)
@@ -149,6 +152,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       address: data.address || null,
       status: data.status,
       featured,
+      projectId,
     })
     .where(eq(listings.id, listingId));
 
@@ -266,4 +270,200 @@ export async function adminDeleteHomeTileAction(formData: FormData) {
   await db.delete(homeTiles).where(eq(homeTiles.id, tileId));
   revalidatePath("/admin/home-tiles");
   revalidatePath("/");
+}
+
+// ---- Admin: projects ----
+
+const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"] as const;
+const CONSTRUCTION_STATUSES = ["under_construction", "ready_to_move"] as const;
+
+const projectSchema = z.object({
+  name: z.string().min(2, "Enter a project name"),
+  developerName: z.string().optional(),
+  developerUrl: z.string().optional(),
+  locality: z.string().min(2, "Enter a locality"),
+  city: z.string().min(2, "Enter a city"),
+  propertyType: z.enum(PROPERTY_TYPES),
+  constructionStatus: z.enum(CONSTRUCTION_STATUSES),
+  areaAcres: z.coerce.number().positive().optional(),
+  totalUnits: z.coerce.number().int().positive().optional(),
+  towers: z.coerce.number().int().positive().optional(),
+  maxFloors: z.coerce.number().int().positive().optional(),
+  unitsPerFloor: z.string().optional(),
+  minAreaSqft: z.coerce.number().int().positive().optional(),
+  maxAreaSqft: z.coerce.number().int().positive().optional(),
+  bhkOptions: z.string().optional(),
+  reraApprovalYear: z.coerce.number().int().optional(),
+  possessionYear: z.coerce.number().int().optional(),
+  unitDensityPerAcre: z.coerce.number().int().positive().optional(),
+  floorAreaRatio: z.coerce.number().positive().optional(),
+  description: z.string().optional(),
+  brochureUrl: z.string().optional(),
+});
+
+function readProjectFields(formData: FormData) {
+  return {
+    name: formData.get("name"),
+    developerName: formData.get("developerName") || undefined,
+    developerUrl: formData.get("developerUrl") || undefined,
+    locality: formData.get("locality"),
+    city: formData.get("city"),
+    propertyType: formData.get("propertyType"),
+    constructionStatus: formData.get("constructionStatus"),
+    areaAcres: formData.get("areaAcres") || undefined,
+    totalUnits: formData.get("totalUnits") || undefined,
+    towers: formData.get("towers") || undefined,
+    maxFloors: formData.get("maxFloors") || undefined,
+    unitsPerFloor: formData.get("unitsPerFloor") || undefined,
+    minAreaSqft: formData.get("minAreaSqft") || undefined,
+    maxAreaSqft: formData.get("maxAreaSqft") || undefined,
+    bhkOptions: formData.get("bhkOptions") || undefined,
+    reraApprovalYear: formData.get("reraApprovalYear") || undefined,
+    possessionYear: formData.get("possessionYear") || undefined,
+    unitDensityPerAcre: formData.get("unitDensityPerAcre") || undefined,
+    floorAreaRatio: formData.get("floorAreaRatio") || undefined,
+    description: formData.get("description") || undefined,
+    brochureUrl: formData.get("brochureUrl") || undefined,
+  };
+}
+
+function resolveProjectAmenities(formData: FormData): string {
+  const known = new Set(AMENITIES.map((a) => a.key));
+  const selected = formData.getAll("amenities").filter((v): v is string => typeof v === "string" && known.has(v));
+  return JSON.stringify(selected);
+}
+
+export async function adminCreateProjectAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = projectSchema.safeParse(readProjectFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const [project] = await db
+    .insert(projects)
+    .values({
+      name: data.name,
+      developerName: data.developerName || null,
+      developerUrl: data.developerUrl || null,
+      locality: data.locality,
+      city: data.city,
+      propertyType: data.propertyType,
+      constructionStatus: data.constructionStatus,
+      areaAcres: data.areaAcres ?? null,
+      totalUnits: data.totalUnits ?? null,
+      towers: data.towers ?? null,
+      maxFloors: data.maxFloors ?? null,
+      unitsPerFloor: data.unitsPerFloor || null,
+      minAreaSqft: data.minAreaSqft ?? null,
+      maxAreaSqft: data.maxAreaSqft ?? null,
+      bhkOptions: data.bhkOptions || null,
+      reraApprovalYear: data.reraApprovalYear ?? null,
+      possessionYear: data.possessionYear ?? null,
+      unitDensityPerAcre: data.unitDensityPerAcre ?? null,
+      floorAreaRatio: data.floorAreaRatio ?? null,
+      description: data.description || null,
+      amenities: resolveProjectAmenities(formData),
+      brochureUrl: data.brochureUrl || null,
+    })
+    .returning();
+
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  const rows: { projectId: number; url: string; sortOrder: number }[] = [];
+  let order = 0;
+  for (const file of files.slice(0, 15)) {
+    const url = await saveUploadedImage(file);
+    if (url) rows.push({ projectId: project.id, url, sortOrder: order++ });
+  }
+  if (rows.length > 0) {
+    await db.insert(projectImages).values(rows);
+  }
+
+  revalidatePath("/admin/projects");
+  revalidatePath("/projects");
+  redirect(`/admin/projects/${project.id}/edit?saved=1`);
+}
+
+export async function adminUpdateProjectAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const projectId = Number(formData.get("projectId"));
+  if (!projectId) return { error: "Missing project." };
+
+  const parsed = projectSchema.safeParse(readProjectFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  await db
+    .update(projects)
+    .set({
+      name: data.name,
+      developerName: data.developerName || null,
+      developerUrl: data.developerUrl || null,
+      locality: data.locality,
+      city: data.city,
+      propertyType: data.propertyType,
+      constructionStatus: data.constructionStatus,
+      areaAcres: data.areaAcres ?? null,
+      totalUnits: data.totalUnits ?? null,
+      towers: data.towers ?? null,
+      maxFloors: data.maxFloors ?? null,
+      unitsPerFloor: data.unitsPerFloor || null,
+      minAreaSqft: data.minAreaSqft ?? null,
+      maxAreaSqft: data.maxAreaSqft ?? null,
+      bhkOptions: data.bhkOptions || null,
+      reraApprovalYear: data.reraApprovalYear ?? null,
+      possessionYear: data.possessionYear ?? null,
+      unitDensityPerAcre: data.unitDensityPerAcre ?? null,
+      floorAreaRatio: data.floorAreaRatio ?? null,
+      description: data.description || null,
+      amenities: resolveProjectAmenities(formData),
+      brochureUrl: data.brochureUrl || null,
+    })
+    .where(eq(projects.id, projectId));
+
+  const removeIds = formData
+    .getAll("removeImageId")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n));
+  if (removeIds.length > 0) {
+    await db
+      .delete(projectImages)
+      .where(and(eq(projectImages.projectId, projectId), inArray(projectImages.id, removeIds)));
+  }
+
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: sql<number>`coalesce(max(${projectImages.sortOrder}), -1)` })
+    .from(projectImages)
+    .where(eq(projectImages.projectId, projectId));
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  let order = maxOrder + 1;
+  const newRows: { projectId: number; url: string; sortOrder: number }[] = [];
+  for (const file of files.slice(0, 15)) {
+    const url = await saveUploadedImage(file);
+    if (url) newRows.push({ projectId, url, sortOrder: order++ });
+  }
+  if (newRows.length > 0) {
+    await db.insert(projectImages).values(newRows);
+  }
+
+  revalidatePath("/admin/projects");
+  revalidatePath(`/admin/projects/${projectId}/edit`);
+  revalidatePath(`/projects/${projectId}`);
+  redirect(`/admin/projects/${projectId}/edit?saved=1`);
+}
+
+export async function adminDeleteProjectAction(formData: FormData) {
+  await requireAdmin();
+  const projectId = Number(formData.get("projectId"));
+  if (!projectId) return;
+
+  // projectImages cascade-deletes; listings that referenced this project get
+  // projectId set to null (schema: onDelete "set null") rather than being
+  // deleted themselves — they just become standalone listings again.
+  await db.delete(projects).where(eq(projects.id, projectId));
+  revalidatePath("/admin/projects");
+  revalidatePath("/projects");
 }

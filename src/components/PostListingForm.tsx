@@ -4,7 +4,9 @@ import { useActionState } from "react";
 import { createListingAction, type ActionState } from "@/app/actions";
 import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 
-export default function PostListingForm() {
+type ProjectOption = { id: number; name: string; locality: string };
+
+export default function PostListingForm({ projects }: { projects: ProjectOption[] }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createListingAction,
     null
@@ -21,6 +23,20 @@ export default function PostListingForm() {
           className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
         />
       </div>
+
+      {projects.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Part of a project (optional)</label>
+          <select name="projectId" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+            <option value="">Not part of a project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {p.locality}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>

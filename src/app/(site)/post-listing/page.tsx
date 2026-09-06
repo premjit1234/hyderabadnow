@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { getProjectsForSelect } from "@/db/queries";
 import PostListingForm from "@/components/PostListingForm";
 
 export default async function PostListingPage() {
@@ -29,13 +30,15 @@ export default async function PostListingPage() {
     );
   }
 
+  const projects = await getProjectsForSelect();
+
   return (
     <main className="mx-auto max-w-2xl flex-1 px-4 py-10 sm:px-6">
       <h1 className="text-2xl font-bold text-stone-900">Post a property</h1>
       <p className="mt-1 mb-6 text-sm text-stone-500">
         Fill in the details below. Your listing goes live immediately.
       </p>
-      <PostListingForm />
+      <PostListingForm projects={projects} />
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import { db } from "./client";
-import { listings, listingImages, users, inquiries, homeTiles } from "./schema";
+import { listings, listingImages, users, inquiries, homeTiles, projects, projectImages } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListingFilters = {
@@ -100,8 +100,11 @@ export async function getListingById(id: number) {
     .orderBy(listingImages.sortOrder);
 
   const owner = await db.query.users.findFirst({ where: eq(users.id, listing.ownerId) });
+  const project = listing.projectId
+    ? await db.query.projects.findFirst({ where: eq(projects.id, listing.projectId) })
+    : null;
 
-  return { ...listing, images, owner };
+  return { ...listing, images, owner, project };
 }
 
 export type HomeCategory = {
@@ -280,6 +283,108 @@ export async function getAllInquiriesForAdmin() {
     .from(inquiries)
     .leftJoin(listings, eq(inquiries.listingId, listings.id))
     .orderBy(desc(inquiries.createdAt));
+}
+
+// ---- Projects ----
+
+// Same unqualified-column pitfall as firstImageSubquery above — projects and
+// project_images both have an "id" column, so this must be qualified.
+const firstProjectImageSubquery = sql<string | null>`(
+  select ${projectImages.url} from ${projectImages}
+  where ${projectImages.projectId} = "projects"."id"
+  order by ${projectImages.sortOrder} asc
+  limit 1
+)`.as("imageUrl");
+
+const activeListingCountSubquery = (type: "sale" | "rent") => sql<number>`(
+  select count(*) from ${listings}
+  where ${listings.projectId} = "projects"."id"
+    and ${listings.status} = 'active'
+    and ${listings.listingType} = ${type}
+)`.as(`${type}Count`);
+
+export async function getAllProjectsForAdmin() {
+  return db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      locality: projects.locality,
+      propertyType: projects.propertyType,
+      constructionStatus: projects.constructionStatus,
+      totalUnits: projects.totalUnits,
+      createdAt: projects.createdAt,
+      imageUrl: firstProjectImageSubquery,
+      saleListings: activeListingCountSubquery("sale"),
+      rentListings: activeListingCountSubquery("rent"),
+    })
+    .from(projects)
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function getProjectsForPublic() {
+  return db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      locality: projects.locality,
+      city: projects.city,
+      propertyType: projects.propertyType,
+      constructionStatus: projects.constructionStatus,
+      totalUnits: projects.totalUnits,
+      minAreaSqft: projects.minAreaSqft,
+      maxAreaSqft: projects.maxAreaSqft,
+      bhkOptions: projects.bhkOptions,
+      imageUrl: firstProjectImageSubquery,
+      saleListings: activeListingCountSubquery("sale"),
+      rentListings: activeListingCountSubquery("rent"),
+    })
+    .from(projects)
+    .orderBy(desc(projects.createdAt));
+}
+
+export async function getProjectById(id: number) {
+  const project = await db.query.projects.findFirst({ where: eq(projects.id, id) });
+  if (!project) return null;
+
+  const images = await db
+    .select()
+    .from(projectImages)
+    .where(eq(projectImages.projectId, id))
+    .orderBy(projectImages.sortOrder);
+
+  return { ...project, images };
+}
+
+export async function getListingsByProject(projectId: number, listingType?: "sale" | "rent") {
+  const conditions = [
+    eq(listings.projectId, projectId),
+    eq(listings.status, "active"),
+    ...(listingType ? [eq(listings.listingType, listingType)] : []),
+  ];
+
+  return db
+    .select({
+      id: listings.id,
+      title: listings.title,
+      price: listings.price,
+      listingType: listings.listingType,
+      propertyType: listings.propertyType,
+      bhk: listings.bhk,
+      areaSqft: listings.areaSqft,
+      locality: listings.locality,
+      featured: listings.featured,
+      imageUrl: firstImageSubquery,
+    })
+    .from(listings)
+    .where(and(...conditions))
+    .orderBy(desc(listings.featured), desc(listings.createdAt));
+}
+
+export async function getProjectsForSelect() {
+  return db
+    .select({ id: projects.id, name: projects.name, locality: projects.locality })
+    .from(projects)
+    .orderBy(asc(projects.name));
 }
 
 export async function getListingsByOwner(ownerId: number) {

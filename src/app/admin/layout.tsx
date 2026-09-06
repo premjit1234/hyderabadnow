@@ -7,6 +7,7 @@ import AdminNavLink from "@/components/admin/AdminNavLink";
 const NAV = [
   { href: "/admin", label: "Overview", icon: "grid" },
   { href: "/admin/users", label: "Users", icon: "users" },
+  { href: "/admin/projects", label: "Projects", icon: "layers" },
   { href: "/admin/listings", label: "Listings", icon: "building" },
   { href: "/admin/home-tiles", label: "Homepage tiles", icon: "image" },
   { href: "/admin/inquiries", label: "Inquiries", icon: "mail" },

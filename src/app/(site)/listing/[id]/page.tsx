@@ -110,6 +110,14 @@ export default async function ListingDetailPage({
           <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
             {listing.title}
           </h1>
+          {listing.project && (
+            <Link
+              href={`/projects/${listing.project.id}`}
+              className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
+            >
+              Part of {listing.project.name} →
+            </Link>
+          )}
         </div>
         <div className="flex flex-col items-end gap-2">
           <p className="text-2xl font-extrabold text-emerald-700 sm:text-3xl">

@@ -158,6 +158,8 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   }
 
   const data = parsed.data;
+  const projectIdRaw = formData.get("projectId");
+  const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
 
   const [listing] = await db
     .insert(listings)
@@ -172,6 +174,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       locality: data.locality,
       address: data.address,
       ownerId: session.id,
+      projectId,
     })
     .returning();
 

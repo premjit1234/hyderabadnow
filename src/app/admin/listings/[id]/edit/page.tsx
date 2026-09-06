@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getListingById } from "@/db/queries";
+import { getListingById, getProjectsForSelect } from "@/db/queries";
 import AdminListingEditForm from "@/components/admin/AdminListingEditForm";
 
 export default async function AdminEditListingPage({
@@ -18,6 +18,7 @@ export default async function AdminEditListingPage({
 
   const sp = await searchParams;
   const saved = sp.saved === "1";
+  const projects = await getProjectsForSelect();
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -26,7 +27,7 @@ export default async function AdminEditListingPage({
       {saved && (
         <p className="mb-5 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">Changes saved.</p>
       )}
-      <AdminListingEditForm listing={listing} />
+      <AdminListingEditForm listing={listing} projects={projects} />
     </div>
   );
 }

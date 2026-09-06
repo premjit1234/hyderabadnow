@@ -1,5 +1,5 @@
 import { db, sqlite } from "./client";
-import { users, listings, listingImages, homeTiles } from "./schema";
+import { users, listings, listingImages, homeTiles, projects, projectImages } from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
 
@@ -8,7 +8,7 @@ async function main() {
 
   // Clear existing data (dev convenience)
   sqlite.exec(
-    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles;"
+    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects;"
   );
 
   const demoPasswordHash = await hashPassword("password123");
@@ -68,6 +68,109 @@ async function main() {
 
   console.log("Users:", { agent1: agent1.id, agent2: agent2.id, seller1: seller1.id, buyer1: buyer1.id });
 
+  // Developer projects — admin-managed pages a listing can optionally belong
+  // to (see /admin/projects). A couple of sample projects here so the feature
+  // has something to look at out of the box; production admins add their own.
+  const [skylineProject] = await db
+    .insert(projects)
+    .values({
+      name: "Skyline Residency",
+      developerName: "Reddy Realty Hyderabad",
+      locality: "Gachibowli",
+      city: "Hyderabad",
+      propertyType: "apartment",
+      constructionStatus: "ready_to_move",
+      areaAcres: 12.5,
+      totalUnits: 960,
+      towers: 4,
+      maxFloors: 22,
+      unitsPerFloor: "6-8",
+      minAreaSqft: 1200,
+      maxAreaSqft: 2400,
+      bhkOptions: "2,3,4",
+      reraApprovalYear: 2022,
+      possessionYear: 2025,
+      unitDensityPerAcre: 77,
+      floorAreaRatio: 3.2,
+      description:
+        "Skyline Residency is a ready-to-move gated community in Gachibowli with four towers set around landscaped courtyards, built for families who want to be close to the Financial District without the noise.",
+      amenities: JSON.stringify([
+        "pool",
+        "gym",
+        "clubhouse",
+        "play_area",
+        "garden",
+        "jogging_track",
+        "security",
+        "power_backup",
+        "lift",
+        "parking",
+      ]),
+    })
+    .returning();
+
+  await db.insert(projectImages).values(
+    Array.from({ length: 4 }).map((_, i) => ({
+      projectId: skylineProject.id,
+      url: `/projects/udyan-${i + 1}.jpg`,
+      sortOrder: i,
+    }))
+  );
+
+  const [emeraldProject] = await db
+    .insert(projects)
+    .values({
+      name: "Emerald Greens",
+      developerName: "Kumar Properties",
+      locality: "Kondapur",
+      city: "Hyderabad",
+      propertyType: "apartment",
+      constructionStatus: "under_construction",
+      areaAcres: 18,
+      totalUnits: 1450,
+      towers: 6,
+      maxFloors: 30,
+      unitsPerFloor: "8-10",
+      minAreaSqft: 1450,
+      maxAreaSqft: 2900,
+      bhkOptions: "2,2.5,3,4",
+      reraApprovalYear: 2025,
+      possessionYear: 2029,
+      unitDensityPerAcre: 80,
+      floorAreaRatio: 4.1,
+      description:
+        "Emerald Greens is a large under-construction development in Kondapur spread across six towers, with a resort-style clubhouse and sports facilities at its centre.",
+      amenities: JSON.stringify([
+        "pool",
+        "gym",
+        "clubhouse",
+        "multipurpose_hall",
+        "play_area",
+        "indoor_games",
+        "jogging_track",
+        "cricket_net",
+        "badminton",
+        "yoga",
+        "cafe",
+        "security",
+        "power_backup",
+        "lift",
+        "parking",
+        "pet_zone",
+      ]),
+    })
+    .returning();
+
+  await db.insert(projectImages).values(
+    Array.from({ length: 4 }).map((_, i) => ({
+      projectId: emeraldProject.id,
+      url: `/projects/sarovar-${i + 1}.jpg`,
+      sortOrder: i,
+    }))
+  );
+
+  console.log("Projects:", { skyline: skylineProject.id, emerald: emeraldProject.id });
+
   type SeedListing = {
     title: string;
     description: string;
@@ -80,6 +183,7 @@ async function main() {
     ownerId: number;
     featured: boolean;
     images: number;
+    projectId?: number;
   };
 
   const sampleListings: SeedListing[] = [
@@ -110,6 +214,7 @@ async function main() {
       ownerId: agent2.id,
       featured: true,
       images: 3,
+      projectId: emeraldProject.id,
     },
     {
       title: "Independent Villa in Jubilee Hills",
@@ -152,6 +257,22 @@ async function main() {
       ownerId: agent2.id,
       featured: false,
       images: 4,
+      projectId: skylineProject.id,
+    },
+    {
+      title: "2BHK for Rent in Skyline Residency, Gachibowli",
+      description:
+        "Semi-furnished 2BHK inside the Skyline Residency gated community, with direct access to the clubhouse, pool, and jogging track. Ideal for Financial District commuters.",
+      price: 32000,
+      listingType: "rent",
+      propertyType: "apartment",
+      bhk: 2,
+      areaSqft: 1250,
+      locality: "Gachibowli",
+      ownerId: agent2.id,
+      featured: false,
+      images: 3,
+      projectId: skylineProject.id,
     },
     {
       title: "1BHK for Rent near Madhapur",
@@ -269,6 +390,7 @@ async function main() {
         ownerId: l.ownerId,
         featured: l.featured,
         views: Math.floor(Math.random() * 500),
+        projectId: l.projectId ?? null,
       })
       .returning();
 

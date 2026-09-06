@@ -31,6 +31,9 @@ export default async function Header() {
           <Link href="/browse" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
             All listings
           </Link>
+          <Link href="/projects" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+            Projects
+          </Link>
           {canPost && (
             <Link href="/dashboard" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
               My listings

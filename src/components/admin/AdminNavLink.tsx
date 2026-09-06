@@ -37,6 +37,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="m4 6.5 8 6 8-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  layers: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
+      <path d="m12 3 8.5 4.5L12 12 3.5 7.5 12 3Z" strokeLinejoin="round" />
+      <path d="m3.5 12 8.5 4.5 8.5-4.5" strokeLinejoin="round" />
+      <path d="m3.5 16.5 8.5 4.5 8.5-4.5" strokeLinejoin="round" />
+    </svg>
+  ),
 };
 
 export default function AdminNavLink({ href, label, icon }: { href: string; label: string; icon: string }) {
