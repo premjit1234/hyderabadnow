@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 
 const TABS = [
   { value: "sale", label: "Buy" },
   { value: "rent", label: "Rent" },
 ] as const;
 
-export default function SearchBar() {
+export default function SearchBar({ localities }: { localities: string[] }) {
   const [listingType, setListingType] = useState<"sale" | "rent">("sale");
 
   return (
@@ -43,7 +42,7 @@ export default function SearchBar() {
           className="flex-1 rounded-full border-none px-4 py-2.5 text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none"
         />
         <datalist id="localities">
-          {HYDERABAD_LOCALITIES.map((l) => (
+          {localities.map((l) => (
             <option key={l} value={l} />
           ))}
         </datalist>

@@ -215,6 +215,23 @@ export const socialLinks = sqliteTable("social_links", {
     .default(sql`(current_timestamp)`),
 });
 
+// Admin-managed locality suggestions — shown as the homepage's "Popular
+// localities" pills and offered as <datalist> autocomplete when typing a
+// listing's or project's locality (see lib/localities.ts's HYDERABAD_LOCALITIES,
+// which now only seeds this table's starting rows, and every place that used
+// to import that constant directly). Deliberately NOT a foreign key from
+// listings.locality/projects.locality — those stay plain free-text columns,
+// so adding, renaming, or deleting a row here never touches any existing
+// listing or project; it only changes what's suggested going forward.
+export const locations = sqliteTable("locations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 // Singleton row (id always 1) storing admin-configured show/hide toggles for
 // the "extra" listing fields (lib/listingFields.ts LISTING_EXTRA_FIELDS) —
 // per field, whether it shows on the public listing page and/or on the

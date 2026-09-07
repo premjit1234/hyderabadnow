@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 import { adminCreateListingAction, type ActionState } from "@/app/admin/actions";
-import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
 
 type ProjectOption = { id: number; name: string; locality: string };
@@ -11,9 +10,11 @@ type UserOption = { id: number; name: string; email: string; role: string };
 export default function AdminListingCreateForm({
   projects,
   users,
+  localities,
 }: {
   projects: ProjectOption[];
   users: UserOption[];
+  localities: string[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminCreateListingAction, null);
 
@@ -99,7 +100,7 @@ export default function AdminListingCreateForm({
         <label className="mb-1 block text-sm font-medium text-stone-700">Locality</label>
         <input name="locality" required list="localities" placeholder="e.g. Gachibowli" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
         <datalist id="localities">
-          {HYDERABAD_LOCALITIES.map((l) => (
+          {localities.map((l) => (
             <option key={l} value={l} />
           ))}
         </datalist>

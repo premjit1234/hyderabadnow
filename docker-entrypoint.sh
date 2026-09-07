@@ -61,4 +61,9 @@ node_modules/.bin/tsx src/db/ensure-home-tiles.ts
 # pages existed.
 node_modules/.bin/tsx src/db/ensure-legal-pages.ts
 
+# Idempotent — a no-op once any location exists (fresh seed.ts run above
+# already creates the default list). Covers servers that were running
+# before localities became an admin-managed table.
+node_modules/.bin/tsx src/db/ensure-locations.ts
+
 exec "$@"

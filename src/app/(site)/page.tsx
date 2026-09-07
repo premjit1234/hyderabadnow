@@ -2,14 +2,14 @@ import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import ListingCard from "@/components/ListingCard";
 import CategoryTile from "@/components/CategoryTile";
-import { getFeaturedListings, getHomeCategories, getSiteSettings } from "@/db/queries";
-import { HYDERABAD_LOCALITIES } from "@/lib/localities";
+import { getFeaturedListings, getHomeCategories, getSiteSettings, getLocationNames } from "@/db/queries";
 
 export default async function Home() {
-  const [featured, categories, { heroImageUrl }] = await Promise.all([
+  const [featured, categories, { heroImageUrl }, localities] = await Promise.all([
     getFeaturedListings(6),
     getHomeCategories(),
     getSiteSettings(),
+    getLocationNames(),
   ]);
 
   return (
@@ -28,7 +28,7 @@ export default async function Home() {
             Listings posted directly by agents and owners — no middlemen.
           </p>
           <div className="mt-8 text-left">
-            <SearchBar />
+            <SearchBar localities={localities} />
           </div>
         </div>
       </section>
@@ -62,22 +62,24 @@ export default async function Home() {
         )}
       </section>
 
-      <section className="border-t border-stone-100 bg-stone-50 py-12">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <h2 className="mb-5 text-xl font-bold text-stone-900">Popular localities</h2>
-          <div className="flex flex-wrap gap-2">
-            {HYDERABAD_LOCALITIES.map((locality) => (
-              <Link
-                key={locality}
-                href={`/browse?q=${encodeURIComponent(locality)}`}
-                className="rounded-full border border-stone-200 bg-white px-4 py-1.5 text-sm text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
-              >
-                {locality}
-              </Link>
-            ))}
+      {localities.length > 0 && (
+        <section className="border-t border-stone-100 bg-stone-50 py-12">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <h2 className="mb-5 text-xl font-bold text-stone-900">Popular localities</h2>
+            <div className="flex flex-wrap gap-2">
+              {localities.map((locality) => (
+                <Link
+                  key={locality}
+                  href={`/browse?q=${encodeURIComponent(locality)}`}
+                  className="rounded-full border border-stone-200 bg-white px-4 py-1.5 text-sm text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                >
+                  {locality}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="mx-auto max-w-6xl px-4 py-14 text-center sm:px-6">
         <h2 className="text-xl font-bold text-stone-900">Are you an agent or property owner?</h2>

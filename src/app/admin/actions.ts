@@ -19,6 +19,7 @@ import {
   blogPosts,
   blogImages,
   blogComments,
+  locations,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
@@ -805,6 +806,73 @@ export async function adminDeleteSocialLinkAction(formData: FormData) {
   await db.delete(socialLinks).where(eq(socialLinks.id, linkId));
   revalidatePath("/admin/social-links");
   revalidatePath("/", "layout");
+}
+
+// ---- Admin: locations (locality suggestions — see schema.ts's locations table) ----
+//
+// Deliberately not a foreign key from listings.locality/projects.locality —
+// see that table's comment. Adding, renaming, or deleting a row here only
+// changes what's suggested going forward; it never touches an existing
+// listing or project.
+
+const locationSchema = z.object({
+  name: z.string().trim().min(1, "Name is required.").max(60, "Name is too long."),
+  sortOrder: z.coerce.number().int().default(0),
+});
+
+export async function adminCreateLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = locationSchema.safeParse({
+    name: formData.get("name"),
+    sortOrder: formData.get("sortOrder") || 0,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  try {
+    await db.insert(locations).values(parsed.data);
+  } catch {
+    return { error: `"${parsed.data.name}" is already in the list.` };
+  }
+  revalidatePath("/admin/locations");
+  revalidatePath("/", "layout");
+  revalidatePath("/post-listing");
+  return { success: "Location added." };
+}
+
+export async function adminUpdateLocationAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const locationId = Number(formData.get("locationId"));
+  if (!locationId) return { error: "Missing location." };
+
+  const parsed = locationSchema.safeParse({
+    name: formData.get("name"),
+    sortOrder: formData.get("sortOrder") || 0,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  try {
+    await db.update(locations).set(parsed.data).where(eq(locations.id, locationId));
+  } catch {
+    return { error: `"${parsed.data.name}" is already in the list.` };
+  }
+  revalidatePath("/admin/locations");
+  revalidatePath("/", "layout");
+  revalidatePath("/post-listing");
+  return { success: "Location updated." };
+}
+
+export async function adminDeleteLocationAction(formData: FormData) {
+  await requireAdmin();
+  const locationId = Number(formData.get("locationId"));
+  if (!locationId) return;
+  await db.delete(locations).where(eq(locations.id, locationId));
+  revalidatePath("/admin/locations");
+  revalidatePath("/", "layout");
+  revalidatePath("/post-listing");
 }
 
 // ---- Admin: listing field visibility ----

@@ -1,6 +1,16 @@
 import { sql } from "drizzle-orm";
 import { db, sqlite } from "./client";
-import { users, listings, listingImages, homeTiles, projects, projectImages, legalPages, blogPosts } from "./schema";
+import {
+  users,
+  listings,
+  listingImages,
+  homeTiles,
+  projects,
+  projectImages,
+  legalPages,
+  blogPosts,
+  locations,
+} from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
 import { LEGAL_PAGE_DEFAULTS } from "./legal-page-defaults";
@@ -10,7 +20,7 @@ async function main() {
 
   // Clear existing data (dev convenience)
   sqlite.exec(
-    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects; DELETE FROM blog_comments; DELETE FROM blog_images; DELETE FROM blog_posts;"
+    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects; DELETE FROM blog_comments; DELETE FROM blog_images; DELETE FROM blog_posts; DELETE FROM locations;"
   );
 
   const demoPasswordHash = await hashPassword("password123");
@@ -466,6 +476,12 @@ async function main() {
         "<h2>Before you visit</h2><p>Shortlist based on locality, budget, and BHK — then verify RERA registration for any under-construction project.</p><h2>Documents to check</h2><ol><li>Title deed and encumbrance certificate</li><li>Approved building plan</li><li>Occupancy certificate for ready-to-move units</li></ol><blockquote>A property without a clear title is not a bargain, whatever the price.</blockquote>",
     },
   ]);
+
+  // Starting rows for the admin-managed "locations" table (see schema.ts) —
+  // just this seed script's bootstrap data now; nothing else in the app
+  // reads HYDERABAD_LOCALITIES directly anymore. An admin can add, rename,
+  // or remove these from /admin/locations at any time afterward.
+  await db.insert(locations).values(HYDERABAD_LOCALITIES.map((name, i) => ({ name, sortOrder: i })));
 
   console.log(`Seeded ${sampleListings.length} listings across ${HYDERABAD_LOCALITIES.length} known localities.`);
   console.log("Demo login (any seeded user): password123");

@@ -2,7 +2,6 @@
 
 import { useActionState } from "react";
 import { createListingAction, type ActionState } from "@/app/actions";
-import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 import {
   FACING_OPTIONS,
   FURNISHING_OPTIONS,
@@ -15,9 +14,11 @@ type ProjectOption = { id: number; name: string; locality: string };
 export default function PostListingForm({
   projects,
   fieldSettings,
+  localities,
 }: {
   projects: ProjectOption[];
   fieldSettings: ListingFieldVisibility;
+  localities: string[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createListingAction,
@@ -124,7 +125,7 @@ export default function PostListingForm({
           className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
         />
         <datalist id="localities">
-          {HYDERABAD_LOCALITIES.map((l) => (
+          {localities.map((l) => (
             <option key={l} value={l} />
           ))}
         </datalist>

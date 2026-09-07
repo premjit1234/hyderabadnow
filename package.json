@@ -13,7 +13,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:create-admin": "tsx src/db/create-admin.ts",
     "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts",
-    "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts"
+    "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts",
+    "db:ensure-locations": "tsx src/db/ensure-locations.ts"
   },
   "dependencies": {
     "@types/sanitize-html": "^2.16.1",

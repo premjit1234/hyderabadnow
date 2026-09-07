@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListingById, getProjectsForSelect } from "@/db/queries";
+import { getListingById, getProjectsForSelect, getLocationNames } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
 import AdminListingEditForm from "@/components/admin/AdminListingEditForm";
 
@@ -20,7 +20,7 @@ export default async function AdminEditListingPage({
 
   const sp = await searchParams;
   const saved = sp.saved === "1";
-  const projects = await getProjectsForSelect();
+  const [projects, localities] = await Promise.all([getProjectsForSelect(), getLocationNames()]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -68,7 +68,7 @@ export default async function AdminEditListingPage({
         </div>
       </div>
 
-      <AdminListingEditForm listing={listing} projects={projects} />
+      <AdminListingEditForm listing={listing} projects={projects} localities={localities} />
     </div>
   );
 }

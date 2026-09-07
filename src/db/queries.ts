@@ -15,6 +15,7 @@ import {
   blogImages,
   blogComments,
   pageViews,
+  locations,
 } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -483,6 +484,41 @@ export async function getSocialLinks() {
 
 export async function getAllSocialLinksForAdmin() {
   return getSocialLinks();
+}
+
+// ---- Locations (locality suggestions — see schema.ts's locations table) ----
+
+// Called from several public pages on every request (homepage, post-listing
+// form) — same "table might not exist yet at build time" tolerance as
+// getSiteSettings/getSocialLinks above.
+export async function getLocations() {
+  try {
+    return await db.select().from(locations).orderBy(asc(locations.sortOrder), asc(locations.name));
+  } catch {
+    return [];
+  }
+}
+
+export async function getLocationNames() {
+  return (await getLocations()).map((l) => l.name);
+}
+
+// Admin-only view — adds how many existing listings/projects currently use
+// each locality name, so an admin can see at a glance whether deleting one
+// would leave live listings pointing at a name no longer in the suggestion
+// list (harmless — locality is free text, not a foreign key — but worth
+// knowing before renaming or removing one).
+export async function getLocationsForAdmin() {
+  return db
+    .select({
+      id: locations.id,
+      name: locations.name,
+      sortOrder: locations.sortOrder,
+      listingCount: sql<number>`(select count(*) from listings where listings.locality = locations.name)`,
+      projectCount: sql<number>`(select count(*) from projects where projects.locality = locations.name)`,
+    })
+    .from(locations)
+    .orderBy(asc(locations.sortOrder), asc(locations.name));
 }
 
 // ---- Listing field visibility (admin-configurable show/hide per field) ----

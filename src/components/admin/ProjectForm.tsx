@@ -8,7 +8,6 @@ import {
   type ActionState,
 } from "@/app/admin/actions";
 import { AMENITIES } from "@/lib/amenities";
-import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 
 type EditableProject = {
   id: number;
@@ -40,7 +39,7 @@ type EditableProject = {
 const inputClass = "w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm";
 const labelClass = "mb-1 block text-sm font-medium text-stone-700";
 
-export default function ProjectForm({ project }: { project?: EditableProject }) {
+export default function ProjectForm({ project, localities }: { project?: EditableProject; localities: string[] }) {
   const action = project ? adminUpdateProjectAction : adminCreateProjectAction;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
   const selectedAmenities: string[] = project?.amenities ? JSON.parse(project.amenities) : [];
@@ -70,7 +69,7 @@ export default function ProjectForm({ project }: { project?: EditableProject }) 
           <label className={labelClass}>Locality</label>
           <input name="locality" required list="localities" defaultValue={project?.locality} className={inputClass} />
           <datalist id="localities">
-            {HYDERABAD_LOCALITIES.map((l) => (
+            {localities.map((l) => (
               <option key={l} value={l} />
             ))}
           </datalist>
