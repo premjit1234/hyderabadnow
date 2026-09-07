@@ -33,6 +33,8 @@ type EditableProject = {
   description: string | null;
   amenities: string | null;
   brochureUrl: string | null;
+  contactPhone: string | null;
+  whatsappEnabled: boolean;
   images: { id: number; url: string }[];
 };
 
@@ -168,6 +170,32 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
       <div>
         <label className={labelClass}>Brochure link (optional PDF URL)</label>
         <input name="brochureUrl" defaultValue={project?.brochureUrl ?? ""} placeholder="https://…" className={inputClass} />
+      </div>
+
+      <div className="rounded-lg border border-stone-200 p-4">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Contact</p>
+        <div>
+          <label className={labelClass}>Contact phone (sales desk)</label>
+          <input
+            name="contactPhone"
+            type="tel"
+            defaultValue={project?.contactPhone ?? ""}
+            placeholder="e.g. 98480 11223"
+            className={inputClass}
+          />
+        </div>
+        <label className="mt-3 flex items-center gap-2 text-sm text-stone-700">
+          <input
+            type="checkbox"
+            name="whatsappEnabled"
+            defaultChecked={project?.whatsappEnabled}
+            className="h-4 w-4"
+          />
+          Connect through WhatsApp
+        </label>
+        <p className="mt-1 text-xs text-stone-500">
+          Adds a &quot;Connect on WhatsApp&quot; button to this project&apos;s page, pre-filled with a message about it.
+        </p>
       </div>
 
       <div>

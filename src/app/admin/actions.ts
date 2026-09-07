@@ -484,6 +484,7 @@ const projectSchema = z.object({
   floorAreaRatio: z.coerce.number().positive().optional(),
   description: z.string().optional(),
   brochureUrl: z.string().optional(),
+  contactPhone: z.string().optional(),
 });
 
 function readProjectFields(formData: FormData) {
@@ -509,6 +510,7 @@ function readProjectFields(formData: FormData) {
     floorAreaRatio: formData.get("floorAreaRatio") || undefined,
     description: formData.get("description") || undefined,
     brochureUrl: formData.get("brochureUrl") || undefined,
+    contactPhone: formData.get("contactPhone") || undefined,
   };
 }
 
@@ -525,6 +527,10 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a contact phone number to enable the WhatsApp button." };
+  }
 
   const [project] = await db
     .insert(projects)
@@ -551,6 +557,8 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
     })
     .returning();
 
@@ -580,6 +588,10 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a contact phone number to enable the WhatsApp button." };
+  }
 
   await db
     .update(projects)
@@ -606,6 +618,8 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
     })
     .where(eq(projects.id, projectId));
 

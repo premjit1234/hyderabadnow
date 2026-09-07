@@ -61,6 +61,12 @@ export const projects = sqliteTable("projects", {
   description: text("description"),
   amenities: text("amenities"), // JSON-encoded string[] of amenity keys — see lib/amenities.ts
   brochureUrl: text("brochure_url"),
+  // Same shape as listings.contactPhone/whatsappEnabled — a project-level
+  // contact number (e.g. the developer's sales desk) shown as a "Connect on
+  // WhatsApp" button on the public project page. Deliberately separate from
+  // any individual listing's contact details.
+  contactPhone: text("contact_phone"),
+  whatsappEnabled: integer("whatsapp_enabled", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

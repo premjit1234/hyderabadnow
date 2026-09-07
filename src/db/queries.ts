@@ -784,6 +784,18 @@ export async function getPageViewStats() {
   return { today, week, month, year, allTime };
 }
 
+/** Total recorded page views for one exact path — used to show a "N people
+ * viewed this" line on public pages (currently the project detail page).
+ * Reuses the same site-wide page_views tracking as the admin Analytics
+ * page, just filtered to one path instead of aggregated across the site. */
+export async function getPageViewCountForPath(path: string) {
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(pageViews)
+    .where(eq(pageViews.path, path));
+  return n;
+}
+
 /** Page views per day for the last `days` days (default 14), oldest first,
  * with zero-view days filled in so the admin trend chart never skips a gap. */
 export async function getDailyPageViewSeries(days = 14) {

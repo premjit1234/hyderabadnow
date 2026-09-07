@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProjectById, getListingsByProject } from "@/db/queries";
-import { propertyTypeLabel } from "@/lib/format";
+import { getProjectById, getListingsByProject, getPageViewCountForPath } from "@/db/queries";
+import { propertyTypeLabel, formatPrice } from "@/lib/format";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { AMENITIES, parseAmenities } from "@/lib/amenities";
 import AmenityIcon from "@/components/AmenityIcon";
 import ProjectGallery from "@/components/ProjectGallery";
 import ProjectListingsTabs from "@/components/ProjectListingsTabs";
+import ProjectSaveShareButtons from "@/components/ProjectSaveShareButtons";
 
 function PinIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -66,6 +68,35 @@ function BedIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.44 1.32 4.94L2 22l5.31-1.39a9.9 9.9 0 0 0 4.73 1.2h.01c5.46 0 9.9-4.45 9.9-9.91C22 6.45 17.5 2 12.04 2Zm5.8 14.15c-.24.68-1.4 1.3-1.94 1.38-.5.08-1.12.11-1.8-.11a16 16 0 0 1-1.65-.61c-2.9-1.25-4.79-4.17-4.93-4.36-.14-.19-1.18-1.57-1.18-3 0-1.42.75-2.12 1.01-2.41.27-.29.58-.36.78-.36h.55c.18 0 .43-.03.66.51.24.56.83 1.94.9 2.08.07.14.12.31.02.5-.09.19-.14.31-.28.48-.14.17-.29.37-.42.5-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.68-.79.87-1.06.18-.27.36-.22.6-.13.24.09 1.53.72 1.79.85.26.13.44.19.5.3.06.11.06.62-.18 1.3Z" />
+    </svg>
+  );
+}
+
+function PhoneIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
+      <path
+        d="M4.5 4h3l1.5 5-2 1.5a11 11 0 0 0 6.5 6.5l1.5-2 5 1.5v3a1.5 1.5 0 0 1-1.6 1.5A16.5 16.5 0 0 1 3 5.6 1.5 1.5 0 0 1 4.5 4Z"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function ReraBadge({ year }: { year: number | null }) {
   return (
     <div className="flex flex-col items-center gap-0.5 text-center">
@@ -99,14 +130,31 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const project = await getProjectById(projectId);
   if (!project) notFound();
 
-  const [saleListings, rentListings] = await Promise.all([
+  const [saleListings, rentListings, viewCount] = await Promise.all([
     getListingsByProject(projectId, "sale"),
     getListingsByProject(projectId, "rent"),
+    getPageViewCountForPath(`/projects/${projectId}`),
   ]);
 
   const amenityKeys = parseAmenities(project.amenities);
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
   const bhkList = project.bhkOptions ? project.bhkOptions.split(",").map((s) => s.trim()).filter(Boolean) : [];
+
+  // Price bands straight from this project's own active listings — sale and
+  // rent are kept separate since they're not comparable figures (an
+  // absolute price vs. a monthly one).
+  const salePrices = saleListings.map((l) => l.price);
+  const rentPrices = rentListings.map((l) => l.price);
+  const salePriceRange =
+    salePrices.length > 0 ? { min: Math.min(...salePrices), max: Math.max(...salePrices) } : null;
+  const rentPriceRange =
+    rentPrices.length > 0 ? { min: Math.min(...rentPrices), max: Math.max(...rentPrices) } : null;
+
+  const whatsappMessage = `Hi, I'm interested in ${project.name} (${project.locality}, ${project.city}). Could you share more details?`;
+  const whatsappLink =
+    project.whatsappEnabled && project.contactPhone
+      ? buildWhatsAppLink(project.contactPhone, whatsappMessage)
+      : null;
 
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
@@ -180,6 +228,63 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             {saleListings.length + rentListings.length === 1 ? "" : "s"} in this project — {saleListings.length} for
             sale, {rentListings.length} for rent.
           </p>
+
+          {(salePriceRange || rentPriceRange) && (
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+              {salePriceRange && (
+                <p className="text-lg font-bold text-emerald-800">
+                  {salePriceRange.min === salePriceRange.max
+                    ? formatPrice(salePriceRange.min, "sale")
+                    : `${formatPrice(salePriceRange.min, "sale")} – ${formatPrice(salePriceRange.max, "sale")}`}
+                  <span className="ml-1.5 text-xs font-normal text-emerald-700">for sale</span>
+                </p>
+              )}
+              {rentPriceRange && (
+                <p className={salePriceRange ? "mt-1 text-sm font-semibold text-emerald-800" : "text-lg font-bold text-emerald-800"}>
+                  {rentPriceRange.min === rentPriceRange.max
+                    ? formatPrice(rentPriceRange.min, "rent")
+                    : `${formatPrice(rentPriceRange.min, "rent")} – ${formatPrice(rentPriceRange.max, "rent")}`}
+                  <span className="ml-1.5 text-xs font-normal text-emerald-700">for rent</span>
+                </p>
+              )}
+            </div>
+          )}
+
+          {(project.contactPhone || whatsappLink) && (
+            <div className="mt-4 flex gap-2">
+              {project.contactPhone && (
+                <a
+                  href={`tel:${project.contactPhone}`}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-stone-200 px-3 py-2 text-sm font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                >
+                  <PhoneIcon className="h-4 w-4 shrink-0" />
+                  Call
+                </a>
+              )}
+              {whatsappLink && (
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#1ebe5a]"
+                >
+                  <WhatsAppIcon className="h-4 w-4 shrink-0" />
+                  Connect on WhatsApp
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4">
+            <ProjectSaveShareButtons projectId={project.id} projectName={project.name} />
+          </div>
+
+          {viewCount > 0 && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-stone-500">
+              <EyeIcon className="h-3.5 w-3.5 shrink-0" />
+              {viewCount.toLocaleString("en-IN")} {viewCount === 1 ? "view" : "views"} on this project
+            </p>
+          )}
         </div>
       </div>
 
