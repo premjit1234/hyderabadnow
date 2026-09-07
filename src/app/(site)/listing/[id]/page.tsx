@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getListingById } from "@/db/queries";
+import { getListingById, getListingFieldSettings } from "@/db/queries";
 import { formatPrice, propertyTypeLabel } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
+import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
 import InquiryForm from "@/components/InquiryForm";
 
 function BedIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -96,7 +97,7 @@ export default async function ListingDetailPage({
   const listingId = Number(id);
   if (!Number.isInteger(listingId)) notFound();
 
-  const listing = await getListingById(listingId);
+  const [listing, fieldSettings] = await Promise.all([getListingById(listingId), getListingFieldSettings()]);
   if (!listing) notFound();
 
   const images = listing.images.length > 0 ? listing.images : [];
@@ -256,6 +257,69 @@ export default async function ListingDetailPage({
               </p>
             </div>
           )}
+
+          {(() => {
+            const unitDetails = [
+              fieldSettings.towerName.public && listing.towerName && { label: "Tower", value: listing.towerName },
+              fieldSettings.unitNumber.public && listing.unitNumber && { label: "Unit Number", value: listing.unitNumber },
+              fieldSettings.unitFloor.public && listing.unitFloor != null && { label: "Floor", value: String(listing.unitFloor) },
+              fieldSettings.facing.public && listing.facing && { label: "Facing", value: facingLabel(listing.facing) },
+              fieldSettings.furnishingStatus.public &&
+                listing.furnishingStatus && { label: "Furnishing", value: furnishingLabel(listing.furnishingStatus) },
+              fieldSettings.inventoryState.public && { label: "Inventory State", value: inventoryStateLabel(listing.inventoryState) },
+            ].filter((d): d is { label: string; value: string } => Boolean(d));
+
+            if (unitDetails.length === 0) return null;
+            return (
+              <div className="mt-8">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  Unit details
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  {unitDetails.map((d) => (
+                    <div key={d.label}>
+                      <dt className="text-xs text-stone-500">{d.label}</dt>
+                      <dd className="text-sm font-medium text-stone-900">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const pricingDetails = [
+              fieldSettings.sellerAskPrice.public &&
+                listing.sellerAskPrice != null && {
+                  label: "Seller Ask Price",
+                  value: formatPrice(listing.sellerAskPrice, listing.listingType as "sale" | "rent"),
+                },
+              fieldSettings.sellerBestPrice.public &&
+                listing.sellerBestPrice != null && {
+                  label: "Seller Best Price",
+                  value: formatPrice(listing.sellerBestPrice, listing.listingType as "sale" | "rent"),
+                },
+              fieldSettings.cashRatioPercent.public &&
+                listing.cashRatioPercent != null && { label: "Cash Ratio", value: `${listing.cashRatioPercent}%` },
+            ].filter((d): d is { label: string; value: string } => Boolean(d));
+
+            if (pricingDetails.length === 0) return null;
+            return (
+              <div className="mt-8">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  Pricing details
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  {pricingDetails.map((d) => (
+                    <div key={d.label}>
+                      <dt className="text-xs text-stone-500">{d.label}</dt>
+                      <dd className="text-sm font-medium text-stone-900">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
         </div>
 
         <div className="lg:col-span-1">

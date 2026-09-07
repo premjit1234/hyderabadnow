@@ -112,6 +112,26 @@ export const listings = sqliteTable("listings", {
   // callable number.
   contactPhone: text("contact_phone"),
   whatsappEnabled: integer("whatsapp_enabled", { mode: "boolean" }).notNull().default(false),
+  // Unit-level detail fields (matches the brokerage's internal inventory
+  // sheet format) — all optional since plots/villas/standalone listings
+  // don't have a tower/unit/floor. Which of these show on the public listing
+  // page vs. the post-listing form is admin-configurable (see
+  // listingFieldSettings below / lib/listingFields.ts); admin's own edit
+  // form always shows all of them regardless.
+  towerName: text("tower_name"),
+  unitNumber: text("unit_number"),
+  unitFloor: integer("unit_floor"),
+  facing: text("facing", {
+    enum: ["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"],
+  }),
+  furnishingStatus: text("furnishing_status", { enum: ["unfurnished", "semi_furnished", "fully_furnished"] }),
+  inventoryState: text("inventory_state", { enum: ["new", "resale"] }).notNull().default("new"),
+  // Internal negotiation figures, separate from the public "price" — hidden
+  // from the public listing page by default (see listingFieldSettings)
+  // since they're sensitive seller/negotiation info, not for buyers.
+  sellerAskPrice: integer("seller_ask_price"),
+  sellerBestPrice: integer("seller_best_price"),
+  cashRatioPercent: integer("cash_ratio_percent"),
   views: integer("views").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
@@ -191,6 +211,20 @@ export const socialLinks = sqliteTable("social_links", {
   url: text("url").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// Singleton row (id always 1) storing admin-configured show/hide toggles for
+// the "extra" listing fields (lib/listingFields.ts LISTING_EXTRA_FIELDS) —
+// per field, whether it shows on the public listing page and/or on the
+// post-listing form. Stored as one JSON blob rather than a column per field
+// so adding/removing a field later never needs a migration; missing entries
+// just fall back to that field's coded default (see resolveFieldVisibility).
+export const listingFieldSettings = sqliteTable("listing_field_settings", {
+  id: integer("id").primaryKey(),
+  config: text("config").notNull().default("{}"),
+  updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getProjectsForSelect } from "@/db/queries";
+import { getProjectsForSelect, getListingFieldSettings } from "@/db/queries";
 import PostListingForm from "@/components/PostListingForm";
 
 export default async function PostListingPage() {
@@ -30,7 +30,7 @@ export default async function PostListingPage() {
     );
   }
 
-  const projects = await getProjectsForSelect();
+  const [projects, fieldSettings] = await Promise.all([getProjectsForSelect(), getListingFieldSettings()]);
 
   return (
     <main className="mx-auto max-w-2xl flex-1 px-4 py-10 sm:px-6">
@@ -38,7 +38,7 @@ export default async function PostListingPage() {
       <p className="mt-1 mb-6 text-sm text-stone-500">
         Fill in the details below. Your listing goes live immediately.
       </p>
-      <PostListingForm projects={projects} />
+      <PostListingForm projects={projects} fieldSettings={fieldSettings} />
     </main>
   );
 }

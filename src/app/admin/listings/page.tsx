@@ -28,22 +28,30 @@ export default async function AdminListingsPage({
           <h1 className="text-xl font-bold text-stone-900">Listings ({allListings.length})</h1>
           <p className="mt-1 text-sm text-stone-500">Change status, feature, edit, or remove any listing.</p>
         </div>
-        <form className="flex gap-2">
-          {ownerId && <input type="hidden" name="owner" value={ownerId} />}
-          <input
-            type="text"
-            name="q"
-            defaultValue={q}
-            placeholder="Search title or locality…"
-            className="w-56 rounded-md border border-stone-200 px-3 py-1.5 text-sm"
-          />
-          <button
-            type="submit"
-            className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
+        <div className="flex items-center gap-2">
+          <form className="flex gap-2">
+            {ownerId && <input type="hidden" name="owner" value={ownerId} />}
+            <input
+              type="text"
+              name="q"
+              defaultValue={q}
+              placeholder="Search title or locality…"
+              className="w-56 rounded-md border border-stone-200 px-3 py-1.5 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
+            >
+              Search
+            </button>
+          </form>
+          <Link
+            href="/admin/listings/new"
+            className="whitespace-nowrap rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
-            Search
-          </button>
-        </form>
+            + Add listing
+          </Link>
+        </div>
       </div>
 
       {ownerId && (
@@ -135,7 +143,7 @@ export default async function AdminListingsPage({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <Link href={`/admin/listings/${l.id}/edit`} className="text-xs font-medium text-indigo-600 hover:underline">
-                      Edit
+                      View / Edit
                     </Link>
                     <form action={adminDeleteListingAction}>
                       <input type="hidden" name="listingId" value={l.id} />

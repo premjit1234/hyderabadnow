@@ -10,8 +10,10 @@ import {
   siteSettings,
   legalPages,
   socialLinks,
+  listingFieldSettings,
 } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
 
 export type ListingFilters = {
   q?: string;
@@ -477,6 +479,21 @@ export async function getSocialLinks() {
 
 export async function getAllSocialLinksForAdmin() {
   return getSocialLinks();
+}
+
+// ---- Listing field visibility (admin-configurable show/hide per field) ----
+
+// Called from the public listing page and post-listing form on every
+// request — same build-time "no such table" concern as getSiteSettings, so
+// this tolerates a missing table/row rather than failing the build.
+export async function getListingFieldSettings(): Promise<ListingFieldVisibility> {
+  try {
+    const row = await db.query.listingFieldSettings.findFirst({ where: eq(listingFieldSettings.id, 1) });
+    const stored = row ? (JSON.parse(row.config) as Partial<ListingFieldVisibility>) : null;
+    return resolveFieldVisibility(stored);
+  } catch {
+    return resolveFieldVisibility(null);
+  }
 }
 
 export async function getListingsByOwner(ownerId: number) {

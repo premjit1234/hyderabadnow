@@ -134,6 +134,15 @@ const listingSchema = z.object({
   locality: z.string().min(2, "Enter a locality"),
   address: z.string().optional(),
   contactPhone: z.string().optional(),
+  towerName: z.string().optional(),
+  unitNumber: z.string().optional(),
+  unitFloor: z.coerce.number().int().optional(),
+  facing: z.enum(["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  inventoryState: z.enum(["new", "resale"]).optional(),
+  sellerAskPrice: z.coerce.number().int().positive().optional(),
+  sellerBestPrice: z.coerce.number().int().positive().optional(),
+  cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 export async function createListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -153,6 +162,15 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     locality: formData.get("locality"),
     address: formData.get("address") || undefined,
     contactPhone: formData.get("contactPhone") || undefined,
+    towerName: formData.get("towerName") || undefined,
+    unitNumber: formData.get("unitNumber") || undefined,
+    unitFloor: formData.get("unitFloor") || undefined,
+    facing: formData.get("facing") || undefined,
+    furnishingStatus: formData.get("furnishingStatus") || undefined,
+    inventoryState: formData.get("inventoryState") || undefined,
+    sellerAskPrice: formData.get("sellerAskPrice") || undefined,
+    sellerBestPrice: formData.get("sellerBestPrice") || undefined,
+    cashRatioPercent: formData.get("cashRatioPercent") || undefined,
   });
 
   if (!parsed.success) {
@@ -183,6 +201,15 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       projectId,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
+      towerName: data.towerName?.trim() || null,
+      unitNumber: data.unitNumber?.trim() || null,
+      unitFloor: data.unitFloor ?? null,
+      facing: data.facing,
+      furnishingStatus: data.furnishingStatus,
+      inventoryState: data.inventoryState,
+      sellerAskPrice: data.sellerAskPrice ?? null,
+      sellerBestPrice: data.sellerBestPrice ?? null,
+      cashRatioPercent: data.cashRatioPercent ?? null,
     })
     .returning();
 

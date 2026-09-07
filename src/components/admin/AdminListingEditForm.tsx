@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState } from "react";
 import { adminUpdateListingAction, type ActionState } from "@/app/admin/actions";
 import { HYDERABAD_LOCALITIES } from "@/lib/localities";
+import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
 
 type EditableListing = {
   id: number;
@@ -23,6 +24,15 @@ type EditableListing = {
   contactPhone: string | null;
   whatsappEnabled: boolean;
   projectId: number | null;
+  towerName: string | null;
+  unitNumber: string | null;
+  unitFloor: number | null;
+  facing: string | null;
+  furnishingStatus: string | null;
+  inventoryState: string;
+  sellerAskPrice: number | null;
+  sellerBestPrice: number | null;
+  cashRatioPercent: number | null;
   images: { id: number; url: string }[];
 };
 
@@ -162,6 +172,126 @@ export default function AdminListingEditForm({
           defaultValue={listing.address ?? ""}
           className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
         />
+      </div>
+
+      <div className="rounded-md border border-stone-200 p-4">
+        <p className="mb-3 text-sm font-semibold text-stone-900">Unit details</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Tower Name / Number</label>
+            <input
+              name="towerName"
+              defaultValue={listing.towerName ?? ""}
+              placeholder="e.g. Tower A or T-3"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Unit Number</label>
+            <input
+              name="unitNumber"
+              defaultValue={listing.unitNumber ?? ""}
+              placeholder="e.g. 1204"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Unit Floor</label>
+            <input
+              type="number"
+              name="unitFloor"
+              defaultValue={listing.unitFloor ?? undefined}
+              placeholder="e.g. 12"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Facing</label>
+            <select
+              name="facing"
+              defaultValue={listing.facing ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {FACING_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Furnishing Status</label>
+            <select
+              name="furnishingStatus"
+              defaultValue={listing.furnishingStatus ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {FURNISHING_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Inventory State</label>
+            <select
+              name="inventoryState"
+              defaultValue={listing.inventoryState}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              {INVENTORY_STATE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-stone-200 p-4">
+        <p className="text-sm font-semibold text-stone-900">Pricing details</p>
+        <p className="mt-0.5 text-xs text-stone-500">
+          Internal negotiation figures — hidden from the public listing page by default (toggle in Admin → Listing
+          fields).
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Seller Ask Price (₹)</label>
+            <input
+              type="number"
+              name="sellerAskPrice"
+              defaultValue={listing.sellerAskPrice ?? undefined}
+              placeholder="e.g. 9500000"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Seller Best Price (₹)</label>
+            <input
+              type="number"
+              name="sellerBestPrice"
+              defaultValue={listing.sellerBestPrice ?? undefined}
+              placeholder="e.g. 9000000"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Cash Ratio (%)</label>
+            <input
+              type="number"
+              name="cashRatioPercent"
+              min={0}
+              max={100}
+              defaultValue={listing.cashRatioPercent ?? undefined}
+              placeholder="e.g. 30"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+        </div>
       </div>
 
       <div>

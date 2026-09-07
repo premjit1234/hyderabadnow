@@ -15,11 +15,13 @@ import {
   siteSettings,
   legalPages,
   socialLinks,
+  listingFieldSettings,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
+import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -134,6 +136,15 @@ const editListingSchema = z.object({
   address: z.string().optional(),
   status: z.enum(LISTING_STATUSES),
   contactPhone: z.string().optional(),
+  towerName: z.string().optional(),
+  unitNumber: z.string().optional(),
+  unitFloor: z.coerce.number().int().optional(),
+  facing: z.enum(["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  inventoryState: z.enum(["new", "resale"]).optional(),
+  sellerAskPrice: z.coerce.number().int().positive().optional(),
+  sellerBestPrice: z.coerce.number().int().positive().optional(),
+  cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 export async function adminUpdateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -154,6 +165,15 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     address: formData.get("address") || undefined,
     status: formData.get("status"),
     contactPhone: formData.get("contactPhone") || undefined,
+    towerName: formData.get("towerName") || undefined,
+    unitNumber: formData.get("unitNumber") || undefined,
+    unitFloor: formData.get("unitFloor") || undefined,
+    facing: formData.get("facing") || undefined,
+    furnishingStatus: formData.get("furnishingStatus") || undefined,
+    inventoryState: formData.get("inventoryState") || undefined,
+    sellerAskPrice: formData.get("sellerAskPrice") || undefined,
+    sellerBestPrice: formData.get("sellerBestPrice") || undefined,
+    cashRatioPercent: formData.get("cashRatioPercent") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -187,6 +207,15 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
       projectId,
+      towerName: data.towerName?.trim() || null,
+      unitNumber: data.unitNumber?.trim() || null,
+      unitFloor: data.unitFloor ?? null,
+      facing: data.facing ?? null,
+      furnishingStatus: data.furnishingStatus ?? null,
+      inventoryState: data.inventoryState ?? "new",
+      sellerAskPrice: data.sellerAskPrice ?? null,
+      sellerBestPrice: data.sellerBestPrice ?? null,
+      cashRatioPercent: data.cashRatioPercent ?? null,
     })
     .where(eq(listings.id, listingId));
 
@@ -222,6 +251,121 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
   revalidatePath(`/admin/listings/${listingId}/edit`);
   revalidatePath(`/listing/${listingId}`);
   redirect(`/admin/listings/${listingId}/edit?saved=1`);
+}
+
+// Admin posting a listing on behalf of any user (e.g. an agent who called in
+// a property rather than logging in themselves) — same shape as the public
+// createListingAction in app/actions.ts, but takes an explicit ownerId
+// instead of using the current session, and skips the "must be logged in as
+// agent/seller" gate since requireAdmin already covers authorization.
+const adminCreateListingSchema = z.object({
+  title: z.string().min(5, "Title should be at least 5 characters"),
+  description: z.string().min(20, "Add a bit more description (20+ characters)"),
+  price: z.coerce.number().int().positive("Enter a valid price"),
+  listingType: z.enum(["sale", "rent"]),
+  propertyType: z.enum(["apartment", "villa", "independent_house", "plot", "commercial"]),
+  bhk: z.coerce.number().int().min(0).max(10).optional(),
+  areaSqft: z.coerce.number().int().positive("Enter a valid area"),
+  locality: z.string().min(2, "Enter a locality"),
+  address: z.string().optional(),
+  contactPhone: z.string().optional(),
+  ownerId: z.coerce.number().int().positive("Choose an owner"),
+  towerName: z.string().optional(),
+  unitNumber: z.string().optional(),
+  unitFloor: z.coerce.number().int().optional(),
+  facing: z.enum(["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  inventoryState: z.enum(["new", "resale"]).optional(),
+  sellerAskPrice: z.coerce.number().int().positive().optional(),
+  sellerBestPrice: z.coerce.number().int().positive().optional(),
+  cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
+});
+
+export async function adminCreateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = adminCreateListingSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    listingType: formData.get("listingType"),
+    propertyType: formData.get("propertyType"),
+    bhk: formData.get("bhk") || undefined,
+    areaSqft: formData.get("areaSqft"),
+    locality: formData.get("locality"),
+    address: formData.get("address") || undefined,
+    contactPhone: formData.get("contactPhone") || undefined,
+    ownerId: formData.get("ownerId"),
+    towerName: formData.get("towerName") || undefined,
+    unitNumber: formData.get("unitNumber") || undefined,
+    unitFloor: formData.get("unitFloor") || undefined,
+    facing: formData.get("facing") || undefined,
+    furnishingStatus: formData.get("furnishingStatus") || undefined,
+    inventoryState: formData.get("inventoryState") || undefined,
+    sellerAskPrice: formData.get("sellerAskPrice") || undefined,
+    sellerBestPrice: formData.get("sellerBestPrice") || undefined,
+    cashRatioPercent: formData.get("cashRatioPercent") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const owner = await db.query.users.findFirst({ where: eq(users.id, data.ownerId) });
+  if (!owner) return { error: "Selected owner not found." };
+
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a contact phone number to enable the WhatsApp button." };
+  }
+  const featured = formData.get("featured") === "on";
+  const verified = formData.get("verified") === "on";
+  const projectIdRaw = formData.get("projectId");
+  const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
+
+  const [listing] = await db
+    .insert(listings)
+    .values({
+      title: data.title,
+      description: data.description,
+      price: data.price,
+      listingType: data.listingType,
+      propertyType: data.propertyType,
+      bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
+      areaSqft: data.areaSqft,
+      locality: data.locality,
+      address: data.address || null,
+      ownerId: data.ownerId,
+      projectId,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
+      featured,
+      verified,
+      towerName: data.towerName?.trim() || null,
+      unitNumber: data.unitNumber?.trim() || null,
+      unitFloor: data.unitFloor ?? null,
+      facing: data.facing,
+      furnishingStatus: data.furnishingStatus,
+      inventoryState: data.inventoryState,
+      sellerAskPrice: data.sellerAskPrice ?? null,
+      sellerBestPrice: data.sellerBestPrice ?? null,
+      cashRatioPercent: data.cashRatioPercent ?? null,
+    })
+    .returning();
+
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  const imageRows: { listingId: number; url: string; sortOrder: number }[] = [];
+  let order = 0;
+  for (const file of files.slice(0, 10)) {
+    const url = await saveUploadedImage(file);
+    if (url) imageRows.push({ listingId: listing.id, url, sortOrder: order++ });
+  }
+  if (imageRows.length > 0) {
+    await db.insert(listingImages).values(imageRows);
+  }
+
+  revalidatePath("/admin/listings");
+  redirect(`/admin/listings/${listing.id}/edit?saved=1`);
 }
 
 // ---- Admin: homepage tiles ----
@@ -646,4 +790,39 @@ export async function adminDeleteSocialLinkAction(formData: FormData) {
   await db.delete(socialLinks).where(eq(socialLinks.id, linkId));
   revalidatePath("/admin/social-links");
   revalidatePath("/", "layout");
+}
+
+// ---- Admin: listing field visibility ----
+
+export async function adminUpdateListingFieldSettingsAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const config: Record<string, { public: boolean; form: boolean }> = {};
+  for (const field of LISTING_EXTRA_FIELDS) {
+    config[field.key] = {
+      public: formData.get(`public_${field.key}`) === "on",
+      form: formData.get(`form_${field.key}`) === "on",
+    };
+  }
+
+  const existing = await db.query.listingFieldSettings.findFirst({ where: eq(listingFieldSettings.id, 1) });
+  const configJson = JSON.stringify(config);
+  if (existing) {
+    await db
+      .update(listingFieldSettings)
+      .set({ config: configJson, updatedAt: sql`(current_timestamp)` })
+      .where(eq(listingFieldSettings.id, 1));
+  } else {
+    await db.insert(listingFieldSettings).values({ id: 1, config: configJson });
+  }
+
+  // Both the public listing page and the post-listing form read this on
+  // every request — bust everything so the new visibility takes effect
+  // immediately.
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/listing-fields");
+  return { success: "Field visibility updated." };
 }

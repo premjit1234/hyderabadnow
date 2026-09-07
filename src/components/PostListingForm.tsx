@@ -3,10 +3,22 @@
 import { useActionState } from "react";
 import { createListingAction, type ActionState } from "@/app/actions";
 import { HYDERABAD_LOCALITIES } from "@/lib/localities";
+import {
+  FACING_OPTIONS,
+  FURNISHING_OPTIONS,
+  INVENTORY_STATE_OPTIONS,
+  type ListingFieldVisibility,
+} from "@/lib/listingFields";
 
 type ProjectOption = { id: number; name: string; locality: string };
 
-export default function PostListingForm({ projects }: { projects: ProjectOption[] }) {
+export default function PostListingForm({
+  projects,
+  fieldSettings,
+}: {
+  projects: ProjectOption[];
+  fieldSettings: ListingFieldVisibility;
+}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createListingAction,
     null
@@ -122,6 +134,139 @@ export default function PostListingForm({ projects }: { projects: ProjectOption[
         <label className="mb-1 block text-sm font-medium text-stone-700">Address (optional)</label>
         <input name="address" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
       </div>
+
+      {(fieldSettings.towerName.form ||
+        fieldSettings.unitNumber.form ||
+        fieldSettings.unitFloor.form ||
+        fieldSettings.facing.form ||
+        fieldSettings.furnishingStatus.form ||
+        fieldSettings.inventoryState.form) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {fieldSettings.towerName.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Tower Name / Number (optional)</label>
+              <input
+                name="towerName"
+                placeholder="e.g. Tower A or T-3"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+          )}
+          {fieldSettings.unitNumber.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Unit Number (optional)</label>
+              <input
+                name="unitNumber"
+                placeholder="e.g. 1204"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+          )}
+          {fieldSettings.unitFloor.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Unit Floor (optional)</label>
+              <input
+                type="number"
+                name="unitFloor"
+                placeholder="e.g. 12"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+          )}
+          {fieldSettings.facing.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Facing (optional)</label>
+              <select name="facing" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {FACING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {fieldSettings.furnishingStatus.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Furnishing Status (optional)</label>
+              <select
+                name="furnishingStatus"
+                defaultValue=""
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              >
+                <option value="">— Select —</option>
+                {FURNISHING_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {fieldSettings.inventoryState.form && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Inventory State</label>
+              <select
+                name="inventoryState"
+                defaultValue="new"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              >
+                {INVENTORY_STATE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(fieldSettings.sellerAskPrice.form || fieldSettings.sellerBestPrice.form || fieldSettings.cashRatioPercent.form) && (
+        <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
+          <p className="text-sm font-medium text-stone-700">Pricing details (optional)</p>
+          <p className="mt-0.5 text-xs text-stone-500">
+            For internal reference — not shown on the public listing unless an admin makes it visible.
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {fieldSettings.sellerAskPrice.form && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">Seller Ask Price (₹)</label>
+                <input
+                  type="number"
+                  name="sellerAskPrice"
+                  placeholder="e.g. 9500000"
+                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2.5 text-sm"
+                />
+              </div>
+            )}
+            {fieldSettings.sellerBestPrice.form && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">Seller Best Price (₹)</label>
+                <input
+                  type="number"
+                  name="sellerBestPrice"
+                  placeholder="e.g. 9000000"
+                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2.5 text-sm"
+                />
+              </div>
+            )}
+            {fieldSettings.cashRatioPercent.form && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">Cash Ratio (%)</label>
+                <input
+                  type="number"
+                  name="cashRatioPercent"
+                  min={0}
+                  max={100}
+                  placeholder="e.g. 30"
+                  className="w-full rounded-md border border-stone-200 bg-white px-3 py-2.5 text-sm"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
         <p className="text-sm font-medium text-stone-700">Contact for this listing (optional)</p>
