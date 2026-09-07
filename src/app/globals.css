@@ -3,18 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Also declared via the `viewport` export in app/layout.tsx (renders the
+     equivalent <meta name="color-scheme">) — set here too so it applies even
+     to anything rendered outside that layout. This site has one light theme
+     only; every component uses hardcoded light Tailwind colors, so letting
+     the OS/browser auto-darken the page (Android's "force dark" in
+     particular) leaves dark text on a dark background. See the layout.tsx
+     comment for the full explanation. */
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {

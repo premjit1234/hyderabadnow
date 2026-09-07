@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { getSiteSettings, getSocialLinks } from "@/db/queries";
 import { logoutAction } from "@/app/actions";
 import SocialIcon from "@/components/SocialIcon";
+import MobileNav from "@/components/MobileNav";
 
 export default async function Header() {
   const [session, { logoUrl }, socialLinks] = await Promise.all([
@@ -11,6 +12,20 @@ export default async function Header() {
     getSocialLinks(),
   ]);
   const canPost = session && (session.role === "agent" || session.role === "seller" || session.role === "admin");
+
+  // Same set of links as the desktop nav below — kept in one place so the
+  // hamburger menu (shown only below `md`, see MobileNav) never drifts out
+  // of sync with it.
+  const navItems = [
+    { href: "/browse?listingType=sale", label: "Buy" },
+    { href: "/browse?listingType=rent", label: "Rent" },
+    { href: "/post-listing", label: "Sell" },
+    { href: "/browse", label: "All listings" },
+    { href: "/projects", label: "Projects" },
+    { href: "/blog", label: "Blog" },
+    ...(canPost ? [{ href: "/dashboard", label: "My listings" }] : []),
+    ...(session?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-white">
@@ -88,7 +103,7 @@ export default async function Header() {
           )}
         </nav>
 
-        <div className="ml-auto flex items-center gap-4">
+        <div className="ml-auto hidden items-center gap-4 md:flex">
           {session ? (
             <div className="flex items-center gap-4 text-[15px]">
               <Link href="/dashboard" className="hidden font-medium text-stone-700 hover:text-emerald-700 sm:inline">
@@ -114,6 +129,12 @@ export default async function Header() {
             </>
           )}
         </div>
+
+        <MobileNav
+          navItems={navItems}
+          session={session ? { name: session.name } : null}
+          logoutAction={logoutAction}
+        />
       </div>
     </header>
   );
