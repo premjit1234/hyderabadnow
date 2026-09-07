@@ -16,12 +16,17 @@ import {
   legalPages,
   socialLinks,
   listingFieldSettings,
+  blogPosts,
+  blogImages,
+  blogComments,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
 import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
+import { BLOG_CATEGORIES, slugify, getVideoEmbedUrl } from "@/lib/blog";
+import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -825,4 +830,200 @@ export async function adminUpdateListingFieldSettingsAction(
   revalidatePath("/", "layout");
   revalidatePath("/admin/listing-fields");
   return { success: "Field visibility updated." };
+}
+
+// ---- Admin: blog ----
+
+const blogPostSchema = z.object({
+  title: z.string().min(3, "Title is required"),
+  category: z.enum(BLOG_CATEGORIES),
+  excerpt: z.string().max(300, "Keep the excerpt under 300 characters").optional(),
+  videoUrl: z
+    .string()
+    .optional()
+    .refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube or Vimeo link"),
+  contentHtml: z.string().optional(),
+  status: z.enum(["draft", "published"]),
+});
+
+function readBlogPostFields(formData: FormData) {
+  return {
+    title: formData.get("title"),
+    category: formData.get("category") || "General",
+    excerpt: formData.get("excerpt") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
+    contentHtml: formData.get("contentHtml") || undefined,
+    status: formData.get("status") || "draft",
+  };
+}
+
+// Slugs are generated from the title and must be unique. `excludeId` lets an
+// edit keep its own existing slug when the title is unchanged, rather than
+// bumping it to "-2" against itself.
+async function uniqueBlogSlug(base: string, excludeId?: number): Promise<string> {
+  let candidate = base;
+  let n = 2;
+  for (;;) {
+    const existing = await db.query.blogPosts.findFirst({ where: eq(blogPosts.slug, candidate) });
+    if (!existing || existing.id === excludeId) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
+async function saveBlogGalleryImages(postId: number, formData: FormData, startOrder: number) {
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  let order = startOrder;
+  const rows: { postId: number; url: string; sortOrder: number }[] = [];
+  for (const file of files.slice(0, 15)) {
+    const url = await saveUploadedImage(file);
+    if (url) rows.push({ postId, url, sortOrder: order++ });
+  }
+  if (rows.length > 0) {
+    await db.insert(blogImages).values(rows);
+  }
+}
+
+export async function adminCreateBlogPostAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const parsed = blogPostSchema.safeParse(readBlogPostFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const slug = await uniqueBlogSlug(slugify(data.title));
+  const coverFile = formData.get("coverImage");
+  const coverImageUrl = coverFile instanceof File && coverFile.size > 0 ? await saveUploadedImage(coverFile) : null;
+
+  const [post] = await db
+    .insert(blogPosts)
+    .values({
+      slug,
+      title: data.title,
+      excerpt: data.excerpt?.trim() || null,
+      category: data.category,
+      coverImageUrl,
+      videoUrl: data.videoUrl || null,
+      contentHtml: sanitizeBlogContent(data.contentHtml || ""),
+      status: data.status,
+      authorId: session.id,
+      publishedAt: data.status === "published" ? sql`(current_timestamp)` : null,
+    })
+    .returning();
+
+  await saveBlogGalleryImages(post.id, formData, 0);
+
+  revalidatePath("/admin/blog");
+  revalidatePath("/blog");
+  redirect(`/admin/blog/${post.id}/edit?saved=1`);
+}
+
+export async function adminUpdateBlogPostAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const postId = Number(formData.get("postId"));
+  if (!postId) return { error: "Missing post." };
+
+  const existing = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, postId) });
+  if (!existing) return { error: "Post not found." };
+
+  const parsed = blogPostSchema.safeParse(readBlogPostFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const slug =
+    slugify(data.title) === slugify(existing.title) && existing.slug
+      ? existing.slug
+      : await uniqueBlogSlug(slugify(data.title), postId);
+
+  const coverFile = formData.get("coverImage");
+  const newCoverUrl = coverFile instanceof File && coverFile.size > 0 ? await saveUploadedImage(coverFile) : null;
+  const removeCover = formData.get("removeCoverImage") === "on";
+
+  await db
+    .update(blogPosts)
+    .set({
+      slug,
+      title: data.title,
+      excerpt: data.excerpt?.trim() || null,
+      category: data.category,
+      coverImageUrl: newCoverUrl ?? (removeCover ? null : existing.coverImageUrl),
+      videoUrl: data.videoUrl || null,
+      contentHtml: sanitizeBlogContent(data.contentHtml || ""),
+      status: data.status,
+      // Only stamp publishedAt the first time a post goes live, so
+      // re-saving an already-published post doesn't keep bumping its date.
+      publishedAt:
+        data.status === "published" && !existing.publishedAt ? sql`(current_timestamp)` : existing.publishedAt,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(eq(blogPosts.id, postId));
+
+  const removeIds = formData
+    .getAll("removeImageId")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n));
+  if (removeIds.length > 0) {
+    await db.delete(blogImages).where(and(eq(blogImages.postId, postId), inArray(blogImages.id, removeIds)));
+  }
+
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: sql<number>`coalesce(max(${blogImages.sortOrder}), -1)` })
+    .from(blogImages)
+    .where(eq(blogImages.postId, postId));
+  await saveBlogGalleryImages(postId, formData, maxOrder + 1);
+
+  revalidatePath("/admin/blog");
+  revalidatePath(`/admin/blog/${postId}/edit`);
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${existing.slug}`);
+  if (slug !== existing.slug) revalidatePath(`/blog/${slug}`);
+  redirect(`/admin/blog/${postId}/edit?saved=1`);
+}
+
+export async function adminDeleteBlogPostAction(formData: FormData) {
+  await requireAdmin();
+  const postId = Number(formData.get("postId"));
+  if (!postId) return;
+  const existing = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, postId) });
+  await db.delete(blogPosts).where(eq(blogPosts.id, postId));
+  revalidatePath("/admin/blog");
+  revalidatePath("/blog");
+  if (existing) revalidatePath(`/blog/${existing.slug}`);
+}
+
+// ---- Admin: blog comment moderation ----
+
+export async function adminModerateBlogCommentAction(formData: FormData) {
+  await requireAdmin();
+  const commentId = Number(formData.get("commentId"));
+  const status = formData.get("status");
+  if (!commentId || (status !== "approved" && status !== "rejected")) return;
+
+  const comment = await db.query.blogComments.findFirst({ where: eq(blogComments.id, commentId) });
+  await db.update(blogComments).set({ status }).where(eq(blogComments.id, commentId));
+
+  revalidatePath("/admin/blog/comments");
+  revalidatePath("/admin/blog");
+  if (comment) {
+    const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, comment.postId) });
+    if (post) revalidatePath(`/blog/${post.slug}`);
+  }
+}
+
+export async function adminDeleteBlogCommentAction(formData: FormData) {
+  await requireAdmin();
+  const commentId = Number(formData.get("commentId"));
+  if (!commentId) return;
+
+  const comment = await db.query.blogComments.findFirst({ where: eq(blogComments.id, commentId) });
+  await db.delete(blogComments).where(eq(blogComments.id, commentId));
+
+  revalidatePath("/admin/blog/comments");
+  revalidatePath("/admin/blog");
+  if (comment) {
+    const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, comment.postId) });
+    if (post) revalidatePath(`/blog/${post.slug}`);
+  }
 }

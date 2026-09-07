@@ -21,3 +21,51 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Styling for sanitized blog post body HTML (see lib/sanitizeHtml.ts for the
+   allowlist this content is limited to) — kept separate from Tailwind
+   utility classes since this content's markup comes from the admin's rich
+   text editor, not from JSX we control. */
+.blog-content {
+  color: #292524; /* stone-800 */
+  font-size: 1rem;
+  line-height: 1.75;
+}
+.blog-content p {
+  margin-bottom: 1rem;
+}
+.blog-content h2 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: #1c1917; /* stone-900 */
+}
+.blog-content h3 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #1c1917;
+}
+.blog-content ul {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+  list-style: disc;
+}
+.blog-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+  list-style: decimal;
+}
+.blog-content blockquote {
+  margin-bottom: 1rem;
+  border-left: 4px solid #d6d3d1; /* stone-300 */
+  padding-left: 1rem;
+  font-style: italic;
+  color: #57534e; /* stone-600 */
+}
+.blog-content a {
+  color: #4338ca; /* indigo-700 */
+  text-decoration: underline;
+}

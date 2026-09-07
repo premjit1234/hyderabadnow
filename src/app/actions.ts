@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, listings, listingImages, inquiries } from "@/db/schema";
+import { users, listings, listingImages, inquiries, blogPosts, blogComments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import {
   hashPassword,
@@ -254,4 +255,33 @@ export async function createInquiryAction(_prev: ActionState, formData: FormData
   await db.insert(inquiries).values({ listingId, name, email, phone, message });
 
   return { success: "Your message has been sent. The lister will be in touch soon." };
+}
+
+const blogCommentSchema = z.object({
+  content: z.string().trim().min(2, "Comment is too short").max(2000, "Keep comments under 2000 characters"),
+});
+
+export async function createBlogCommentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Log in to leave a comment." };
+  }
+
+  const postId = Number(formData.get("postId"));
+  if (!postId) return { error: "Missing post." };
+
+  const parsed = blogCommentSchema.safeParse({ content: formData.get("content") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check your comment." };
+  }
+
+  const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, postId) });
+  if (!post || post.status !== "published") {
+    return { error: "This post isn't available for comments." };
+  }
+
+  await db.insert(blogComments).values({ postId, userId: session.id, content: parsed.data.content });
+
+  revalidatePath(`/blog/${post.slug}`);
+  return { success: "Thanks! Your comment is awaiting approval and will appear once reviewed." };
 }

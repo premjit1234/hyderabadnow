@@ -14,6 +14,7 @@
     "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts"
   },
   "dependencies": {
+    "@types/sanitize-html": "^2.16.1",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "drizzle-orm": "^0.45.2",
@@ -21,6 +22,7 @@
     "next": "16.3.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sanitize-html": "^2.17.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {

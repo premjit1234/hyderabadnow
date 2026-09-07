@@ -1,5 +1,6 @@
+import { sql } from "drizzle-orm";
 import { db, sqlite } from "./client";
-import { users, listings, listingImages, homeTiles, projects, projectImages, legalPages } from "./schema";
+import { users, listings, listingImages, homeTiles, projects, projectImages, legalPages, blogPosts } from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
 import { LEGAL_PAGE_DEFAULTS } from "./legal-page-defaults";
@@ -9,7 +10,7 @@ async function main() {
 
   // Clear existing data (dev convenience)
   sqlite.exec(
-    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects;"
+    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects; DELETE FROM blog_comments; DELETE FROM blog_images; DELETE FROM blog_posts;"
   );
 
   const demoPasswordHash = await hashPassword("password123");
@@ -60,12 +61,15 @@ async function main() {
     })
     .returning();
 
-  await db.insert(users).values({
-    name: "Admin",
-    email: "admin@hyderabadnow.in",
-    passwordHash: demoPasswordHash,
-    role: "admin",
-  });
+  const [admin] = await db
+    .insert(users)
+    .values({
+      name: "Admin",
+      email: "admin@hyderabadnow.in",
+      passwordHash: demoPasswordHash,
+      role: "admin",
+    })
+    .returning();
 
   console.log("Users:", { agent1: agent1.id, agent2: agent2.id, seller1: seller1.id, buyer1: buyer1.id });
 
@@ -435,6 +439,33 @@ async function main() {
   // in the header/footer just stays hidden until an admin adds a real one
   // from /admin/social-links).
   await db.insert(legalPages).values(LEGAL_PAGE_DEFAULTS);
+
+  // A couple of sample blog posts so /admin/blog and /blog have something to
+  // look at out of the box — real admins write their own from there.
+  await db.insert(blogPosts).values([
+    {
+      slug: "hyderabad-real-estate-outlook-2026",
+      title: "Hyderabad real estate outlook for 2026",
+      excerpt: "What buyers and investors are watching this year across the IT corridor and emerging localities.",
+      category: "Market Trends",
+      status: "published",
+      authorId: admin.id,
+      publishedAt: sql`(current_timestamp)`,
+      contentHtml:
+        "<h2>Steady demand along the IT corridor</h2><p>Localities close to the Financial District and Gachibowli continue to see strong end-user demand, with newer areas like Kompally and Osman Nagar attracting buyers priced out of the core.</p><h2>What to watch</h2><ul><li>Infrastructure projects extending metro connectivity</li><li>RERA approval timelines for new launches</li><li>Rental yields holding steady in gated communities</li></ul>",
+    },
+    {
+      slug: "first-time-buyer-checklist",
+      title: "A first-time buyer's checklist for Hyderabad",
+      excerpt: "The documents, checks, and questions to have ready before you make an offer.",
+      category: "Buying Guide",
+      status: "published",
+      authorId: admin.id,
+      publishedAt: sql`(current_timestamp)`,
+      contentHtml:
+        "<h2>Before you visit</h2><p>Shortlist based on locality, budget, and BHK — then verify RERA registration for any under-construction project.</p><h2>Documents to check</h2><ol><li>Title deed and encumbrance certificate</li><li>Approved building plan</li><li>Occupancy certificate for ready-to-move units</li></ol><blockquote>A property without a clear title is not a bargain, whatever the price.</blockquote>",
+    },
+  ]);
 
   console.log(`Seeded ${sampleListings.length} listings across ${HYDERABAD_LOCALITIES.length} known localities.`);
   console.log("Demo login (any seeded user): password123");

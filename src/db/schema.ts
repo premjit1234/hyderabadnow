@@ -229,6 +229,66 @@ export const listingFieldSettings = sqliteTable("listing_field_settings", {
     .default(sql`(current_timestamp)`),
 });
 
+// Blog posts — admin-authored articles at /blog and /blog/[slug]. Body
+// content is rich text (bold/italic/links/lists/headings), authored with the
+// admin's rich text editor and saved as sanitized HTML (see
+// lib/sanitizeHtml.ts) — sanitized again on every render as defense in
+// depth, so a bug in the editor (or a compromised admin account) can never
+// get a <script> onto the page. Video is a YouTube/Vimeo link only, not an
+// uploaded file — keeps large media off this box's limited disk; the cover
+// photo and optional gallery use the same upload pipeline as listing/project
+// photos.
+export const blogPosts = sqliteTable("blog_posts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt"),
+  category: text("category").notNull().default("General"),
+  coverImageUrl: text("cover_image_url"),
+  videoUrl: text("video_url"),
+  contentHtml: text("content_html").notNull().default(""),
+  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+  publishedAt: text("published_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const blogImages = sqliteTable("blog_images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  postId: integer("post_id")
+    .notNull()
+    .references(() => blogPosts.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// Comments — logged-in users only, no anonymous/guest comments. New
+// comments start "pending" and stay hidden from the public post until an
+// admin approves them from /admin/blog/comments, so spam or abuse never
+// lands on the live site unreviewed. Admin can also reject (kept for the
+// record, distinct from delete) or delete outright.
+export const blogComments = sqliteTable("blog_comments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  postId: integer("post_id")
+    .notNull()
+    .references(() => blogPosts.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  status: text("status", { enum: ["pending", "approved", "rejected"] })
+    .notNull()
+    .default("pending"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const inquiries = sqliteTable("inquiries", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   listingId: integer("listing_id")

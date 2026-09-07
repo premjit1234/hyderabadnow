@@ -11,6 +11,9 @@ import {
   legalPages,
   socialLinks,
   listingFieldSettings,
+  blogPosts,
+  blogImages,
+  blogComments,
 } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -516,4 +519,112 @@ export async function getListingsByOwner(ownerId: number) {
     .from(listings)
     .where(eq(listings.ownerId, ownerId))
     .orderBy(desc(listings.createdAt));
+}
+
+// ---- Blog ----
+
+const BLOG_PAGE_SIZE = 9;
+
+export async function getPublishedBlogPosts({ page = 1, category }: { page?: number; category?: string } = {}) {
+  const conditions = [eq(blogPosts.status, "published")];
+  if (category) conditions.push(eq(blogPosts.category, category));
+  const where = and(...conditions);
+
+  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(blogPosts).where(where);
+  const posts = await db
+    .select()
+    .from(blogPosts)
+    .where(where)
+    .orderBy(desc(blogPosts.publishedAt))
+    .limit(BLOG_PAGE_SIZE)
+    .offset((page - 1) * BLOG_PAGE_SIZE);
+
+  return { posts, total: count, pageSize: BLOG_PAGE_SIZE, totalPages: Math.max(1, Math.ceil(count / BLOG_PAGE_SIZE)) };
+}
+
+export async function getBlogCategoriesInUse() {
+  const rows = await db
+    .selectDistinct({ category: blogPosts.category })
+    .from(blogPosts)
+    .where(eq(blogPosts.status, "published"));
+  return rows.map((r) => r.category);
+}
+
+export async function getBlogPostBySlug(slug: string) {
+  const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.slug, slug) });
+  if (!post) return null;
+
+  const images = await db
+    .select()
+    .from(blogImages)
+    .where(eq(blogImages.postId, post.id))
+    .orderBy(blogImages.sortOrder);
+  const author = post.authorId ? await db.query.users.findFirst({ where: eq(users.id, post.authorId) }) : null;
+  const comments = await db
+    .select({
+      id: blogComments.id,
+      content: blogComments.content,
+      createdAt: blogComments.createdAt,
+      userName: users.name,
+    })
+    .from(blogComments)
+    .innerJoin(users, eq(blogComments.userId, users.id))
+    .where(and(eq(blogComments.postId, post.id), eq(blogComments.status, "approved")))
+    .orderBy(desc(blogComments.createdAt));
+
+  return { ...post, images, author, comments };
+}
+
+export async function getAllBlogPostsForAdmin() {
+  return db
+    .select({
+      id: blogPosts.id,
+      title: blogPosts.title,
+      slug: blogPosts.slug,
+      category: blogPosts.category,
+      status: blogPosts.status,
+      createdAt: blogPosts.createdAt,
+      publishedAt: blogPosts.publishedAt,
+      // Raw literal subquery, not interpolated Drizzle column objects — see
+      // the firstImageSubquery comment above for why that matters here
+      // (blog_posts and blog_comments don't share a same-named column that
+      // could collide, but this keeps the same safe, explicit style).
+      pendingComments: sql<number>`(
+        select count(*) from blog_comments
+        where blog_comments.post_id = blog_posts.id and blog_comments.status = 'pending'
+      )`,
+    })
+    .from(blogPosts)
+    .orderBy(desc(blogPosts.createdAt));
+}
+
+export async function getBlogPostForAdminEdit(id: number) {
+  const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, id) });
+  if (!post) return null;
+  const images = await db
+    .select()
+    .from(blogImages)
+    .where(eq(blogImages.postId, id))
+    .orderBy(blogImages.sortOrder);
+  return { ...post, images };
+}
+
+export async function getAllBlogCommentsForAdmin(status?: "pending" | "approved" | "rejected") {
+  return db
+    .select({
+      id: blogComments.id,
+      content: blogComments.content,
+      status: blogComments.status,
+      createdAt: blogComments.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+      postId: blogPosts.id,
+      postTitle: blogPosts.title,
+      postSlug: blogPosts.slug,
+    })
+    .from(blogComments)
+    .innerJoin(users, eq(blogComments.userId, users.id))
+    .innerJoin(blogPosts, eq(blogComments.postId, blogPosts.id))
+    .where(status ? eq(blogComments.status, status) : undefined)
+    .orderBy(desc(blogComments.createdAt));
 }

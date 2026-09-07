@@ -66,6 +66,12 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="m8.1 10.9 7.8-3.8M8.1 13.1l7.8 3.8" strokeLinecap="round" />
     </svg>
   ),
+  blog: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+      <path d="M7 8.5h10M7 12h10M7 15.5h6" strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
       <circle cx="12" cy="12" r="3" />
