@@ -401,12 +401,20 @@ export async function getProjectsForSelect() {
 // builder stage, against a throwaway sqlite file that has no tables at all yet
 // (schema is only pushed at container start, see docker-entrypoint.sh). So this
 // must tolerate "no such table" rather than fail the whole build.
-export async function getSiteSettings(): Promise<{ logoUrl: string | null; faviconUrl: string | null }> {
+export async function getSiteSettings(): Promise<{
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  heroImageUrl: string | null;
+}> {
   try {
     const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
-    return { logoUrl: row?.logoUrl ?? null, faviconUrl: row?.faviconUrl ?? null };
+    return {
+      logoUrl: row?.logoUrl ?? null,
+      faviconUrl: row?.faviconUrl ?? null,
+      heroImageUrl: row?.heroImageUrl ?? null,
+    };
   } catch {
-    return { logoUrl: null, faviconUrl: null };
+    return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
   }
 }
 

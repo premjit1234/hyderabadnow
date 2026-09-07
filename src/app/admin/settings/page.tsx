@@ -2,7 +2,7 @@ import { getSiteSettings } from "@/db/queries";
 import SiteSettingsForm from "@/components/admin/SiteSettingsForm";
 
 export default async function AdminSiteSettingsPage() {
-  const { logoUrl, faviconUrl } = await getSiteSettings();
+  const { logoUrl, faviconUrl, heroImageUrl } = await getSiteSettings();
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -10,7 +10,7 @@ export default async function AdminSiteSettingsPage() {
       <p className="mt-1 mb-6 text-sm text-stone-500">
         Branding shown across the public site — changes apply immediately, no redeploy needed.
       </p>
-      <SiteSettingsForm logoUrl={logoUrl} faviconUrl={faviconUrl} />
+      <SiteSettingsForm logoUrl={logoUrl} faviconUrl={faviconUrl} heroImageUrl={heroImageUrl} />
     </div>
   );
 }

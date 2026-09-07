@@ -145,13 +145,15 @@ export const homeTiles = sqliteTable("home_tiles", {
 });
 
 // Singleton row (id is always 1) holding site-wide branding an admin can
-// change without a redeploy: the header logo image and the browser favicon.
-// Both are nullable — null means "use the built-in default" (the text
-// wordmark logo, and the default green-H favicon shipped in public/).
+// change without a redeploy: the header logo image, the browser favicon, and
+// the homepage hero background photo. All nullable — null means "use the
+// built-in default" (the text wordmark logo, the default green-H favicon
+// shipped in public/, and the default illustrated skyline hero image).
 export const siteSettings = sqliteTable("site_settings", {
   id: integer("id").primaryKey(),
   logoUrl: text("logo_url"),
   faviconUrl: text("favicon_url"),
+  heroImageUrl: text("hero_image_url"),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),

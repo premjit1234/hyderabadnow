@@ -491,7 +491,7 @@ export async function adminDeleteProjectAction(formData: FormData) {
   revalidatePath("/projects");
 }
 
-// ---- Admin: site branding (logo + favicon) ----
+// ---- Admin: site branding (logo + favicon + homepage hero background) ----
 
 export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
@@ -517,13 +517,23 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
     faviconUrl = null;
   }
 
+  let heroImageUrl = existing?.heroImageUrl ?? null;
+  const heroImageFile = formData.get("heroImageFile");
+  if (heroImageFile instanceof File && heroImageFile.size > 0) {
+    const saved = await saveUploadedImage(heroImageFile);
+    if (!saved) return { error: "Hero background must be a JPG, PNG, WebP, or GIF under 8MB." };
+    heroImageUrl = saved;
+  } else if (formData.get("removeHeroImage") === "on") {
+    heroImageUrl = null;
+  }
+
   if (existing) {
     await db
       .update(siteSettings)
-      .set({ logoUrl, faviconUrl, updatedAt: sql`(current_timestamp)` })
+      .set({ logoUrl, faviconUrl, heroImageUrl, updatedAt: sql`(current_timestamp)` })
       .where(eq(siteSettings.id, 1));
   } else {
-    await db.insert(siteSettings).values({ id: 1, logoUrl, faviconUrl });
+    await db.insert(siteSettings).values({ id: 1, logoUrl, faviconUrl, heroImageUrl });
   }
 
   // The root layout's generateMetadata reads site settings on every request,

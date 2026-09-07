@@ -2,19 +2,22 @@ import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import ListingCard from "@/components/ListingCard";
 import CategoryTile from "@/components/CategoryTile";
-import { getFeaturedListings, getHomeCategories } from "@/db/queries";
+import { getFeaturedListings, getHomeCategories, getSiteSettings } from "@/db/queries";
 import { HYDERABAD_LOCALITIES } from "@/lib/localities";
 
 export default async function Home() {
-  const [featured, categories] = await Promise.all([getFeaturedListings(6), getHomeCategories()]);
+  const [featured, categories, { heroImageUrl }] = await Promise.all([
+    getFeaturedListings(6),
+    getHomeCategories(),
+    getSiteSettings(),
+  ]);
 
   return (
     <main className="flex-1">
       <section
         className="relative bg-stone-900 bg-cover bg-center pb-24 pt-16 sm:pb-28 sm:pt-24"
         style={{
-          backgroundImage:
-            "linear-gradient(rgba(20,20,18,0.35), rgba(20,20,18,0.65)), url(/hero-bg.jpg)",
+          backgroundImage: `linear-gradient(rgba(20,20,18,0.35), rgba(20,20,18,0.65)), url(${heroImageUrl || "/hero-bg.jpg"})`,
         }}
       >
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
