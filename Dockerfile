@@ -39,6 +39,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY package.json drizzle.config.ts ./
 COPY src/db ./src/db
 COPY src/lib ./src/lib
+# The generated, git-committed migration files migrate.ts applies at
+# startup (see docker-entrypoint.sh) — must ship in the runtime image, not
+# just exist in the build context, or every deploy would see an empty
+# migrations folder and fail.
+COPY drizzle ./drizzle
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 RUN mkdir -p /app/data /app/public/uploads \
