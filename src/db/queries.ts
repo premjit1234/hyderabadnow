@@ -324,6 +324,27 @@ const activeListingCountSubquery = (type: "sale" | "rent") => sql<number>`(
     and ${listings.listingType} = ${type}
 )`.as(`${type}Count`);
 
+// Cheapest currently-active listing of each type within a project — lets the
+// public projects list show "Starting from ₹X" the way real estate portals
+// do, without touching listings that belong to other projects (or none).
+const minListingPriceSubquery = (type: "sale" | "rent") => sql<number | null>`(
+  select min(${listings.price}) from ${listings}
+  where ${listings.projectId} = "projects"."id"
+    and ${listings.status} = 'active'
+    and ${listings.listingType} = ${type}
+)`.as(`min${type === "sale" ? "Sale" : "Rent"}Price`);
+
+export type ProjectFilters = {
+  q?: string;
+  locality?: string;
+  propertyType?: string;
+  constructionStatus?: "under_construction" | "ready_to_move";
+  bhk?: number;
+  minArea?: number;
+  maxArea?: number;
+  sort?: "newest" | "name" | "price_asc";
+};
+
 export async function getAllProjectsForAdmin() {
   return db
     .select({
@@ -342,7 +363,42 @@ export async function getAllProjectsForAdmin() {
     .orderBy(desc(projects.createdAt));
 }
 
-export async function getProjectsForPublic() {
+export async function getProjectsForPublic(filters: ProjectFilters = {}) {
+  const conditions = [];
+
+  if (filters.locality) conditions.push(eq(projects.locality, filters.locality));
+  if (filters.propertyType) conditions.push(eq(projects.propertyType, filters.propertyType as never));
+  if (filters.constructionStatus) conditions.push(eq(projects.constructionStatus, filters.constructionStatus));
+  if (filters.bhk) {
+    // bhkOptions is a free-text comma list (e.g. "2,2.5,3,4"), not a normalized
+    // column — pad both sides with commas so "3" doesn't also match "13".
+    conditions.push(
+      sql`(',' || replace(${projects.bhkOptions}, ' ', '') || ',') like ${"%," + String(filters.bhk) + ",%"}`
+    );
+  }
+  // Area filters are a range overlap check: the project's [min, max] sqft
+  // range must overlap the requester's desired range. A project with no area
+  // data on file simply won't match an area filter, same as listings do for
+  // price filters elsewhere in the app.
+  if (filters.minArea) conditions.push(gte(projects.maxAreaSqft, filters.minArea));
+  if (filters.maxArea) conditions.push(lte(projects.minAreaSqft, filters.maxArea));
+  if (filters.q) {
+    const like = `%${filters.q}%`;
+    conditions.push(
+      sql`(${projects.name} like ${like} or ${projects.developerName} like ${like} or ${projects.locality} like ${like})`
+    );
+  }
+
+  const minSalePriceSubquery = minListingPriceSubquery("sale");
+  const minRentPriceSubquery = minListingPriceSubquery("rent");
+
+  const orderBy =
+    filters.sort === "name"
+      ? [asc(projects.name)]
+      : filters.sort === "price_asc"
+        ? [sql`${minSalePriceSubquery} is null`, asc(minSalePriceSubquery)]
+        : [desc(projects.createdAt)];
+
   return db
     .select({
       id: projects.id,
@@ -355,12 +411,17 @@ export async function getProjectsForPublic() {
       minAreaSqft: projects.minAreaSqft,
       maxAreaSqft: projects.maxAreaSqft,
       bhkOptions: projects.bhkOptions,
+      possessionYear: projects.possessionYear,
+      reraApprovalYear: projects.reraApprovalYear,
       imageUrl: firstProjectImageSubquery,
       saleListings: activeListingCountSubquery("sale"),
       rentListings: activeListingCountSubquery("rent"),
+      minSalePrice: minSalePriceSubquery,
+      minRentPrice: minRentPriceSubquery,
     })
     .from(projects)
-    .orderBy(desc(projects.createdAt));
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(...orderBy);
 }
 
 export async function getProjectById(id: number) {
