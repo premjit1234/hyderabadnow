@@ -80,7 +80,11 @@ export default async function BlogIndexPage({
               <div className="flex flex-1 flex-col gap-1.5 p-4">
                 <p className="line-clamp-2 text-base font-bold text-stone-900">{post.title}</p>
                 {post.excerpt && <p className="line-clamp-2 text-sm text-stone-500">{post.excerpt}</p>}
-                <p className="mt-1 text-xs text-stone-400">{formatDate(post.publishedAt ?? post.createdAt)}</p>
+                <p className="mt-1 flex items-center gap-2 text-xs text-stone-400">
+                  <span>{formatDate(post.publishedAt ?? post.createdAt)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{post.viewCount.toLocaleString("en-IN")} views</span>
+                </p>
               </div>
             </Link>
           ))}

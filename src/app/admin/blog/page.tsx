@@ -38,6 +38,7 @@ export default async function AdminBlogPage() {
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Comments</th>
+              <th className="px-4 py-3">Views</th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -65,6 +66,7 @@ export default async function AdminBlogPage() {
                     "—"
                   )}
                 </td>
+                <td className="px-4 py-3 text-stone-600">{p.viewCount.toLocaleString("en-IN")}</td>
                 <td className="px-4 py-3 whitespace-nowrap text-stone-500">{formatDate(p.publishedAt ?? p.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -83,7 +85,7 @@ export default async function AdminBlogPage() {
             ))}
             {posts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
                   No posts yet — write your first one.
                 </td>
               </tr>

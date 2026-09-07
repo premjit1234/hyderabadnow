@@ -30,6 +30,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <p className="mt-2 text-sm text-stone-500">
         {formatDate(post.publishedAt ?? post.createdAt)}
         {post.author && <> · By {post.author.name}</>}
+        {" · "}
+        {post.viewCount.toLocaleString("en-IN")} views
       </p>
 
       {post.coverImageUrl && (

@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { getAdminStats } from "@/db/queries";
+import { getAdminStats, getLiveVisitorCount } from "@/db/queries";
+import StatCard from "@/components/admin/StatCard";
 
 const ROLE_LABELS: Record<string, string> = {
   buyer: "Buyers",
@@ -15,24 +15,8 @@ const STATUS_LABELS: Record<string, string> = {
   rented: "Rented",
 };
 
-function StatCard({ label, value, href }: { label: string; value: number | string; href?: string }) {
-  const content = (
-    <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-stone-900">{value}</p>
-    </div>
-  );
-  return href ? (
-    <Link href={href} className="block transition hover:-translate-y-0.5 hover:shadow-md">
-      {content}
-    </Link>
-  ) : (
-    content
-  );
-}
-
 export default async function AdminOverviewPage() {
-  const stats = await getAdminStats();
+  const [stats, liveVisitors] = await Promise.all([getAdminStats(), getLiveVisitorCount()]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -41,10 +25,13 @@ export default async function AdminOverviewPage() {
         <p className="mt-1 text-sm text-stone-500">A snapshot of everything on HyderabadNow.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Total users" value={stats.totalUsers} href="/admin/users" />
         <StatCard label="Total listings" value={stats.totalListings} href="/admin/listings" />
         <StatCard label="Total inquiries" value={stats.totalInquiries} href="/admin/inquiries" />
+        {/* Snapshot as of this page load — see /admin/analytics for the
+            auto-refreshing version and daily/weekly/monthly/yearly traffic. */}
+        <StatCard label="On site right now" value={liveVisitors} href="/admin/analytics" />
       </div>
 
       <div>

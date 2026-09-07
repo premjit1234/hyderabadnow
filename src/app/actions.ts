@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, listings, listingImages, inquiries, blogPosts, blogComments } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, listings, listingImages, inquiries, blogPosts, blogComments, pageViews } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -284,4 +284,34 @@ export async function createBlogCommentAction(_prev: ActionState, formData: Form
 
   revalidatePath(`/blog/${post.slug}`);
   return { success: "Thanks! Your comment is awaiting approval and will appear once reviewed." };
+}
+
+// Fired once per pathname change by <ViewTracker> (mounted only in the
+// public (site) layout, never /admin — see that component) to power the
+// admin Analytics page: page-view totals and "people on the site right now".
+// visitorId is an anonymous id the client keeps in a long-lived cookie
+// purely to dedupe distinct visitors; it's never tied to a logged-in user.
+// Deliberately best-effort: no session/CSRF check (anonymous analytics, not
+// a state change a user account owns) and no revalidatePath (the admin
+// Analytics page reads fresh on every load; blog view counts are read live
+// too since those pages are already dynamically rendered).
+export async function recordPageViewAction(path: string, visitorId: string) {
+  if (typeof path !== "string" || typeof visitorId !== "string") return;
+  if (!path.startsWith("/") || path.length > 300) return;
+  if (!/^[a-zA-Z0-9-]{10,100}$/.test(visitorId)) return;
+
+  const slugMatch = path.match(/^\/blog\/([^/]+)\/?$/);
+  let blogPostId: number | null = null;
+  if (slugMatch) {
+    const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.slug, slugMatch[1]) });
+    if (post) blogPostId = post.id;
+  }
+
+  await db.insert(pageViews).values({ path: path.slice(0, 300), visitorId, blogPostId });
+  if (blogPostId) {
+    await db
+      .update(blogPosts)
+      .set({ viewCount: sql`${blogPosts.viewCount} + 1` })
+      .where(eq(blogPosts.id, blogPostId));
+  }
 }

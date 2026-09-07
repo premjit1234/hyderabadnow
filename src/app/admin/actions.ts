@@ -21,6 +21,7 @@ import {
   blogComments,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
+import { getLiveVisitorCount } from "@/db/queries";
 import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
@@ -786,6 +787,15 @@ export async function adminUpdateSocialLinkAction(_prev: ActionState, formData: 
   revalidatePath("/admin/social-links");
   revalidatePath("/", "layout");
   return { success: "Social link updated." };
+}
+
+// Polled every few seconds by the client-side <LiveVisitorsWidget> on
+// /admin/analytics — kept as its own tiny admin-gated action (rather than
+// folding into a page load) so the "people on the site right now" number
+// can auto-refresh without re-rendering the whole page.
+export async function getLiveVisitorCountAction() {
+  await requireAdmin();
+  return getLiveVisitorCount();
 }
 
 export async function adminDeleteSocialLinkAction(formData: FormData) {

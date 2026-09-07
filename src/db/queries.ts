@@ -14,6 +14,7 @@ import {
   blogPosts,
   blogImages,
   blogComments,
+  pageViews,
 } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -585,6 +586,7 @@ export async function getAllBlogPostsForAdmin() {
       status: blogPosts.status,
       createdAt: blogPosts.createdAt,
       publishedAt: blogPosts.publishedAt,
+      viewCount: blogPosts.viewCount,
       // Raw literal subquery, not interpolated Drizzle column objects — see
       // the firstImageSubquery comment above for why that matters here
       // (blog_posts and blog_comments don't share a same-named column that
@@ -627,4 +629,80 @@ export async function getAllBlogCommentsForAdmin(status?: "pending" | "approved"
     .innerJoin(blogPosts, eq(blogComments.postId, blogPosts.id))
     .where(status ? eq(blogComments.status, status) : undefined)
     .orderBy(desc(blogComments.createdAt));
+}
+
+// ---- Analytics ----
+//
+// page_views rows are only ever written for public (site) pages — see
+// components/ViewTracker.tsx + recordPageViewAction — so every query below is
+// implicitly site-wide-excluding-admin already, with no extra filtering
+// needed. created_at is SQLite's CURRENT_TIMESTAMP, i.e. UTC text in
+// "YYYY-MM-DD HH:MM:SS" form, so both the raw SQLite date/time functions
+// below and the `toSqliteUtc` boundaries computed in JS compare cleanly
+// against it as plain strings.
+
+/** Formats a JS Date as the same "YYYY-MM-DD HH:MM:SS" UTC text SQLite's
+ * CURRENT_TIMESTAMP writes, so it can be compared against page_views.createdAt. */
+function toSqliteUtc(d: Date) {
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+/** Distinct visitors with a page view in the last 5 minutes — "people on the
+ * site right now" for the admin Analytics page (and the Overview teaser). */
+export async function getLiveVisitorCount() {
+  const [{ n }] = await db
+    .select({ n: sql<number>`count(distinct ${pageViews.visitorId})` })
+    .from(pageViews)
+    .where(sql`${pageViews.createdAt} >= datetime('now', '-5 minutes')`);
+  return n;
+}
+
+/** Page-view totals for today, this (Mon-start) week, this month, this year,
+ * and all time — each "to date" from its period's start through now. */
+export async function getPageViewStats() {
+  const now = new Date();
+  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const mondayOffset = (startOfToday.getUTCDay() + 6) % 7; // 0 = Monday
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setUTCDate(startOfWeek.getUTCDate() - mondayOffset);
+  const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const startOfYear = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+
+  const countSince = async (since: Date) => {
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)` })
+      .from(pageViews)
+      .where(sql`${pageViews.createdAt} >= ${toSqliteUtc(since)}`);
+    return n;
+  };
+
+  const [today, week, month, year, [{ n: allTime }]] = await Promise.all([
+    countSince(startOfToday),
+    countSince(startOfWeek),
+    countSince(startOfMonth),
+    countSince(startOfYear),
+    db.select({ n: sql<number>`count(*)` }).from(pageViews),
+  ]);
+
+  return { today, week, month, year, allTime };
+}
+
+/** Page views per day for the last `days` days (default 14), oldest first,
+ * with zero-view days filled in so the admin trend chart never skips a gap. */
+export async function getDailyPageViewSeries(days = 14) {
+  const rows = await db
+    .select({ day: sql<string>`date(${pageViews.createdAt})`, n: sql<number>`count(*)` })
+    .from(pageViews)
+    .where(sql`${pageViews.createdAt} >= datetime('now', ${`-${days} days`})`)
+    .groupBy(sql`date(${pageViews.createdAt})`);
+
+  const byDay = new Map(rows.map((r) => [r.day, r.n]));
+  const series: { day: string; n: number }[] = [];
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
+    const key = d.toISOString().slice(0, 10);
+    series.push({ day: key, n: byDay.get(key) ?? 0 });
+  }
+  return series;
 }

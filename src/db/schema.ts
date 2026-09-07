@@ -250,6 +250,11 @@ export const blogPosts = sqliteTable("blog_posts", {
   status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
   authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
   publishedAt: text("published_at"),
+  // A running counter, bumped once per page_views row recorded against this
+  // post (see recordPageViewAction) — kept denormalized so the front-end post
+  // page and the admin blog list can show a view count with a plain column
+  // read instead of aggregating page_views on every render.
+  viewCount: integer("view_count").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -284,6 +289,23 @@ export const blogComments = sqliteTable("blog_comments", {
   status: text("status", { enum: ["pending", "approved", "rejected"] })
     .notNull()
     .default("pending"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// One row per page load on the public site (see components/ViewTracker.tsx +
+// recordPageViewAction) — never recorded for /admin. Powers the admin
+// Analytics page: "people on the site right now" (distinct visitorId in the
+// last few minutes), and daily/weekly/monthly/yearly page-view totals.
+// visitorId is an anonymous, long-lived id set client-side in a non-httpOnly
+// cookie purely to dedupe "how many distinct people" — it's never linked to
+// a user account, so this table intentionally has no userId column.
+export const pageViews = sqliteTable("page_views", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  path: text("path").notNull(),
+  visitorId: text("visitor_id").notNull(),
+  blogPostId: integer("blog_post_id").references(() => blogPosts.id, { onDelete: "set null" }),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
