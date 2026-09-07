@@ -1,12 +1,14 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getListingById, getListingFieldSettings } from "@/db/queries";
 import { formatPrice, propertyTypeLabel } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
+import { AMENITIES, parseAmenities } from "@/lib/amenities";
 import InquiryForm from "@/components/InquiryForm";
+import ListingGallery from "@/components/ListingGallery";
+import AmenityIcon from "@/components/AmenityIcon";
 
 function BedIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -101,7 +103,6 @@ export default async function ListingDetailPage({
   if (!listing) notFound();
 
   const images = listing.images.length > 0 ? listing.images : [];
-  const extraCount = Math.max(0, images.length - 5);
 
   const listingUrl = `${await getAppUrl()}/listing/${listing.id}`;
   const whatsappMessage = `Hi, I'm interested in your listing "${listing.title}" (${formatPrice(
@@ -166,37 +167,7 @@ export default async function ListingDetailPage({
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {images.length > 0 ? (
-            <div className="grid grid-cols-1 gap-2 overflow-hidden rounded-xl shadow-sm sm:grid-cols-4 sm:grid-rows-2">
-              <div className="relative aspect-[16/10] sm:col-span-3 sm:row-span-2 sm:aspect-auto">
-                <Image
-                  src={images[0].url}
-                  alt={listing.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 60vw"
-                  className="object-cover"
-                  priority
-                />
-              </div>
-              {images.slice(1, 5).map((img, i) => {
-                const isLastVisible = i === 3 && extraCount > 0;
-                return (
-                  <div key={img.id} className="relative hidden aspect-square sm:block">
-                    <Image src={img.url} alt="" fill sizes="20vw" className="object-cover" />
-                    {isLastVisible && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold text-white">
-                        +{extraCount} more
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex aspect-video items-center justify-center rounded-xl bg-stone-100 text-stone-400">
-              No photos yet
-            </div>
-          )}
+          <ListingGallery images={images} title={listing.title} />
 
           <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-stone-50 p-4 sm:grid-cols-4">
             {listing.bhk != null && (
@@ -320,6 +291,70 @@ export default async function ListingDetailPage({
               </div>
             );
           })()}
+
+          {listing.project &&
+            (() => {
+              const project = listing.project;
+              const projectAmenityKeys = parseAmenities(project.amenities);
+              const projectAmenities = AMENITIES.filter((a) => projectAmenityKeys.includes(a.key));
+              const facts = [
+                { label: "Status", value: project.constructionStatus === "ready_to_move" ? "Ready to move" : "Under construction" },
+                project.bhkOptions && { label: "BHK options", value: `${project.bhkOptions.split(",").join(", ")} BHK` },
+                project.minAreaSqft != null &&
+                  project.maxAreaSqft != null && {
+                    label: "Area range",
+                    value: `${project.minAreaSqft.toLocaleString("en-IN")}–${project.maxAreaSqft.toLocaleString("en-IN")} sqft`,
+                  },
+                project.totalUnits != null && { label: "Total units", value: String(project.totalUnits) },
+                project.towers != null && { label: "Towers", value: String(project.towers) },
+                project.possessionYear != null && { label: "Possession", value: String(project.possessionYear) },
+              ].filter((f): f is { label: string; value: string } => Boolean(f));
+
+              return (
+                <div className="mt-8 rounded-xl border border-stone-200 bg-stone-50 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                        Part of this project
+                      </h2>
+                      <p className="mt-1 text-lg font-bold text-stone-900">{project.name}</p>
+                      {project.developerName && <p className="text-sm text-stone-500">by {project.developerName}</p>}
+                    </div>
+                    <Link
+                      href={`/projects/${project.id}`}
+                      className="whitespace-nowrap rounded-md bg-stone-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-stone-800"
+                    >
+                      View project details →
+                    </Link>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                    {facts.map((f) => (
+                      <div key={f.label}>
+                        <dt className="text-xs text-stone-500">{f.label}</dt>
+                        <dd className="text-sm font-medium text-stone-900">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  {projectAmenities.length > 0 && (
+                    <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-stone-200 pt-4">
+                      {projectAmenities.slice(0, 6).map((a) => (
+                        <span key={a.key} className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
+                          <AmenityIcon icon={a.icon} className="h-4 w-4 text-emerald-700" />
+                          {a.label}
+                        </span>
+                      ))}
+                      {projectAmenities.length > 6 && (
+                        <span className="text-xs font-medium text-stone-400">
+                          +{projectAmenities.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
         </div>
 
         <div className="lg:col-span-1">
