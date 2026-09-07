@@ -1,5 +1,16 @@
 import { db } from "./client";
-import { listings, listingImages, users, inquiries, homeTiles, projects, projectImages, siteSettings } from "./schema";
+import {
+  listings,
+  listingImages,
+  users,
+  inquiries,
+  homeTiles,
+  projects,
+  projectImages,
+  siteSettings,
+  legalPages,
+  socialLinks,
+} from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 
 export type ListingFilters = {
@@ -416,6 +427,56 @@ export async function getSiteSettings(): Promise<{
   } catch {
     return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
   }
+}
+
+// ---- Legal pages (Terms of Use / Privacy Policy / Cookie Policy) ----
+
+// Fixed display order regardless of insertion order (matches the footer's
+// "Terms of Use | Privacy Policy | Cookie Policy" layout).
+const LEGAL_PAGE_ORDER = ["terms", "privacy", "cookies"] as const;
+function bySlugOrder<T extends { slug: string }>(rows: T[]): T[] {
+  return [...rows].sort(
+    (a, b) =>
+      LEGAL_PAGE_ORDER.indexOf(a.slug as (typeof LEGAL_PAGE_ORDER)[number]) -
+      LEGAL_PAGE_ORDER.indexOf(b.slug as (typeof LEGAL_PAGE_ORDER)[number])
+  );
+}
+
+// Called from the (site) layout's Footer/Header on every request — same
+// build-time "no such table" concern as getSiteSettings (see its comment),
+// so this tolerates a missing table rather than failing the build.
+export async function getLegalPages(): Promise<{ slug: string; title: string }[]> {
+  try {
+    const rows = await db.select({ slug: legalPages.slug, title: legalPages.title }).from(legalPages);
+    return bySlugOrder(rows);
+  } catch {
+    return [];
+  }
+}
+
+export async function getLegalPageBySlug(slug: (typeof LEGAL_PAGE_ORDER)[number]) {
+  const row = await db.query.legalPages.findFirst({ where: eq(legalPages.slug, slug) });
+  return row ?? null;
+}
+
+export async function getAllLegalPagesForAdmin() {
+  const rows = await db.select().from(legalPages);
+  return bySlugOrder(rows);
+}
+
+// ---- Social links (header + footer icon rows) ----
+
+// Same build-time resilience as getSiteSettings/getLegalPages above.
+export async function getSocialLinks() {
+  try {
+    return await db.select().from(socialLinks).orderBy(asc(socialLinks.sortOrder), asc(socialLinks.id));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAllSocialLinksForAdmin() {
+  return getSocialLinks();
 }
 
 export async function getListingsByOwner(ownerId: number) {

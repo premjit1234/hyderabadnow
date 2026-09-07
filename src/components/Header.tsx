@@ -1,14 +1,41 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getSiteSettings } from "@/db/queries";
+import { getSiteSettings, getSocialLinks } from "@/db/queries";
 import { logoutAction } from "@/app/actions";
+import SocialIcon from "@/components/SocialIcon";
 
 export default async function Header() {
-  const [session, { logoUrl }] = await Promise.all([getSession(), getSiteSettings()]);
+  const [session, { logoUrl }, socialLinks] = await Promise.all([
+    getSession(),
+    getSiteSettings(),
+    getSocialLinks(),
+  ]);
   const canPost = session && (session.role === "agent" || session.role === "seller" || session.role === "admin");
 
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200 bg-white">
+      {/* A slim utility bar for social links at the very top of the page,
+          separate from the matching row in the footer — hidden entirely
+          when no links are configured, and hidden on mobile to keep the
+          header compact there (same pattern as the nav items below). */}
+      {socialLinks.length > 0 && (
+        <div className="hidden border-b border-stone-100 bg-stone-50 sm:block">
+          <div className="mx-auto flex max-w-7xl justify-end gap-3 px-4 py-1.5 sm:px-6">
+            {socialLinks.map((link) => (
+              <a
+                key={link.id}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={link.label}
+                className="text-stone-400 transition hover:text-emerald-700"
+              >
+                <SocialIcon platform={link.platform} className="h-3.5 w-3.5" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3.5 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2">
           {logoUrl ? (

@@ -5,10 +5,21 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { users, listings, listingImages, homeTiles, projects, projectImages, siteSettings } from "@/db/schema";
+import {
+  users,
+  listings,
+  listingImages,
+  homeTiles,
+  projects,
+  projectImages,
+  siteSettings,
+  legalPages,
+  socialLinks,
+} from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES } from "@/lib/amenities";
+import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -543,4 +554,96 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
   revalidatePath("/", "layout");
   revalidatePath("/admin/settings");
   return { success: "Site settings updated." };
+}
+
+// ---- Admin: legal pages (Terms of Use / Privacy Policy / Cookie Policy) ----
+
+const legalPageSchema = z.object({
+  title: z.string().trim().min(1, "Title is required.").max(120, "Title is too long."),
+  content: z.string().trim().min(1, "Content can't be empty."),
+});
+
+export async function adminUpdateLegalPageAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const pageId = Number(formData.get("pageId"));
+  if (!pageId) return { error: "Missing page." };
+
+  const parsed = legalPageSchema.safeParse({
+    title: formData.get("title"),
+    content: formData.get("content"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const existing = await db.query.legalPages.findFirst({ where: eq(legalPages.id, pageId) });
+  if (!existing) return { error: "Page not found." };
+
+  await db
+    .update(legalPages)
+    .set({ title: parsed.data.title, content: parsed.data.content, updatedAt: sql`(current_timestamp)` })
+    .where(eq(legalPages.id, pageId));
+
+  revalidatePath("/admin/legal-pages");
+  revalidatePath(`/${existing.slug}`);
+  // Titles show up in the footer's link row on every page.
+  revalidatePath("/", "layout");
+  return { success: "Page updated." };
+}
+
+// ---- Admin: social links (header + footer icon rows) ----
+
+const socialLinkSchema = z.object({
+  platform: z.enum(SOCIAL_PLATFORM_KEYS),
+  label: z.string().trim().min(1, "Label is required.").max(60, "Label is too long."),
+  url: z.string().trim().url("Enter a valid URL, e.g. https://..."),
+  sortOrder: z.coerce.number().int().default(0),
+});
+
+export async function adminCreateSocialLinkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = socialLinkSchema.safeParse({
+    platform: formData.get("platform"),
+    label: formData.get("label"),
+    url: formData.get("url"),
+    sortOrder: formData.get("sortOrder") || 0,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  await db.insert(socialLinks).values(parsed.data);
+  revalidatePath("/admin/social-links");
+  revalidatePath("/", "layout");
+  return { success: "Social link added." };
+}
+
+export async function adminUpdateSocialLinkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const linkId = Number(formData.get("linkId"));
+  if (!linkId) return { error: "Missing link." };
+
+  const parsed = socialLinkSchema.safeParse({
+    platform: formData.get("platform"),
+    label: formData.get("label"),
+    url: formData.get("url"),
+    sortOrder: formData.get("sortOrder") || 0,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  await db.update(socialLinks).set(parsed.data).where(eq(socialLinks.id, linkId));
+  revalidatePath("/admin/social-links");
+  revalidatePath("/", "layout");
+  return { success: "Social link updated." };
+}
+
+export async function adminDeleteSocialLinkAction(formData: FormData) {
+  await requireAdmin();
+  const linkId = Number(formData.get("linkId"));
+  if (!linkId) return;
+  await db.delete(socialLinks).where(eq(socialLinks.id, linkId));
+  revalidatePath("/admin/social-links");
+  revalidatePath("/", "layout");
 }

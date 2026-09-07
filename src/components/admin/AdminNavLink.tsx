@@ -44,6 +44,20 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="m3.5 16.5 8.5 4.5 8.5-4.5" strokeLinejoin="round" />
     </svg>
   ),
+  file: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
+      <path d="M6 3.5h8l4 4V19a1.2 1.2 0 0 1-1.2 1.2H6.8A1.2 1.2 0 0 1 5.6 19V4.7A1.2 1.2 0 0 1 6.8 3.5H6Z" strokeLinejoin="round" />
+      <path d="M14 3.5V8h4M8.5 12.5h7M8.5 16h5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  share: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
+      <circle cx="18" cy="6" r="2.3" />
+      <circle cx="6" cy="12" r="2.3" />
+      <circle cx="18" cy="18" r="2.3" />
+      <path d="m8.1 10.9 7.8-3.8M8.1 13.1l7.8 3.8" strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
       <circle cx="12" cy="12" r="3" />

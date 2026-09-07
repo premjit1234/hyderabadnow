@@ -159,6 +159,42 @@ export const siteSettings = sqliteTable("site_settings", {
     .default(sql`(current_timestamp)`),
 });
 
+// Legal/policy pages (Terms of Use, Privacy Policy, Cookie Policy) shown in
+// the footer, at fixed routes (/terms, /privacy, /cookies). The route and
+// slug are fixed; title and body content are admin-editable from
+// /admin/legal-pages. Content is stored as plain text (paragraphs separated
+// by a blank line, "## " starts a heading) — see components/LegalContent —
+// deliberately not HTML, so admin-authored text can never inject markup.
+export const legalPages = sqliteTable("legal_pages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug", { enum: ["terms", "privacy", "cookies"] }).notNull().unique(),
+  title: text("title").notNull(),
+  content: text("content").notNull().default(""),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// Social media links shown in the header and footer. Admin-managed rows —
+// any number can be added, edited, reordered, or removed from
+// /admin/social-links. `platform` picks which icon renders (see
+// lib/social.ts / components/SocialIcon.tsx); "other" covers any platform
+// outside that fixed icon set (rendered with a generic link/globe icon).
+export const socialLinks = sqliteTable("social_links", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  platform: text("platform", {
+    enum: ["x", "linkedin", "instagram", "facebook", "youtube", "whatsapp", "other"],
+  })
+    .notNull()
+    .default("other"),
+  label: text("label").notNull(),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const inquiries = sqliteTable("inquiries", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   listingId: integer("listing_id")

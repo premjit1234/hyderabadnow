@@ -1,7 +1,8 @@
 import { db, sqlite } from "./client";
-import { users, listings, listingImages, homeTiles, projects, projectImages } from "./schema";
+import { users, listings, listingImages, homeTiles, projects, projectImages, legalPages } from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
+import { LEGAL_PAGE_DEFAULTS } from "./legal-page-defaults";
 
 async function main() {
   console.log("Seeding database...");
@@ -428,6 +429,12 @@ async function main() {
     { label: "Homes for rent", href: "/browse?listingType=rent", imageUrl: "/tiles/homes-for-rent.jpg", sortOrder: 2 },
     { label: "Featured", href: "/browse?featured=1", imageUrl: "/tiles/featured.jpg", sortOrder: 3 },
   ]);
+
+  // Terms of Use / Privacy Policy / Cookie Policy — admin-editable starter
+  // content, shown in the footer. No social links are seeded (the icon row
+  // in the header/footer just stays hidden until an admin adds a real one
+  // from /admin/social-links).
+  await db.insert(legalPages).values(LEGAL_PAGE_DEFAULTS);
 
   console.log(`Seeded ${sampleListings.length} listings across ${HYDERABAD_LOCALITIES.length} known localities.`);
   console.log("Demo login (any seeded user): password123");

@@ -30,4 +30,9 @@ fi
 # tiles became an admin-managed table.
 node_modules/.bin/tsx src/db/ensure-home-tiles.ts
 
+# Idempotent — a no-op once all three legal pages exist (fresh seed.ts run
+# above already creates them). Covers servers that were seeded before legal
+# pages existed.
+node_modules/.bin/tsx src/db/ensure-legal-pages.ts
+
 exec "$@"
