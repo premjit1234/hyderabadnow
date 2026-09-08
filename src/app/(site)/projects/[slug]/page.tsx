@@ -4,6 +4,7 @@ import { getProjectById, getProjectBySlug, getListingsByProject, getPageViewCoun
 import { propertyTypeLabel, formatPrice } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { AMENITIES, parseAmenities } from "@/lib/amenities";
+import { getVideoEmbedUrl } from "@/lib/video";
 import AmenityIcon from "@/components/AmenityIcon";
 import ProjectGallery from "@/components/ProjectGallery";
 import ProjectListingsTabs from "@/components/ProjectListingsTabs";
@@ -153,6 +154,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const amenityKeys = parseAmenities(project.amenities);
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
   const bhkList = project.bhkOptions ? project.bhkOptions.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const videoEmbedUrl = project.videoUrl ? getVideoEmbedUrl(project.videoUrl) : null;
 
   // Price bands straight from this project's own active listings — sale and
   // rent are kept separate since they're not comparable figures (an
@@ -388,6 +390,21 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
       </div>
+
+      {videoEmbedUrl && (
+        <div className="mt-10">
+          <h2 className="mb-2 text-lg font-bold text-stone-900">Video</h2>
+          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+            <iframe
+              src={videoEmbedUrl}
+              title={project.name}
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mt-10">
         <h2 className="mb-1 text-xl font-bold text-stone-900">Active Listings</h2>

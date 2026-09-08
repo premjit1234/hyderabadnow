@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
 import { resolveListingAmenities } from "@/app/admin/actions";
+import { getVideoEmbedUrl } from "@/lib/video";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -145,6 +146,7 @@ const listingSchema = z.object({
   sellerAskPrice: z.coerce.number().int().positive().optional(),
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
+  videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
 });
 
 export async function createListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -173,6 +175,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     sellerAskPrice: formData.get("sellerAskPrice") || undefined,
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
   });
 
   if (!parsed.success) {
@@ -214,6 +217,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
+      videoUrl: data.videoUrl || null,
     })
     .returning();
 

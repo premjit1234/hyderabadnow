@@ -28,7 +28,8 @@ import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES, slugifyAmenityKey } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
 import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
-import { BLOG_CATEGORIES, slugify, getVideoEmbedUrl } from "@/lib/blog";
+import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
+import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 
 export type ActionState = { error?: string; success?: string } | null;
@@ -153,6 +154,7 @@ const editListingSchema = z.object({
   sellerAskPrice: z.coerce.number().int().positive().optional(),
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
+  videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
 });
 
 export async function adminUpdateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -182,6 +184,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     sellerAskPrice: formData.get("sellerAskPrice") || undefined,
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -226,6 +229,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
+      videoUrl: data.videoUrl || null,
     })
     .where(eq(listings.id, listingId));
 
@@ -289,6 +293,7 @@ const adminCreateListingSchema = z.object({
   sellerAskPrice: z.coerce.number().int().positive().optional(),
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
+  videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
 });
 
 export async function adminCreateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -315,6 +320,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
     sellerAskPrice: formData.get("sellerAskPrice") || undefined,
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -362,6 +368,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
+      videoUrl: data.videoUrl || null,
     })
     .returning();
 
@@ -490,6 +497,7 @@ const projectSchema = z.object({
   description: z.string().optional(),
   brochureUrl: z.string().optional(),
   contactPhone: z.string().optional(),
+  videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
 });
 
 function readProjectFields(formData: FormData) {
@@ -516,6 +524,7 @@ function readProjectFields(formData: FormData) {
     description: formData.get("description") || undefined,
     brochureUrl: formData.get("brochureUrl") || undefined,
     contactPhone: formData.get("contactPhone") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
   };
 }
 
@@ -625,6 +634,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       brochureUrl: data.brochureUrl || null,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
+      videoUrl: data.videoUrl || null,
     })
     .returning();
 
@@ -699,6 +709,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       brochureUrl: data.brochureUrl || null,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
+      videoUrl: data.videoUrl || null,
     })
     .where(eq(projects.id, projectId));
 

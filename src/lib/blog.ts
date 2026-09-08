@@ -20,35 +20,7 @@ export function slugify(title: string): string {
   return slug || "post";
 }
 
-// Videos are a YouTube/Vimeo link only (see schema.ts comment on blogPosts) —
-// this both validates what an admin pastes in and converts it to the
-// embeddable player URL at render time. Deliberately strict: only these two
-// hosts are recognized, so the stored value can never end up driving an
-// <iframe src> pointed at an arbitrary site.
-export function getVideoEmbedUrl(url: string): string | null {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  const host = parsed.hostname.replace(/^www\./, "").replace(/^m\./, "");
-
-  if (host === "youtube.com") {
-    if (parsed.pathname.startsWith("/embed/")) {
-      const id = parsed.pathname.split("/")[2];
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    const id = parsed.searchParams.get("v");
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  if (host === "youtu.be") {
-    const id = parsed.pathname.slice(1);
-    return id ? `https://www.youtube.com/embed/${id}` : null;
-  }
-  if (host === "vimeo.com") {
-    const id = parsed.pathname.split("/").filter(Boolean)[0];
-    return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
-  }
-  return null;
-}
+// Moved to lib/video.ts (Sept 2026) since project and listing video links now
+// reuse the same YouTube/Vimeo embed helper — re-exported here so existing
+// imports of `getVideoEmbedUrl` from "@/lib/blog" keep working unchanged.
+export { getVideoEmbedUrl } from "./video";

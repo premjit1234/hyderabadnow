@@ -33,6 +33,7 @@ type EditableProject = {
   description: string | null;
   amenities: string | null;
   brochureUrl: string | null;
+  videoUrl: string | null;
   contactPhone: string | null;
   whatsappEnabled: boolean;
   images: { id: number; url: string }[];
@@ -170,6 +171,19 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
       <div>
         <label className={labelClass}>Brochure link (optional PDF URL)</label>
         <input name="brochureUrl" defaultValue={project?.brochureUrl ?? ""} placeholder="https://…" className={inputClass} />
+      </div>
+
+      <div>
+        <label className={labelClass}>YouTube video link (optional)</label>
+        <input
+          name="videoUrl"
+          defaultValue={project?.videoUrl ?? ""}
+          placeholder="https://www.youtube.com/watch?v=…"
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          Shown as an embedded video on the project&rsquo;s public page. YouTube or Vimeo links only.
+        </p>
       </div>
 
       <div className="rounded-lg border border-stone-200 p-4">

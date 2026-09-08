@@ -34,6 +34,7 @@ type EditableListing = {
   sellerBestPrice: number | null;
   cashRatioPercent: number | null;
   amenities: string | null;
+  videoUrl: string | null;
   images: { id: number; url: string }[];
 };
 
@@ -359,6 +360,17 @@ export default function AdminListingEditForm({
             Comma-separated. Each one is added to the shared amenity list above and selected for this listing.
           </p>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-stone-700">YouTube video link (optional)</label>
+        <input
+          name="videoUrl"
+          defaultValue={listing.videoUrl ?? ""}
+          placeholder="https://www.youtube.com/watch?v=…"
+          className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+        />
+        <p className="mt-1 text-xs text-stone-500">Shown as an embedded video on the public listing page.</p>
       </div>
 
       <div className="rounded-md border border-stone-200 bg-stone-50 p-4">

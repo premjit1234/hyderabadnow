@@ -71,6 +71,9 @@ export const projects = sqliteTable("projects", {
   description: text("description"),
   amenities: text("amenities"), // JSON-encoded string[] of amenity keys — see lib/amenities.ts
   brochureUrl: text("brochure_url"),
+  // Admin-only, same YouTube/Vimeo-only validation as blogPosts.videoUrl — see
+  // lib/video.ts's getVideoEmbedUrl.
+  videoUrl: text("video_url"),
   // Same shape as listings.contactPhone/whatsappEnabled — a project-level
   // contact number (e.g. the developer's sales desk) shown as a "Connect on
   // WhatsApp" button on the public project page. Deliberately separate from
@@ -153,6 +156,12 @@ export const listings = sqliteTable("listings", {
   // shows on the public listing page / post-listing form is admin-configurable
   // like the other listingFieldSettings-gated fields above.
   amenities: text("amenities"),
+  // Settable both by the poster (post-listing form, at creation) and by an
+  // admin (anytime, via the admin edit form) — unlike the unit-detail fields
+  // above, not gated by listingFieldSettings; always shown when present, same
+  // treatment as contactPhone/whatsappEnabled. Same YouTube/Vimeo-only
+  // validation as projects.videoUrl / blogPosts.videoUrl (lib/video.ts).
+  videoUrl: text("video_url"),
   views: integer("views").notNull().default(0),
   createdAt: text("created_at")
     .notNull()

@@ -6,6 +6,7 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
 import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
+import { getVideoEmbedUrl } from "@/lib/video";
 import InquiryForm from "@/components/InquiryForm";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
@@ -220,6 +221,27 @@ export default async function ListingDetailPage({
             </h2>
             <p className="whitespace-pre-line leading-relaxed text-stone-700">{listing.description}</p>
           </div>
+
+          {(() => {
+            const videoEmbedUrl = listing.videoUrl ? getVideoEmbedUrl(listing.videoUrl) : null;
+            if (!videoEmbedUrl) return null;
+            return (
+              <div className="mt-8">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  Video
+                </h2>
+                <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+                  <iframe
+                    src={videoEmbedUrl}
+                    title={listing.title}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            );
+          })()}
 
           {listing.address && (
             <div className="mt-8">
