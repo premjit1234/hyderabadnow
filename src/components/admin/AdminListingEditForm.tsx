@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { adminUpdateListingAction, type ActionState } from "@/app/admin/actions";
 import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
 import { parseAmenities } from "@/lib/amenities";
+import { formatPrice } from "@/lib/format";
 
 type EditableListing = {
   id: number;
@@ -14,6 +15,8 @@ type EditableListing = {
   listingType: string;
   propertyType: string;
   bhk: number | null;
+  bathrooms: number | null;
+  carParking: number | null;
   areaSqft: number | null;
   locality: string;
   city: string;
@@ -54,6 +57,7 @@ export default function AdminListingEditForm({
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminUpdateListingAction, null);
   const selectedAmenities: string[] = parseAmenities(listing.amenities);
+  const [priceInput, setPriceInput] = useState(String(listing.price));
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -110,7 +114,7 @@ export default function AdminListingEditForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">Price (₹)</label>
           <input
@@ -119,9 +123,29 @@ export default function AdminListingEditForm({
             required
             min={1}
             defaultValue={listing.price}
+            onChange={(e) => setPriceInput(e.target.value)}
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+          {priceInput !== "" && Number(priceInput) > 0 && (
+            <p className="mt-1 text-xs text-stone-500">
+              ₹{Number(priceInput).toLocaleString("en-IN")} ({formatPrice(Number(priceInput), "sale")})
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <input
+            type="number"
+            name="areaSqft"
+            required
+            min={1}
+            defaultValue={listing.areaSqft ?? undefined}
             className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">BHK</label>
           <input
@@ -134,13 +158,24 @@ export default function AdminListingEditForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bathrooms</label>
           <input
             type="number"
-            name="areaSqft"
-            required
-            min={1}
-            defaultValue={listing.areaSqft ?? undefined}
+            name="bathrooms"
+            min={0}
+            max={10}
+            defaultValue={listing.bathrooms ?? undefined}
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Car Parking</label>
+          <input
+            type="number"
+            name="carParking"
+            min={0}
+            max={10}
+            defaultValue={listing.carParking ?? undefined}
             className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
           />
         </div>

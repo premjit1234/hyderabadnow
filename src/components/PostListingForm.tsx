@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createListingAction, type ActionState } from "@/app/actions";
 import {
   FACING_OPTIONS,
@@ -8,6 +8,7 @@ import {
   INVENTORY_STATE_OPTIONS,
   type ListingFieldVisibility,
 } from "@/lib/listingFields";
+import { formatPrice } from "@/lib/format";
 
 type ProjectOption = { id: number; name: string; locality: string };
 type AmenityOption = { id: number; key: string; label: string };
@@ -27,6 +28,7 @@ export default function PostListingForm({
     createListingAction,
     null
   );
+  const [priceInput, setPriceInput] = useState("");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -82,7 +84,7 @@ export default function PostListingForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">Price (₹)</label>
           <input
@@ -91,9 +93,29 @@ export default function PostListingForm({
             required
             min={1}
             placeholder="9500000"
+            onChange={(e) => setPriceInput(e.target.value)}
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+          {priceInput !== "" && Number(priceInput) > 0 && (
+            <p className="mt-1 text-xs text-stone-500">
+              ₹{Number(priceInput).toLocaleString("en-IN")} ({formatPrice(Number(priceInput), "sale")})
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <input
+            type="number"
+            name="areaSqft"
+            required
+            min={1}
+            placeholder="1850"
             className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">BHK</label>
           <input
@@ -106,13 +128,24 @@ export default function PostListingForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bathrooms</label>
           <input
             type="number"
-            name="areaSqft"
-            required
-            min={1}
-            placeholder="1850"
+            name="bathrooms"
+            min={0}
+            max={10}
+            placeholder="2"
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Car Parking</label>
+          <input
+            type="number"
+            name="carParking"
+            min={0}
+            max={10}
+            placeholder="1"
             className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
           />
         </div>

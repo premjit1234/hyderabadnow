@@ -33,6 +33,24 @@ function AreaIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function BathIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
+      <path d="M4 12h16v3a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-3Z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M7 12V6a2 2 0 0 1 3.5-1.3M4 19v1M18 19v1" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ParkingIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 16V8h3.5a2.5 2.5 0 0 1 0 5H9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function BuildingIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
@@ -174,13 +192,31 @@ export default async function ListingDetailPage({
         <div className="lg:col-span-2">
           <ListingGallery images={images} title={listing.title} />
 
-          <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-stone-50 p-4 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-stone-50 p-4 sm:grid-cols-3">
             {listing.bhk != null && (
               <div className="flex items-center gap-2.5">
                 <BedIcon className="h-5 w-5 shrink-0 text-emerald-700" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Bedrooms</p>
                   <p className="text-sm font-semibold text-stone-900">{listing.bhk} BHK</p>
+                </div>
+              </div>
+            )}
+            {listing.bathrooms != null && (
+              <div className="flex items-center gap-2.5">
+                <BathIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-stone-500">Bathrooms</p>
+                  <p className="text-sm font-semibold text-stone-900">{listing.bathrooms}</p>
+                </div>
+              </div>
+            )}
+            {listing.carParking != null && (
+              <div className="flex items-center gap-2.5">
+                <ParkingIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-stone-500">Car Parking</p>
+                  <p className="text-sm font-semibold text-stone-900">{listing.carParking}</p>
                 </div>
               </div>
             )}

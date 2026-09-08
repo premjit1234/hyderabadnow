@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { adminCreateListingAction, type ActionState } from "@/app/admin/actions";
 import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
+import { formatPrice } from "@/lib/format";
 
 type ProjectOption = { id: number; name: string; locality: string };
 type UserOption = { id: number; name: string; email: string; role: string };
@@ -20,6 +21,7 @@ export default function AdminListingCreateForm({
   amenityCatalog: AmenityOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminCreateListingAction, null);
+  const [priceInput, setPriceInput] = useState("");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -84,18 +86,42 @@ export default function AdminListingCreateForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">Price (₹)</label>
-          <input type="number" name="price" required min={1} placeholder="9500000" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
+          <input
+            type="number"
+            name="price"
+            required
+            min={1}
+            placeholder="9500000"
+            onChange={(e) => setPriceInput(e.target.value)}
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+          {priceInput !== "" && Number(priceInput) > 0 && (
+            <p className="mt-1 text-xs text-stone-500">
+              ₹{Number(priceInput).toLocaleString("en-IN")} ({formatPrice(Number(priceInput), "sale")})
+            </p>
+          )}
         </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <input type="number" name="areaSqft" required min={1} placeholder="1850" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
           <label className="mb-1 block text-sm font-medium text-stone-700">BHK</label>
           <input type="number" name="bhk" min={0} max={10} placeholder="3" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
-          <input type="number" name="areaSqft" required min={1} placeholder="1850" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bathrooms</label>
+          <input type="number" name="bathrooms" min={0} max={10} placeholder="2" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Car Parking</label>
+          <input type="number" name="carParking" min={0} max={10} placeholder="1" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
         </div>
       </div>
 

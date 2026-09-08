@@ -104,6 +104,8 @@ export const listings = sqliteTable("listings", {
     enum: ["apartment", "villa", "independent_house", "plot", "commercial"],
   }).notNull(),
   bhk: integer("bhk"),
+  bathrooms: integer("bathrooms"),
+  carParking: integer("car_parking"),
   areaSqft: integer("area_sqft"),
   locality: text("locality").notNull(),
   city: text("city").notNull().default("Hyderabad"),
