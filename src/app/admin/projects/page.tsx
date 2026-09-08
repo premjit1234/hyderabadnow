@@ -16,12 +16,20 @@ export default async function AdminProjectsPage() {
             Developer communities. Any listing can optionally belong to one — see its Sale/Rent counts below.
           </p>
         </div>
-        <Link
-          href="/admin/projects/new"
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          + Add project
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/projects/bulk-upload"
+            className="rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+          >
+            Bulk upload
+          </Link>
+          <Link
+            href="/admin/projects/new"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            + Add project
+          </Link>
+        </div>
       </div>
 
       {allProjects.length === 0 ? (

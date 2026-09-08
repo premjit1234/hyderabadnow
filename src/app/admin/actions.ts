@@ -31,6 +31,7 @@ import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
 import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
+import { projectSchema } from "@/lib/projectValidation";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -483,34 +484,9 @@ export async function adminDeleteHomeTileAction(formData: FormData) {
 
 // ---- Admin: projects ----
 
-const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"] as const;
-const CONSTRUCTION_STATUSES = ["under_construction", "ready_to_move"] as const;
-
-const projectSchema = z.object({
-  name: z.string().min(2, "Enter a project name"),
-  developerName: z.string().optional(),
-  developerUrl: z.string().optional(),
-  locality: z.string().min(2, "Enter a locality"),
-  city: z.string().min(2, "Enter a city"),
-  propertyType: z.enum(PROPERTY_TYPES),
-  constructionStatus: z.enum(CONSTRUCTION_STATUSES),
-  areaAcres: z.coerce.number().positive().optional(),
-  totalUnits: z.coerce.number().int().positive().optional(),
-  towers: z.coerce.number().int().positive().optional(),
-  maxFloors: z.coerce.number().int().positive().optional(),
-  unitsPerFloor: z.string().optional(),
-  minAreaSqft: z.coerce.number().int().positive().optional(),
-  maxAreaSqft: z.coerce.number().int().positive().optional(),
-  bhkOptions: z.string().optional(),
-  reraApprovalYear: z.coerce.number().int().optional(),
-  possessionYear: z.coerce.number().int().optional(),
-  unitDensityPerAcre: z.coerce.number().int().positive().optional(),
-  floorAreaRatio: z.coerce.number().positive().optional(),
-  description: z.string().optional(),
-  brochureUrl: z.string().optional(),
-  contactPhone: z.string().optional(),
-  videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
-});
+// PROPERTY_TYPES, CONSTRUCTION_STATUSES and projectSchema live in
+// src/lib/projectValidation.ts (shared with the bulk-upload importer) since
+// a "use server" file like this one may only export async functions.
 
 function readProjectFields(formData: FormData) {
   return {
@@ -594,7 +570,7 @@ export async function resolveListingAmenities(formData: FormData): Promise<strin
 // (see uniqueBlogSlug above), are generated once from the name and must be
 // unique. `excludeId` lets a project keep its own slug when backfilling one
 // that's still null, rather than bumping it against itself.
-async function uniqueProjectSlug(base: string, excludeId?: number): Promise<string> {
+export async function uniqueProjectSlug(base: string, excludeId?: number): Promise<string> {
   let candidate = base;
   let n = 2;
   for (;;) {
