@@ -112,7 +112,7 @@ export default function AdminListingCreateForm({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">BHK</label>
+          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bedrooms</label>
           <input type="number" name="bhk" min={0} max={10} placeholder="3" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
         </div>
         <div>

@@ -56,8 +56,8 @@ export default function ListingCard({ listing }: { listing: ListingCardData }) {
         <p className="text-sm text-stone-500">{listing.locality}, Hyderabad</p>
         <div className="mt-1 flex items-center gap-3 text-xs text-stone-500">
           {listing.bhk ? <span>{listing.bhk} BHK</span> : null}
-          {listing.bathrooms ? <span>{listing.bathrooms} Bath</span> : null}
-          {listing.carParking ? <span>{listing.carParking} Parking</span> : null}
+          {listing.bathrooms ? <span>{listing.bathrooms} Bathrooms</span> : null}
+          {listing.carParking ? <span>{listing.carParking} Car Parking</span> : null}
           {listing.areaSqft ? <span>{listing.areaSqft.toLocaleString("en-IN")} sqft</span> : null}
           <span>{propertyTypeLabel(listing.propertyType)}</span>
         </div>

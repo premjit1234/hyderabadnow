@@ -239,11 +239,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </div>
 
-          <p className="mt-4 rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-600">
+          <a
+            href="#active-listings"
+            className="mt-4 block rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-600 underline-offset-2 transition hover:bg-stone-100 hover:text-emerald-700 hover:underline"
+          >
             {saleListings.length + rentListings.length} active listing
             {saleListings.length + rentListings.length === 1 ? "" : "s"} in this project — {saleListings.length} for
             sale, {rentListings.length} for rent.
-          </p>
+          </a>
 
           {(salePriceRange || rentPriceRange) && (
             <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
@@ -406,7 +409,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      <div className="mt-10">
+      <div id="active-listings" className="mt-10 scroll-mt-24">
         <h2 className="mb-1 text-xl font-bold text-stone-900">Active Listings</h2>
         <p className="mb-5 text-sm text-stone-500">Available units in this community</p>
         <ProjectListingsTabs saleListings={saleListings} rentListings={rentListings} />
