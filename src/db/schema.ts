@@ -46,6 +46,12 @@ export const projects = sqliteTable("projects", {
   developerUrl: text("developer_url"),
   locality: text("locality").notNull(),
   city: text("city").notNull().default("Hyderabad"),
+  // Auto-filled by geocoding the locality/city text (see src/lib/geocode.ts)
+  // whenever a project is created or its locality/city changes — never set
+  // by hand. Null just means "no pin yet" (geocoding failed, or hasn't run
+  // yet on older rows) — every other feature works fine without it.
+  latitude: real("latitude"),
+  longitude: real("longitude"),
   propertyType: text("property_type", {
     enum: ["apartment", "villa", "independent_house", "plot", "commercial"],
   })

@@ -32,6 +32,7 @@ import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { projectSchema } from "@/lib/projectValidation";
+import { geocodeLocality } from "@/lib/geocode";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -593,6 +594,9 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
   }
 
   const slug = await uniqueProjectSlug(slugify(data.name));
+  // Best-effort — a project with no coordinates just shows no pin on the
+  // map (see /projects's map view), it's never a reason to fail the save.
+  const geo = await geocodeLocality(data.locality, data.city);
 
   const [project] = await db
     .insert(projects)
@@ -603,6 +607,8 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       developerUrl: data.developerUrl || null,
       locality: data.locality,
       city: data.city,
+      latitude: geo?.latitude ?? null,
+      longitude: geo?.longitude ?? null,
       propertyType: data.propertyType,
       constructionStatus: data.constructionStatus,
       areaAcres: data.areaAcres ?? null,
@@ -665,9 +671,17 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   // than leaving it stuck on the old numeric URL until the next deploy.
   const existingProject = await db.query.projects.findFirst({
     where: eq(projects.id, projectId),
-    columns: { slug: true },
+    columns: { slug: true, locality: true, city: true, latitude: true, longitude: true },
   });
   const slug = existingProject?.slug || (await uniqueProjectSlug(slugify(data.name), projectId));
+
+  // Only re-geocode when the locality/city text actually changed — an
+  // unrelated edit (say, updating the price range) shouldn't cost a network
+  // round-trip or risk losing a pin to a transient geocoding failure.
+  const localityChanged = !existingProject || existingProject.locality !== data.locality || existingProject.city !== data.city;
+  const geo = localityChanged ? await geocodeLocality(data.locality, data.city) : null;
+  const latitude = localityChanged ? (geo?.latitude ?? null) : (existingProject?.latitude ?? null);
+  const longitude = localityChanged ? (geo?.longitude ?? null) : (existingProject?.longitude ?? null);
 
   await db
     .update(projects)
@@ -678,6 +692,8 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       developerUrl: data.developerUrl || null,
       locality: data.locality,
       city: data.city,
+      latitude,
+      longitude,
       propertyType: data.propertyType,
       constructionStatus: data.constructionStatus,
       areaAcres: data.areaAcres ?? null,

@@ -15,6 +15,7 @@ import { projects } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { slugify } from "@/lib/blog";
 import { uniqueProjectSlug } from "@/app/admin/actions";
+import { geocodeLocality, sleep } from "@/lib/geocode";
 import { parseBulkProjectsWorkbook, validateBulkProjectRow, type BulkRowResult, type BulkProjectFields } from "@/lib/bulkProjects";
 
 async function requireAdmin() {
@@ -84,6 +85,11 @@ export async function commitBulkProjects(
     const data = result.data;
     try {
       const slug = await uniqueProjectSlug(slugify(data.name));
+      // Nominatim (the free geocoder) caps free use at ~1 request/second —
+      // space bulk rows out rather than firing them concurrently. A row
+      // that fails to geocode still imports, just without a map pin.
+      if (created.length + failed.length > 0) await sleep(1100);
+      const geo = await geocodeLocality(data.locality, data.city);
       const [project] = await db
         .insert(projects)
         .values({
@@ -93,6 +99,8 @@ export async function commitBulkProjects(
           developerUrl: data.developerUrl,
           locality: data.locality,
           city: data.city,
+          latitude: geo?.latitude ?? null,
+          longitude: geo?.longitude ?? null,
           propertyType: data.propertyType,
           constructionStatus: data.constructionStatus,
           areaAcres: data.areaAcres,

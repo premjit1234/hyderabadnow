@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { getProjectsForPublic, getLocationNames } from "@/db/queries";
 import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
+import ProjectsViewSwitcher from "@/components/ProjectsViewSwitcher";
+import ProjectsMap from "@/components/ProjectsMap";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 const BHK_OPTIONS = [1, 2, 3, 4, 5];
@@ -40,142 +42,112 @@ export default async function ProjectsPage({
         Gated communities and developer-built projects with active listings.
       </p>
 
-      <div className="flex flex-col gap-8 lg:flex-row">
-        <aside className="lg:w-64 lg:shrink-0">
-          <form method="GET" className="flex flex-col gap-4 rounded-lg border border-stone-200 p-4">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Search
-              </label>
+      <form
+        method="GET"
+        className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white p-3"
+      >
+        <input
+          type="text"
+          name="q"
+          defaultValue={q}
+          placeholder="Project or developer name"
+          className="min-w-[180px] flex-1 rounded-full border border-stone-300 px-4 py-2 text-sm"
+        />
+        <select
+          name="locality"
+          defaultValue={locality ?? ""}
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700"
+        >
+          <option value="">Any locality</option>
+          {localities.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select
+          name="propertyType"
+          defaultValue={propertyType ?? ""}
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700"
+        >
+          <option value="">Property type</option>
+          {PROPERTY_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {propertyTypeLabel(t)}
+            </option>
+          ))}
+        </select>
+        <select
+          name="constructionStatus"
+          defaultValue={constructionStatus ?? ""}
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700"
+        >
+          <option value="">Any status</option>
+          <option value="ready_to_move">Ready to move</option>
+          <option value="under_construction">Under construction</option>
+        </select>
+        <select
+          name="bhk"
+          defaultValue={bhk ? String(bhk) : ""}
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700"
+        >
+          <option value="">Beds &amp; baths</option>
+          {BHK_OPTIONS.map((n) => (
+            <option key={n} value={n}>
+              {n} BHK
+            </option>
+          ))}
+        </select>
+        <select
+          name="sort"
+          defaultValue={sort}
+          className="rounded-full border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700"
+        >
+          <option value="newest">Newest</option>
+          <option value="name">Name (A–Z)</option>
+          <option value="price_asc">Price (low to high)</option>
+        </select>
+        <details className="relative">
+          <summary className="list-none rounded-full border border-stone-300 px-3 py-2 text-sm text-stone-700 select-none [&::-webkit-details-marker]:hidden">
+            Area range ▾
+          </summary>
+          <div className="absolute right-0 z-10 mt-2 w-64 rounded-lg border border-stone-200 bg-white p-3 shadow-lg">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Area (sqft)</p>
+            <div className="grid grid-cols-2 gap-2">
               <input
-                type="text"
-                name="q"
-                defaultValue={q}
-                placeholder="Project or developer name"
+                type="number"
+                name="minArea"
+                defaultValue={minArea}
+                placeholder="Min"
+                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              />
+              <input
+                type="number"
+                name="maxArea"
+                defaultValue={maxArea}
+                placeholder="Max"
                 className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
               />
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Locality
-              </label>
-              <select
-                name="locality"
-                defaultValue={locality ?? ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                {localities.map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Property type
-              </label>
-              <select
-                name="propertyType"
-                defaultValue={propertyType ?? ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {propertyTypeLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Construction status
-              </label>
-              <select
-                name="constructionStatus"
-                defaultValue={constructionStatus ?? ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                <option value="ready_to_move">Ready to move</option>
-                <option value="under_construction">Under construction</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Bedrooms (BHK)
-              </label>
-              <select
-                name="bhk"
-                defaultValue={bhk ? String(bhk) : ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                {BHK_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n} BHK
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  Min area (sqft)
-                </label>
-                <input
-                  type="number"
-                  name="minArea"
-                  defaultValue={minArea}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  Max area (sqft)
-                </label>
-                <input
-                  type="number"
-                  name="maxArea"
-                  defaultValue={maxArea}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Sort by
-              </label>
-              <select
-                name="sort"
-                defaultValue={sort}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="newest">Newest</option>
-                <option value="name">Name (A–Z)</option>
-                <option value="price_asc">Price (low to high)</option>
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="rounded-md bg-emerald-700 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-            >
-              Apply filters
-            </button>
-            {hasFilters && (
-              <a href="/projects" className="text-center text-xs text-stone-500 hover:underline">
-                Clear filters
-              </a>
-            )}
-          </form>
-        </aside>
+          </div>
+        </details>
+        <button
+          type="submit"
+          className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+        >
+          Apply
+        </button>
+        {hasFilters && (
+          <a href="/projects" className="text-xs text-stone-500 hover:underline">
+            Clear filters
+          </a>
+        )}
+      </form>
 
-        <div className="flex-1">
-          <p className="mb-4 text-sm text-stone-500">
-            {allProjects.length} {allProjects.length === 1 ? "project" : "projects"} found
-          </p>
+      <div>
+        <p className="mb-4 text-sm text-stone-500">
+          {allProjects.length} {allProjects.length === 1 ? "project" : "projects"} found
+        </p>
 
           {allProjects.length === 0 ? (
             <p className="rounded-xl border border-dashed border-stone-300 bg-stone-50 p-10 text-center text-stone-500">
@@ -184,6 +156,28 @@ export default async function ProjectsPage({
                 : "No projects listed yet — check back soon."}
             </p>
           ) : (
+            <ProjectsViewSwitcher
+              map={
+                <ProjectsMap
+                  projects={allProjects.map((p) => ({
+                    id: p.id,
+                    slug: p.slug,
+                    name: p.name,
+                    locality: p.locality,
+                    city: p.city,
+                    latitude: p.latitude,
+                    longitude: p.longitude,
+                    propertyType: p.propertyType,
+                    constructionStatus: p.constructionStatus,
+                    imageUrl: p.imageUrl,
+                    minSalePrice: p.minSalePrice,
+                    minRentPrice: p.minRentPrice,
+                    saleListings: p.saleListings,
+                    rentListings: p.rentListings,
+                  }))}
+                />
+              }
+              grid={
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {allProjects.map((p) => {
                 const startingPrice = p.minSalePrice ?? p.minRentPrice;
@@ -256,9 +250,10 @@ export default async function ProjectsPage({
                 );
               })}
             </div>
+              }
+            />
           )}
         </div>
-      </div>
     </main>
   );
 }

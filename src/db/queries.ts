@@ -412,6 +412,8 @@ export async function getProjectsForPublic(filters: ProjectFilters = {}) {
       name: projects.name,
       locality: projects.locality,
       city: projects.city,
+      latitude: projects.latitude,
+      longitude: projects.longitude,
       propertyType: projects.propertyType,
       constructionStatus: projects.constructionStatus,
       totalUnits: projects.totalUnits,

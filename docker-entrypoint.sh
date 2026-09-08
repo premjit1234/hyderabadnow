@@ -77,4 +77,10 @@ node_modules/.bin/tsx src/db/ensure-project-slugs.ts
 # before listing amenities became a db-backed, admin-extensible catalog.
 node_modules/.bin/tsx src/db/ensure-amenity-catalog.ts
 
+# Idempotent — a no-op once every project already has map coordinates.
+# Covers projects created before the /projects map view existed; geocodes
+# each one's locality via a free, rate-limited service, so this can add a
+# few seconds to startup on a server with many un-geocoded projects.
+node_modules/.bin/tsx src/db/ensure-project-coordinates.ts
+
 exec "$@"
