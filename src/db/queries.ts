@@ -349,6 +349,7 @@ export async function getAllProjectsForAdmin() {
   return db
     .select({
       id: projects.id,
+      slug: projects.slug,
       name: projects.name,
       locality: projects.locality,
       propertyType: projects.propertyType,
@@ -402,6 +403,7 @@ export async function getProjectsForPublic(filters: ProjectFilters = {}) {
   return db
     .select({
       id: projects.id,
+      slug: projects.slug,
       name: projects.name,
       locality: projects.locality,
       city: projects.city,
@@ -432,6 +434,22 @@ export async function getProjectById(id: number) {
     .select()
     .from(projectImages)
     .where(eq(projectImages.projectId, id))
+    .orderBy(projectImages.sortOrder);
+
+  return { ...project, images };
+}
+
+/** Looks up a project by its public URL slug (/projects/[slug]) — the
+ * primary lookup for the public project page now that it's name-based
+ * rather than /projects/[id]. */
+export async function getProjectBySlug(slug: string) {
+  const project = await db.query.projects.findFirst({ where: eq(projects.slug, slug) });
+  if (!project) return null;
+
+  const images = await db
+    .select()
+    .from(projectImages)
+    .where(eq(projectImages.projectId, project.id))
     .orderBy(projectImages.sortOrder);
 
   return { ...project, images };

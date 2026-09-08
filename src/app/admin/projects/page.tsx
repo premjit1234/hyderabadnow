@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getAllProjectsForAdmin } from "@/db/queries";
 import { adminDeleteProjectAction } from "@/app/admin/actions";
+import { projectHref } from "@/lib/format";
 
 export default async function AdminProjectsPage() {
   const allProjects = await getAllProjectsForAdmin();
@@ -48,7 +49,7 @@ export default async function AdminProjectsPage() {
                       <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-stone-100">
                         {p.imageUrl && <Image src={p.imageUrl} alt="" fill sizes="60px" className="object-cover" />}
                       </div>
-                      <Link href={`/projects/${p.id}`} className="font-medium text-stone-900 hover:text-indigo-700">
+                      <Link href={projectHref(p)} className="font-medium text-stone-900 hover:text-indigo-700">
                         {p.name}
                       </Link>
                     </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListingById, getProjectsForSelect, getLocationNames } from "@/db/queries";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, projectHref } from "@/lib/format";
 import AdminListingEditForm from "@/components/admin/AdminListingEditForm";
 
 export default async function AdminEditListingPage({
@@ -56,7 +56,7 @@ export default async function AdminEditListingPage({
         {listing.project && (
           <div className="col-span-2 sm:col-span-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Project</p>
-            <Link href={`/projects/${listing.project.id}`} className="text-sm font-medium text-indigo-600 hover:underline">
+            <Link href={projectHref(listing.project)} className="text-sm font-medium text-indigo-600 hover:underline">
               {listing.project.name} →
             </Link>
           </div>

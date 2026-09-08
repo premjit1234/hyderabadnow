@@ -520,6 +520,20 @@ function resolveProjectAmenities(formData: FormData): string {
   return JSON.stringify(selected);
 }
 
+// Slugs power the public /projects/[slug] URL and, like blog post slugs
+// (see uniqueBlogSlug above), are generated once from the name and must be
+// unique. `excludeId` lets a project keep its own slug when backfilling one
+// that's still null, rather than bumping it against itself.
+async function uniqueProjectSlug(base: string, excludeId?: number): Promise<string> {
+  let candidate = base;
+  let n = 2;
+  for (;;) {
+    const existing = await db.query.projects.findFirst({ where: eq(projects.slug, candidate) });
+    if (!existing || existing.id === excludeId) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
 export async function adminCreateProjectAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAdmin();
   const parsed = projectSchema.safeParse(readProjectFields(formData));
@@ -532,9 +546,12 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
   }
 
+  const slug = await uniqueProjectSlug(slugify(data.name));
+
   const [project] = await db
     .insert(projects)
     .values({
+      slug,
       name: data.name,
       developerName: data.developerName || null,
       developerUrl: data.developerUrl || null,
@@ -593,9 +610,22 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
   }
 
+  // Slug is stable once set — an edited name never changes an
+  // already-shared/bookmarked project URL out from under people (same rule
+  // as blog posts). The one exception is a project that somehow still has
+  // no slug at all (a legacy row not yet reached by
+  // src/db/ensure-project-slugs.ts) — this backfills one on the spot rather
+  // than leaving it stuck on the old numeric URL until the next deploy.
+  const existingProject = await db.query.projects.findFirst({
+    where: eq(projects.id, projectId),
+    columns: { slug: true },
+  });
+  const slug = existingProject?.slug || (await uniqueProjectSlug(slugify(data.name), projectId));
+
   await db
     .update(projects)
     .set({
+      slug,
       name: data.name,
       developerName: data.developerName || null,
       developerUrl: data.developerUrl || null,
@@ -650,7 +680,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
 
   revalidatePath("/admin/projects");
   revalidatePath(`/admin/projects/${projectId}/edit`);
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${slug}`);
   redirect(`/admin/projects/${projectId}/edit?saved=1`);
 }
 

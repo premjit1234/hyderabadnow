@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListingById, getListingFieldSettings } from "@/db/queries";
-import { formatPrice, propertyTypeLabel } from "@/lib/format";
+import { formatPrice, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
@@ -134,7 +134,7 @@ export default async function ListingDetailPage({
           </h1>
           {listing.project && (
             <Link
-              href={`/projects/${listing.project.id}`}
+              href={projectHref(listing.project)}
               className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:underline"
             >
               Part of {listing.project.name} →
@@ -321,7 +321,7 @@ export default async function ListingDetailPage({
                       {project.developerName && <p className="text-sm text-stone-500">by {project.developerName}</p>}
                     </div>
                     <Link
-                      href={`/projects/${project.id}`}
+                      href={projectHref(project)}
                       className="whitespace-nowrap rounded-md bg-stone-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-stone-800"
                     >
                       View project details →

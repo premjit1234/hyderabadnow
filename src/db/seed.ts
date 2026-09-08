@@ -89,6 +89,7 @@ async function main() {
   const [skylineProject] = await db
     .insert(projects)
     .values({
+      slug: "skyline-residency",
       name: "Skyline Residency",
       developerName: "Reddy Realty Hyderabad",
       locality: "Gachibowli",
@@ -135,6 +136,7 @@ async function main() {
   const [emeraldProject] = await db
     .insert(projects)
     .values({
+      slug: "emerald-greens",
       name: "Emerald Greens",
       developerName: "Kumar Properties",
       locality: "Kondapur",

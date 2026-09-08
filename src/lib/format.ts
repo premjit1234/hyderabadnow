@@ -18,6 +18,15 @@ export function formatDate(value: string | Date) {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** Builds a project's public URL. Prefers the name-based slug; falls back to
+ * the numeric id for the brief window between a schema migration adding
+ * projects.slug and src/db/ensure-project-slugs.ts backfilling it (or if a
+ * slug somehow failed to generate) — the [slug] route accepts either and
+ * redirects an id lookup to the canonical slug URL once one exists. */
+export function projectHref(project: { id: number; slug: string | null }) {
+  return `/projects/${project.slug || project.id}`;
+}
+
 export function propertyTypeLabel(type: string) {
   const map: Record<string, string> = {
     apartment: "Apartment",

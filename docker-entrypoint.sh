@@ -66,4 +66,10 @@ node_modules/.bin/tsx src/db/ensure-legal-pages.ts
 # before localities became an admin-managed table.
 node_modules/.bin/tsx src/db/ensure-locations.ts
 
+# Idempotent — a no-op once every project already has a slug. Covers
+# projects created before /projects/[id] became /projects/[slug]; must run
+# before the app starts serving so a legacy project's public page is never
+# briefly unreachable.
+node_modules/.bin/tsx src/db/ensure-project-slugs.ts
+
 exec "$@"

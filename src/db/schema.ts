@@ -32,6 +32,16 @@ export const users = sqliteTable("users", {
 export const projects = sqliteTable("projects", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
+  // URL-friendly identifier for the public /projects/[slug] page (e.g.
+  // "aparna-cyber-heights"), generated from name at creation time — see
+  // uniqueProjectSlug() in admin/actions.ts. Nullable at the DB level (a
+  // brand-new column on an existing table can't retroactively be NOT NULL
+  // for old rows) even though the app always sets one on create; projects
+  // that pre-date this column get one filled in by
+  // src/db/ensure-project-slugs.ts at container start. A unique index still
+  // applies — SQLite treats multiple NULLs there as distinct, so it doesn't
+  // block on not-yet-backfilled rows.
+  slug: text("slug").unique(),
   developerName: text("developer_name"),
   developerUrl: text("developer_url"),
   locality: text("locality").notNull(),

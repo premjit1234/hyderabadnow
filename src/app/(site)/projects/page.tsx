@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getProjectsForPublic, getLocationNames } from "@/db/queries";
-import { propertyTypeLabel, formatPrice } from "@/lib/format";
+import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 const BHK_OPTIONS = [1, 2, 3, 4, 5];
@@ -216,7 +216,7 @@ export default async function ProjectsPage({
                     </div>
                     <div className="flex flex-1 flex-col gap-1 p-3.5">
                       <Link
-                        href={`/projects/${p.id}`}
+                        href={projectHref(p)}
                         className="line-clamp-1 text-base font-bold text-stone-900 hover:underline"
                       >
                         <span className="absolute inset-0" />
