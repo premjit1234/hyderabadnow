@@ -33,4 +33,11 @@ export const projectSchema = z.object({
   brochureUrl: z.string().optional(),
   contactPhone: z.string().optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  // Set only when an admin has manually placed/dragged the pin in
+  // LocationPicker (see ProjectForm.tsx) — absent otherwise, in which case
+  // adminCreateProjectAction/adminUpdateProjectAction fall back to
+  // geocoding the locality text as before. When present, both must be
+  // present together (LocationPicker always submits them as a pair).
+  latitude: z.coerce.number().min(-90, "Latitude must be between -90 and 90").max(90, "Latitude must be between -90 and 90").optional(),
+  longitude: z.coerce.number().min(-180, "Longitude must be between -180 and 180").max(180, "Longitude must be between -180 and 180").optional(),
 });

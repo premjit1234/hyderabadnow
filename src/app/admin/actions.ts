@@ -514,6 +514,8 @@ function readProjectFields(formData: FormData) {
     brochureUrl: formData.get("brochureUrl") || undefined,
     contactPhone: formData.get("contactPhone") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    latitude: formData.get("latitude") || undefined,
+    longitude: formData.get("longitude") || undefined,
   };
 }
 
@@ -594,9 +596,13 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
   }
 
   const slug = await uniqueProjectSlug(slugify(data.name));
-  // Best-effort — a project with no coordinates just shows no pin on the
-  // map (see /projects's map view), it's never a reason to fail the save.
-  const geo = await geocodeLocality(data.locality, data.city);
+  // An admin who placed the pin manually in LocationPicker (ProjectForm.tsx)
+  // wins outright — no need to spend a geocoding round-trip on locality text
+  // when we already have the exact spot. Otherwise fall back to geocoding,
+  // best-effort: a project with no coordinates just shows no pin on the map
+  // (see /projects's map view), it's never a reason to fail the save.
+  const manualPin = data.latitude != null && data.longitude != null;
+  const geo = manualPin ? null : await geocodeLocality(data.locality, data.city);
 
   const [project] = await db
     .insert(projects)
@@ -607,8 +613,8 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       developerUrl: data.developerUrl || null,
       locality: data.locality,
       city: data.city,
-      latitude: geo?.latitude ?? null,
-      longitude: geo?.longitude ?? null,
+      latitude: manualPin ? data.latitude! : (geo?.latitude ?? null),
+      longitude: manualPin ? data.longitude! : (geo?.longitude ?? null),
       propertyType: data.propertyType,
       constructionStatus: data.constructionStatus,
       areaAcres: data.areaAcres ?? null,
@@ -675,13 +681,19 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   });
   const slug = existingProject?.slug || (await uniqueProjectSlug(slugify(data.name), projectId));
 
-  // Only re-geocode when the locality/city text actually changed — an
-  // unrelated edit (say, updating the price range) shouldn't cost a network
-  // round-trip or risk losing a pin to a transient geocoding failure.
+  // A pin the admin placed by hand in LocationPicker this submission (see
+  // ProjectForm.tsx) always wins — it's the whole point of that control, and
+  // it must survive even when the locality text changes in the same save.
+  // Absent that, fall back to the existing behavior: only re-geocode when
+  // the locality/city text actually changed (an unrelated edit, say
+  // updating the price range, shouldn't cost a network round-trip or risk
+  // losing a pin to a transient geocoding failure), otherwise keep whatever
+  // pin the project already had.
+  const manualPin = data.latitude != null && data.longitude != null;
   const localityChanged = !existingProject || existingProject.locality !== data.locality || existingProject.city !== data.city;
-  const geo = localityChanged ? await geocodeLocality(data.locality, data.city) : null;
-  const latitude = localityChanged ? (geo?.latitude ?? null) : (existingProject?.latitude ?? null);
-  const longitude = localityChanged ? (geo?.longitude ?? null) : (existingProject?.longitude ?? null);
+  const geo = !manualPin && localityChanged ? await geocodeLocality(data.locality, data.city) : null;
+  const latitude = manualPin ? data.latitude! : localityChanged ? (geo?.latitude ?? null) : (existingProject?.latitude ?? null);
+  const longitude = manualPin ? data.longitude! : localityChanged ? (geo?.longitude ?? null) : (existingProject?.longitude ?? null);
 
   await db
     .update(projects)

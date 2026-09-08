@@ -8,6 +8,7 @@ import {
   type ActionState,
 } from "@/app/admin/actions";
 import { AMENITIES } from "@/lib/amenities";
+import LocationPicker from "@/components/admin/LocationPicker";
 
 type EditableProject = {
   id: number;
@@ -16,6 +17,8 @@ type EditableProject = {
   developerUrl: string | null;
   locality: string;
   city: string;
+  latitude: number | null;
+  longitude: number | null;
   propertyType: string;
   constructionStatus: string;
   areaAcres: number | null;
@@ -82,6 +85,8 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
           <input name="city" required defaultValue={project?.city ?? "Hyderabad"} className={inputClass} />
         </div>
       </div>
+
+      <LocationPicker defaultLatitude={project?.latitude ?? null} defaultLongitude={project?.longitude ?? null} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
