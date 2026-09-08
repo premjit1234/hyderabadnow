@@ -1,11 +1,12 @@
-import { getProjectsForSelect, getAllUsersForAdmin, getLocationNames } from "@/db/queries";
+import { getProjectsForSelect, getAllUsersForAdmin, getLocationNames, getAmenityCatalog } from "@/db/queries";
 import AdminListingCreateForm from "@/components/admin/AdminListingCreateForm";
 
 export default async function AdminNewListingPage() {
-  const [projects, users, localities] = await Promise.all([
+  const [projects, users, localities, amenityCatalog] = await Promise.all([
     getProjectsForSelect(),
     getAllUsersForAdmin(),
     getLocationNames(),
+    getAmenityCatalog(),
   ]);
 
   return (
@@ -14,7 +15,7 @@ export default async function AdminNewListingPage() {
       <p className="mt-1 mb-6 text-sm text-stone-500">
         Post a listing on behalf of any user — useful for properties called in over the phone.
       </p>
-      <AdminListingCreateForm projects={projects} users={users} localities={localities} />
+      <AdminListingCreateForm projects={projects} users={users} localities={localities} amenityCatalog={amenityCatalog} />
     </div>
   );
 }

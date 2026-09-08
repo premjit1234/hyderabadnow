@@ -20,11 +20,12 @@ import {
   blogImages,
   blogComments,
   locations,
+  amenityCatalog,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
 import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
-import { AMENITIES } from "@/lib/amenities";
+import { AMENITIES, slugifyAmenityKey } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
 import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
 import { BLOG_CATEGORIES, slugify, getVideoEmbedUrl } from "@/lib/blog";
@@ -194,6 +195,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
   }
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
+  const amenities = await resolveListingAmenities(formData);
 
   await db
     .update(listings)
@@ -223,6 +225,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       sellerAskPrice: data.sellerAskPrice ?? null,
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
+      amenities,
     })
     .where(eq(listings.id, listingId));
 
@@ -329,6 +332,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
   const verified = formData.get("verified") === "on";
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
+  const amenities = await resolveListingAmenities(formData);
 
   const [listing] = await db
     .insert(listings)
@@ -357,6 +361,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       sellerAskPrice: data.sellerAskPrice ?? null,
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
+      amenities,
     })
     .returning();
 
@@ -518,6 +523,50 @@ function resolveProjectAmenities(formData: FormData): string {
   const known = new Set(AMENITIES.map((a) => a.key));
   const selected = formData.getAll("amenities").filter((v): v is string => typeof v === "string" && known.has(v));
   return JSON.stringify(selected);
+}
+
+// Resolves a listing's final amenity selection from its submitted form:
+// existing amenityCatalog entries checked (see schema.ts), plus any
+// admin-typed new amenity names — which get inserted into that shared
+// catalog table so they immediately become selectable for every other
+// listing too. Regular agents/owners posting from the public form
+// (PostListingForm) only ever see checkboxes for the existing catalog — the
+// "add a new amenity" text box is admin-only (AdminListingCreateForm /
+// AdminListingEditForm) — so the "newAmenities" field this reads is simply
+// absent/empty on a public submission, and no new rows get inserted then.
+// Exported so app/actions.ts's public createListingAction can share it too.
+export async function resolveListingAmenities(formData: FormData): Promise<string> {
+  const catalog = await db.select().from(amenityCatalog);
+  const catalogKeys = new Set(catalog.map((a) => a.key));
+  const selected = new Set(
+    formData.getAll("amenities").filter((v): v is string => typeof v === "string" && catalogKeys.has(v))
+  );
+
+  const newAmenitiesRaw = formData.get("newAmenities");
+  if (typeof newAmenitiesRaw === "string" && newAmenitiesRaw.trim()) {
+    const labels = newAmenitiesRaw
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const label of labels) {
+      const existingByLabel = catalog.find((a) => a.label.toLowerCase() === label.toLowerCase());
+      if (existingByLabel) {
+        selected.add(existingByLabel.key);
+        continue;
+      }
+      const base = slugifyAmenityKey(label);
+      let key = base;
+      let n = 2;
+      while (catalogKeys.has(key)) key = `${base}_${n++}`;
+      await db.insert(amenityCatalog).values({ key, label });
+      catalogKeys.add(key);
+      catalog.push({ id: -1, key, label, sortOrder: 0, createdAt: "" });
+      selected.add(key);
+    }
+  }
+
+  return JSON.stringify(Array.from(selected));
 }
 
 // Slugs power the public /projects/[slug] URL and, like blog post slugs

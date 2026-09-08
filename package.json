@@ -15,7 +15,8 @@
     "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts",
     "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts",
     "db:ensure-locations": "tsx src/db/ensure-locations.ts",
-    "db:ensure-project-slugs": "tsx src/db/ensure-project-slugs.ts"
+    "db:ensure-project-slugs": "tsx src/db/ensure-project-slugs.ts",
+    "db:ensure-amenity-catalog": "tsx src/db/ensure-amenity-catalog.ts"
   },
   "dependencies": {
     "@types/sanitize-html": "^2.16.1",

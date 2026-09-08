@@ -6,15 +6,18 @@ import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/l
 
 type ProjectOption = { id: number; name: string; locality: string };
 type UserOption = { id: number; name: string; email: string; role: string };
+type AmenityOption = { id: number; key: string; label: string };
 
 export default function AdminListingCreateForm({
   projects,
   users,
   localities,
+  amenityCatalog,
 }: {
   projects: ProjectOption[];
   users: UserOption[];
   localities: string[];
+  amenityCatalog: AmenityOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminCreateListingAction, null);
 
@@ -180,6 +183,33 @@ export default function AdminListingCreateForm({
             <label className="mb-1 block text-sm font-medium text-stone-700">Cash Ratio (%)</label>
             <input type="number" name="cashRatioPercent" min={0} max={100} placeholder="e.g. 30" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-stone-200 p-4">
+        <p className="mb-1 text-sm font-semibold text-stone-900">Amenities</p>
+        <p className="mb-3 text-xs text-stone-500">
+          Toggle in Admin → Listing fields to control whether this shows on the public listing page and post-listing
+          form.
+        </p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+          {amenityCatalog.map((a) => (
+            <label key={a.key} className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" name="amenities" value={a.key} className="h-4 w-4" />
+              {a.label}
+            </label>
+          ))}
+        </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-sm font-medium text-stone-700">Add new amenities (optional)</label>
+          <input
+            name="newAmenities"
+            placeholder="e.g. Rooftop Deck, Co-working Lounge"
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            Comma-separated. Each one is added to the shared amenity list above and selected for this listing.
+          </p>
         </div>
       </div>
 

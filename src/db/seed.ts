@@ -10,9 +10,11 @@ import {
   legalPages,
   blogPosts,
   locations,
+  amenityCatalog,
 } from "./schema";
 import { hashPassword } from "../lib/auth";
 import { HYDERABAD_LOCALITIES } from "../lib/localities";
+import { AMENITIES } from "../lib/amenities";
 import { LEGAL_PAGE_DEFAULTS } from "./legal-page-defaults";
 
 async function main() {
@@ -20,7 +22,7 @@ async function main() {
 
   // Clear existing data (dev convenience)
   sqlite.exec(
-    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects; DELETE FROM blog_comments; DELETE FROM blog_images; DELETE FROM blog_posts; DELETE FROM locations;"
+    "DELETE FROM listing_images; DELETE FROM inquiries; DELETE FROM listings; DELETE FROM users; DELETE FROM home_tiles; DELETE FROM project_images; DELETE FROM projects; DELETE FROM blog_comments; DELETE FROM blog_images; DELETE FROM blog_posts; DELETE FROM locations; DELETE FROM amenity_catalog;"
   );
 
   const demoPasswordHash = await hashPassword("password123");
@@ -484,6 +486,14 @@ async function main() {
   // reads HYDERABAD_LOCALITIES directly anymore. An admin can add, rename,
   // or remove these from /admin/locations at any time afterward.
   await db.insert(locations).values(HYDERABAD_LOCALITIES.map((name, i) => ({ name, sortOrder: i })));
+
+  // Starting rows for the admin-managed "amenity_catalog" table (see
+  // schema.ts) — this seed script's bootstrap data now; an admin can add,
+  // rename (by adding a differently-spelled new one), or remove these from a
+  // listing's amenities picker at any time afterward.
+  await db
+    .insert(amenityCatalog)
+    .values(AMENITIES.map((a, i) => ({ key: a.key, label: a.label, sortOrder: i })));
 
   console.log(`Seeded ${sampleListings.length} listings across ${HYDERABAD_LOCALITIES.length} known localities.`);
   console.log("Demo login (any seeded user): password123");

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState } from "react";
 import { adminUpdateListingAction, type ActionState } from "@/app/admin/actions";
 import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
+import { parseAmenities } from "@/lib/amenities";
 
 type EditableListing = {
   id: number;
@@ -32,21 +33,26 @@ type EditableListing = {
   sellerAskPrice: number | null;
   sellerBestPrice: number | null;
   cashRatioPercent: number | null;
+  amenities: string | null;
   images: { id: number; url: string }[];
 };
 
 type ProjectOption = { id: number; name: string; locality: string };
+type AmenityOption = { id: number; key: string; label: string };
 
 export default function AdminListingEditForm({
   listing,
   projects,
   localities,
+  amenityCatalog,
 }: {
   listing: EditableListing;
   projects: ProjectOption[];
   localities: string[];
+  amenityCatalog: AmenityOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(adminUpdateListingAction, null);
+  const selectedAmenities: string[] = parseAmenities(listing.amenities);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -320,6 +326,39 @@ export default function AdminListingEditForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="rounded-md border border-stone-200 p-4">
+        <p className="mb-1 text-sm font-semibold text-stone-900">Amenities</p>
+        <p className="mb-3 text-xs text-stone-500">
+          Toggle in Admin → Listing fields to control whether this shows on the public listing page and post-listing
+          form.
+        </p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+          {amenityCatalog.map((a) => (
+            <label key={a.key} className="flex items-center gap-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                name="amenities"
+                value={a.key}
+                defaultChecked={selectedAmenities.includes(a.key)}
+                className="h-4 w-4"
+              />
+              {a.label}
+            </label>
+          ))}
+        </div>
+        <div className="mt-3">
+          <label className="mb-1 block text-sm font-medium text-stone-700">Add new amenities (optional)</label>
+          <input
+            name="newAmenities"
+            placeholder="e.g. Rooftop Deck, Co-working Lounge"
+            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+          />
+          <p className="mt-1 text-xs text-stone-500">
+            Comma-separated. Each one is added to the shared amenity list above and selected for this listing.
+          </p>
+        </div>
       </div>
 
       <div className="rounded-md border border-stone-200 bg-stone-50 p-4">

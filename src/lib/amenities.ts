@@ -1,6 +1,13 @@
+import { slugify } from "./blog";
+
 // Fixed catalog of amenities an admin can pick for a project. Keeping this as
 // a closed list (rather than free text) means every amenity always renders
 // with a consistent icon — see components/AmenityIcon.tsx.
+//
+// This same list is also the seed for the db-backed amenityCatalog table (see
+// schema.ts) used to tag listings — see ensure-amenity-catalog.ts. That table
+// lets an admin add further custom amenities beyond this fixed list; a custom
+// one just falls back to the generic icon below (iconForAmenity's ?? "hall").
 export type AmenityIconKey =
   | "pool"
   | "gym"
@@ -61,6 +68,13 @@ export function labelForAmenity(key: string) {
 
 export function iconForAmenity(key: string): AmenityIconKey {
   return AMENITY_BY_KEY.get(key)?.icon ?? "hall";
+}
+
+/** Turns an admin-typed custom amenity name into a stable lookup key, in the
+ * same snake_case style as the built-in keys above (e.g. "Rooftop Deck" ->
+ * "rooftop_deck"). Used when persisting a new amenityCatalog row. */
+export function slugifyAmenityKey(label: string): string {
+  return slugify(label).replace(/-/g, "_") || "amenity";
 }
 
 /** amenities column is stored as a JSON-encoded string[] of AMENITIES keys. */

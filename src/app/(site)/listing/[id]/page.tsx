@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListingById, getListingFieldSettings } from "@/db/queries";
+import { getListingById, getListingFieldSettings, getAmenityCatalog } from "@/db/queries";
 import { formatPrice, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
-import { AMENITIES, parseAmenities } from "@/lib/amenities";
+import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
 import InquiryForm from "@/components/InquiryForm";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
@@ -99,7 +99,11 @@ export default async function ListingDetailPage({
   const listingId = Number(id);
   if (!Number.isInteger(listingId)) notFound();
 
-  const [listing, fieldSettings] = await Promise.all([getListingById(listingId), getListingFieldSettings()]);
+  const [listing, fieldSettings, amenityCatalog] = await Promise.all([
+    getListingById(listingId),
+    getListingFieldSettings(),
+    getAmenityCatalog(),
+  ]);
   if (!listing) notFound();
 
   const images = listing.images.length > 0 ? listing.images : [];
@@ -291,6 +295,33 @@ export default async function ListingDetailPage({
               </div>
             );
           })()}
+
+          {fieldSettings.amenities.public &&
+            (() => {
+              const amenityKeys = parseAmenities(listing.amenities);
+              if (amenityKeys.length === 0) return null;
+              const catalogByKey = new Map(amenityCatalog.map((a) => [a.key, a.label]));
+              const listingAmenities = amenityKeys
+                .map((key) => ({ key, label: catalogByKey.get(key) ?? key }))
+                .filter((a) => catalogByKey.has(a.key));
+              if (listingAmenities.length === 0) return null;
+
+              return (
+                <div className="mt-8">
+                  <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                    Amenities
+                  </h2>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2">
+                    {listingAmenities.map((a) => (
+                      <span key={a.key} className="flex items-center gap-1.5 text-sm font-medium text-stone-700">
+                        <AmenityIcon icon={iconForAmenity(a.key)} className="h-4 w-4 text-emerald-700" />
+                        {a.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
 
           {listing.project &&
             (() => {

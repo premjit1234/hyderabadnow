@@ -72,4 +72,9 @@ node_modules/.bin/tsx src/db/ensure-locations.ts
 # briefly unreachable.
 node_modules/.bin/tsx src/db/ensure-project-slugs.ts
 
+# Idempotent — a no-op once any amenity catalog row exists (fresh seed.ts run
+# above already creates the default list). Covers servers that were running
+# before listing amenities became a db-backed, admin-extensible catalog.
+node_modules/.bin/tsx src/db/ensure-amenity-catalog.ts
+
 exec "$@"

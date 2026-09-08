@@ -11,9 +11,6 @@ export default async function Footer() {
         <p>
           HyderabadNow — property listings for Hyderabad, from agents and owners directly.
         </p>
-        <p className="mt-1">
-          This is a local development build. Prices and listings shown are sample data.
-        </p>
 
         {(legalPages.length > 0 || socialLinks.length > 0) && (
           <div className="mt-6 flex flex-col items-center gap-4 border-t border-stone-200 pt-6">

@@ -148,6 +148,11 @@ export const listings = sqliteTable("listings", {
   sellerAskPrice: integer("seller_ask_price"),
   sellerBestPrice: integer("seller_best_price"),
   cashRatioPercent: integer("cash_ratio_percent"),
+  // JSON-encoded string[] of amenityCatalog keys — same shape/encoding as
+  // projects.amenities (see lib/amenities.ts's parseAmenities). Whether this
+  // shows on the public listing page / post-listing form is admin-configurable
+  // like the other listingFieldSettings-gated fields above.
+  amenities: text("amenities"),
   views: integer("views").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
@@ -242,6 +247,25 @@ export const socialLinks = sqliteTable("social_links", {
 export const locations = sqliteTable("locations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// Master catalog of amenity types selectable when tagging a listing with its
+// amenities (see listings.amenities below). Seeded once from the original
+// fixed AMENITIES list in lib/amenities.ts (see ensure-amenity-catalog.ts) —
+// same relationship as HYDERABAD_LOCALITIES -> locations above. Beyond the
+// seed, an admin can add further custom amenities directly from the listing
+// form (see resolveListingAmenities() in admin/actions.ts), and they
+// immediately become selectable for every other listing too. No icon column —
+// a custom amenity just renders with the generic fallback icon (see
+// iconForAmenity() in lib/amenities.ts).
+export const amenityCatalog = sqliteTable("amenity_catalog", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  key: text("key").notNull().unique(),
+  label: text("label").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")
     .notNull()

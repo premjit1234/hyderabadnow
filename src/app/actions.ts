@@ -14,6 +14,7 @@ import {
   getSession,
 } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
+import { resolveListingAmenities } from "@/app/admin/actions";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -185,6 +186,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a phone number to enable the WhatsApp connect button." };
   }
+  const amenities = await resolveListingAmenities(formData);
 
   const [listing] = await db
     .insert(listings)
@@ -211,6 +213,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       sellerAskPrice: data.sellerAskPrice ?? null,
       sellerBestPrice: data.sellerBestPrice ?? null,
       cashRatioPercent: data.cashRatioPercent ?? null,
+      amenities,
     })
     .returning();
 

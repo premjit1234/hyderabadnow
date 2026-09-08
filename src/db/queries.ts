@@ -16,6 +16,7 @@ import {
   blogComments,
   pageViews,
   locations,
+  amenityCatalog,
 } from "./schema";
 import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -598,6 +599,25 @@ export async function getLocationsForAdmin() {
     })
     .from(locations)
     .orderBy(asc(locations.sortOrder), asc(locations.name));
+}
+
+// ---- Amenity catalog (selectable amenities for listings — see schema.ts's
+// amenityCatalog table) ----
+
+export type AmenityCatalogEntry = { id: number; key: string; label: string };
+
+// Called from the admin listing forms, the public post-listing form, and the
+// public listing page on every request — same "table might not exist yet at
+// build time" tolerance as getSiteSettings/getLocations above.
+export async function getAmenityCatalog(): Promise<AmenityCatalogEntry[]> {
+  try {
+    return await db
+      .select({ id: amenityCatalog.id, key: amenityCatalog.key, label: amenityCatalog.label })
+      .from(amenityCatalog)
+      .orderBy(asc(amenityCatalog.sortOrder), asc(amenityCatalog.label));
+  } catch {
+    return [];
+  }
 }
 
 // ---- Listing field visibility (admin-configurable show/hide per field) ----

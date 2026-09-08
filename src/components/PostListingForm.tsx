@@ -10,15 +10,18 @@ import {
 } from "@/lib/listingFields";
 
 type ProjectOption = { id: number; name: string; locality: string };
+type AmenityOption = { id: number; key: string; label: string };
 
 export default function PostListingForm({
   projects,
   fieldSettings,
   localities,
+  amenityCatalog,
 }: {
   projects: ProjectOption[];
   fieldSettings: ListingFieldVisibility;
   localities: string[];
+  amenityCatalog: AmenityOption[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createListingAction,
@@ -265,6 +268,20 @@ export default function PostListingForm({
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {fieldSettings.amenities.form && amenityCatalog.length > 0 && (
+        <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
+          <p className="text-sm font-medium text-stone-700">Amenities (optional)</p>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+            {amenityCatalog.map((a) => (
+              <label key={a.key} className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="amenities" value={a.key} className="h-4 w-4" />
+                {a.label}
+              </label>
+            ))}
           </div>
         </div>
       )}

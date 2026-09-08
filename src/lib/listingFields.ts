@@ -18,6 +18,7 @@ export const LISTING_EXTRA_FIELDS = [
   { key: "sellerAskPrice", label: "Seller Ask Price", defaultPublic: false, defaultForm: true },
   { key: "sellerBestPrice", label: "Seller Best Price", defaultPublic: false, defaultForm: true },
   { key: "cashRatioPercent", label: "Cash Ratio (%)", defaultPublic: false, defaultForm: true },
+  { key: "amenities", label: "Amenities", defaultPublic: true, defaultForm: true },
 ] as const;
 
 export type ListingExtraFieldKey = (typeof LISTING_EXTRA_FIELDS)[number]["key"];
