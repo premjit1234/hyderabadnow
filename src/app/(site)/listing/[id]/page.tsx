@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getListingById, getListingFieldSettings, getAmenityCatalog, getLocalityPricePerSqft } from "@/db/queries";
@@ -7,10 +8,60 @@ import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
 import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
 import { getVideoEmbedUrl } from "@/lib/video";
+import {
+  absoluteListingUrl,
+  buildListingBreadcrumbJsonLd,
+  buildListingJsonLd,
+  buildListingSeoDescription,
+  buildListingSeoTitle,
+  jsonLdScriptContent,
+} from "@/lib/listingSeo";
 import InquiryForm from "@/components/InquiryForm";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
+
+// Every listing previously rendered with the exact same site-wide title/
+// description from the root layout — meaning Google (and WhatsApp/social
+// link previews) had no way to tell a "2 BHK in Gachibowli" apart from a
+// "4 BHK Villa in Jubilee Hills" from the metadata alone. This gives each
+// listing its own title/description built from its actual facts, an OG
+// image for link previews, and a canonical URL. Listings that are no longer
+// available (sold/rented/expired) are marked noindex — no reason to spend
+// search visibility on a page with nothing left to convert a visitor into;
+// see src/app/sitemap.ts, which excludes the same listings from the sitemap
+// for the same reason.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const listingId = Number(id);
+  if (!Number.isInteger(listingId)) return {};
+
+  const listing = await getListingById(listingId);
+  if (!listing) return {};
+
+  const appUrl = await getAppUrl();
+  const url = `${appUrl}/listing/${listing.id}`;
+  const title = buildListingSeoTitle(listing);
+  const description = buildListingSeoDescription(listing);
+  const firstImage = listing.images[0] ? absoluteListingUrl(listing.images[0].url, appUrl) : null;
+
+  return {
+    title: `${title} | HyderabadNow`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      images: firstImage ? [{ url: firstImage }] : undefined,
+    },
+    robots: listing.status === "active" ? undefined : { index: false, follow: true },
+  };
+}
 
 function BedIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -141,7 +192,8 @@ export default async function ListingDetailPage({
 
   const images = listing.images.length > 0 ? listing.images : [];
 
-  const listingUrl = `${await getAppUrl()}/listing/${listing.id}`;
+  const appUrl = await getAppUrl();
+  const listingUrl = `${appUrl}/listing/${listing.id}`;
   const whatsappMessage = `Hi, I'm interested in your listing "${listing.title}" (${formatPrice(
     listing.price,
     listing.listingType as "sale" | "rent"
@@ -151,8 +203,21 @@ export default async function ListingDetailPage({
       ? buildWhatsAppLink(listing.contactPhone, whatsappMessage)
       : null;
 
+  const listingJsonLd = buildListingJsonLd(listing, appUrl);
+  const breadcrumbJsonLd = buildListingBreadcrumbJsonLd(listing, appUrl);
+
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      {/* Structured data for search engines — not rendered visibly. See
+          src/lib/listingSeo.ts for what each object contains and why. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(listingJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(breadcrumbJsonLd) }}
+      />
       <Link
         href="/browse"
         className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-emerald-700"

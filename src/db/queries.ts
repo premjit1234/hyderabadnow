@@ -923,3 +923,45 @@ export async function getDailyPageViewSeries(days = 14) {
   }
   return series;
 }
+
+// ---- SEO: sitemap.xml (src/app/sitemap.ts) ----
+//
+// Deliberately lean id/slug + timestamp-only selects — the sitemap only
+// needs a URL and a last-modified date per row, not the owner/image joins
+// getListingById/getProjectById do for the actual page render.
+//
+// Same build-time "no such table" tolerance as getSiteSettings/getLegalPages
+// above: `next build` opens the sqlite file just to collect route metadata,
+// against a throwaway schema-less database (see Dockerfile's builder stage
+// comment), and sitemap.ts's default export runs as part of that — without
+// this try/catch a fresh build would fail outright rather than just shipping
+// an empty section of the sitemap for that one run.
+export async function getActiveListingsForSitemap() {
+  try {
+    return await db
+      .select({ id: listings.id, createdAt: listings.createdAt })
+      .from(listings)
+      .where(eq(listings.status, "active"));
+  } catch {
+    return [];
+  }
+}
+
+export async function getProjectsForSitemap() {
+  try {
+    return await db.select({ id: projects.id, slug: projects.slug, createdAt: projects.createdAt }).from(projects);
+  } catch {
+    return [];
+  }
+}
+
+export async function getPublishedBlogPostsForSitemap() {
+  try {
+    return await db
+      .select({ slug: blogPosts.slug, updatedAt: blogPosts.updatedAt })
+      .from(blogPosts)
+      .where(eq(blogPosts.status, "published"));
+  } catch {
+    return [];
+  }
+}
