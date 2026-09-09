@@ -87,19 +87,22 @@ export async function sendOtpWhatsApp(phone: string, code: string): Promise<void
           to_and_components: [
             {
               to: [mobile],
-              // Two things populate the same code, confirmed against a real
-              // failed send (MSG91 error: "buttons: Button at index 0 of
-              // type Url requires a parameter"): body_1 fills the {{1}} in
-              // the message text, and button_1 fills the "Copy Code"
-              // button's own parameter — Meta's Cloud API implements that
-              // button as a URL-type button under the hood even though the
-              // UI just calls it "Copy Code," and it needs the code passed
-              // to it separately from the body. Omitting button_1 is what
-              // caused every real send to fail after MSG91 had already
-              // accepted the request.
+              // Two things populate the same code, confirmed against two
+              // rounds of real failed sends: body_1 fills the {{1}} in the
+              // message text, and button_1 fills the "Copy Code" button's
+              // own parameter — Meta's Cloud API implements that button as
+              // a URL-type button under the hood even though the UI just
+              // calls it "Copy Code," and it needs the code passed to it
+              // separately from the body.
+              //   Round 1 (no button_1 at all): "buttons: Button at index 0
+              //     of type Url requires a parameter"
+              //   Round 2 (button_1 without sub_type): "button: Missing
+              //     parameter sub_type for button component"
+              // sub_type: "url" is the fix for round 2 — matches the "type
+              // Url" language from round 1's error.
               components: {
                 body_1: { type: "text", value: code },
-                button_1: { type: "text", value: code },
+                button_1: { type: "text", value: code, sub_type: "url" },
               },
             },
           ],
