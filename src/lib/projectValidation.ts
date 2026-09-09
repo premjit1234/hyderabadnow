@@ -25,6 +25,7 @@ export const projectSchema = z.object({
   minAreaSqft: z.coerce.number().int().positive().optional(),
   maxAreaSqft: z.coerce.number().int().positive().optional(),
   bhkOptions: z.string().optional(),
+  reraNumber: z.string().optional(),
   reraApprovalYear: z.coerce.number().int().optional(),
   possessionYear: z.coerce.number().int().optional(),
   unitDensityPerAcre: z.coerce.number().int().positive().optional(),

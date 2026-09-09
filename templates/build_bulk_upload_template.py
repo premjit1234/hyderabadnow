@@ -98,6 +98,7 @@ headers_ref = [
     ("Min Area (sqft)", "Whole number", "Smallest unit size offered."),
     ("Max Area (sqft)", "Whole number", "Largest unit size offered."),
     ("BHK Options", "Comma list", "e.g. \"2,2.5,3,4\"."),
+    ("RERA Registration Number", "Text", "e.g. \"P02400001234\" — shown on the public page with a link to verify it on rera.telangana.gov.in. Leave blank if not yet registered."),
     ("RERA Approval Year", "Year", "e.g. 2024."),
     ("Possession Year", "Year", "Expected/actual handover year."),
     ("Unit Density Per Acre", "Whole number", "Units per acre, if known."),
@@ -129,6 +130,7 @@ headers = [
     "Project Name *", "Locality *", "City *", "Property Type *", "Construction Status *",
     "Developer Name", "Developer Website URL", "Area (Acres)", "Total Units", "Towers",
     "Max Floors", "Units Per Floor", "Min Area (sqft)", "Max Area (sqft)", "BHK Options",
+    "RERA Registration Number",
     "RERA Approval Year", "Possession Year", "Unit Density Per Acre", "Floor Area Ratio (FAR)",
     "Description", "Amenities", "Brochure URL", "YouTube Video Link", "Contact Phone",
     "Enable WhatsApp Button",
@@ -145,7 +147,7 @@ for col, name in enumerate(headers, start=1):
 ps.row_dimensions[1].height = 46
 ps.freeze_panes = "A3"
 
-col_widths = [26, 16, 12, 16, 18, 18, 24, 12, 10, 8, 10, 14, 12, 12, 14, 12, 12, 14, 14, 34, 26, 22, 24, 16, 18]
+col_widths = [26, 16, 12, 16, 18, 18, 24, 12, 10, 8, 10, 14, 12, 12, 14, 22, 12, 12, 14, 14, 34, 26, 22, 24, 16, 18]
 for i, w in enumerate(col_widths, start=1):
     ps.column_dimensions[get_column_letter(i)].width = w
 
@@ -160,6 +162,7 @@ example = [
     "Aparna Cyber Heights", "Tellapur", "Hyderabad", "apartment", "under_construction",
     "Aparna Constructions", "https://www.aparnaconstructions.com", 7.1, 714, 5,
     22, "18-22", 1245, 2020, "2,2.5,3",
+    "P02400001234",
     2024, 2028, 100, 2.5,
     "A gated high-rise community with landscaped courtyards, close to the Financial District and the ORR.",
     "pool,gym,clubhouse,security,lift,parking", "https://example.com/brochure.pdf",
@@ -207,7 +210,7 @@ dv_whatsapp = DataValidation(
     allow_blank=True, showDropDown=False,
 )
 ps.add_data_validation(dv_whatsapp)
-dv_whatsapp.add(f"Y2:Y203")
+dv_whatsapp.add(f"Z2:Z203")  # shifted from Y after inserting "RERA Registration Number" (column P)
 
 # ---------------------------------------------------------------------------
 # Sheet 3: Amenity Keys (reference list for the Amenities column)

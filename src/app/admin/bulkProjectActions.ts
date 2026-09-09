@@ -111,6 +111,7 @@ export async function commitBulkProjects(
           minAreaSqft: data.minAreaSqft,
           maxAreaSqft: data.maxAreaSqft,
           bhkOptions: data.bhkOptions,
+          reraNumber: data.reraNumber,
           reraApprovalYear: data.reraApprovalYear,
           possessionYear: data.possessionYear,
           unitDensityPerAcre: data.unitDensityPerAcre,

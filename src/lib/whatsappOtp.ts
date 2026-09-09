@@ -1,0 +1,109 @@
+// Sends the one-time phone-verification code via MSG91's WhatsApp Business
+// API — the alternative transport to sms.ts's sendOtpSms, switched to
+// because WhatsApp Business API onboarding (Meta Business verification +
+// WABA setup + template approval) sits entirely outside India's DLT/TRAI
+// regime, unlike transactional SMS, which requires DLT + PE-TM registration
+// that can take weeks-to-months for a first-time individual business (SMS
+// remains fully wired up in sms.ts if you complete DLT later and want to
+// switch back, or add it as a fallback for numbers without WhatsApp).
+//
+// Code generation/hashing/expiry/attempt-limiting is unchanged and shared
+// with the SMS path (see generateOtpCode/hashOtpCode/normalizePhoneForOtp in
+// ./sms) — this file only owns the "send this WhatsApp message" transport.
+// Note: this is unrelated to lib/whatsapp.ts, which builds wa.me "chat with
+// the seller" links shown on listing pages — different feature, different
+// MSG91 product (Business API vs. a plain deep link), naming kept distinct
+// on purpose.
+//
+// Setup required on MSG91's side before this can send a real WhatsApp
+// message (none of this is something code can do for you):
+//   1. In your MSG91 dashboard, go to the WhatsApp channel and complete
+//      Meta Business verification + WhatsApp Business API (WABA) setup.
+//      This still needs business documents (GST/PAN/incorporation proof),
+//      same as DLT, but is typically approved in days rather than weeks,
+//      and needs no DLT/PE-TM registration at all.
+//   2. Create an "Authentication" category template with MSG91/Meta — pick
+//      the "Copy code" delivery method (not zero/one-tap auto-fill, which
+//      are for native apps registering a package name/bundle ID with Meta;
+//      this is a website, so the user just reads the code and types it in,
+//      exactly like the SMS flow did). Once Meta approves it, note the
+//      exact template name and language code MSG91 shows you.
+//   3. Set MSG91_WHATSAPP_INTEGRATED_NUMBER (your WhatsApp Business number),
+//      MSG91_WHATSAPP_TEMPLATE_NAME, and MSG91_WHATSAPP_LANGUAGE_CODE (e.g.
+//      "en") in your server's .env. MSG91_AUTH_KEY is reused from the SMS
+//      setup — no new key needed, as long as its Authkey Rule has WhatsApp
+//      permission enabled (the default "Admin" rule does).
+//
+// The request shape below is copied verbatim from the curl sample MSG91's
+// dashboard auto-generates on the template's own "Code { JSON }" page (the
+// authoritative source — prefer re-checking that sample over this comment
+// if MSG91 changes their API later). Two things worth knowing about it:
+//   - "namespace" is sent as null — this account's API version doesn't need
+//     a real value there, hence no MSG91_WHATSAPP_TEMPLATE_NAMESPACE env var.
+//   - "language.policy": "deterministic" tells WhatsApp to send in exactly
+//     the language specified, no fallback substitution — this is what
+//     MSG91's own sample uses and there's no reason to deviate from it.
+//
+// Until every required env var is set, sendOtpWhatsApp() never silently
+// "succeeds" — it throws, so a misconfigured deployment can't end up
+// treating unverified phone numbers as verified. Set OTP_DEV_MODE=true to
+// instead log the code to the server console (for local/sandbox testing
+// without a real MSG91 account) — never enable that in production.
+import { normalizePhoneForOtp } from "./sms";
+
+const MSG91_WHATSAPP_SEND_URL = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/";
+
+export async function sendOtpWhatsApp(phone: string, code: string): Promise<void> {
+  const authKey = process.env.MSG91_AUTH_KEY;
+  const integratedNumber = process.env.MSG91_WHATSAPP_INTEGRATED_NUMBER;
+  const templateName = process.env.MSG91_WHATSAPP_TEMPLATE_NAME;
+  const languageCode = process.env.MSG91_WHATSAPP_LANGUAGE_CODE || "en";
+  const mobile = normalizePhoneForOtp(phone);
+
+  if (!authKey || !integratedNumber || !templateName) {
+    if (process.env.OTP_DEV_MODE === "true") {
+      console.log(`[dev-mode OTP] Would send WhatsApp code ${code} to +${mobile} (MSG91 WhatsApp not configured).`);
+      return;
+    }
+    throw new Error(
+      "Phone verification isn't set up yet on this server — MSG91_WHATSAPP_INTEGRATED_NUMBER / " +
+        "MSG91_WHATSAPP_TEMPLATE_NAME are missing from .env."
+    );
+  }
+
+  const res = await fetch(MSG91_WHATSAPP_SEND_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", authkey: authKey },
+    body: JSON.stringify({
+      integrated_number: integratedNumber,
+      content_type: "template",
+      payload: {
+        messaging_product: "whatsapp",
+        type: "template",
+        template: {
+          name: templateName,
+          language: { code: languageCode, policy: "deterministic" },
+          namespace: null,
+          to_and_components: [
+            {
+              to: [mobile],
+              // MSG91's generic per-template curl sample shows an empty
+              // `components: {}` here (it can't know your variable names
+              // ahead of time) — `body_1` populating the template's one
+              // {{1}} placeholder comes from MSG91's WhatsApp-OTP-specific
+              // help doc. If the first real send comes back with a
+              // component/variable-mismatch error, this key is the first
+              // thing to check against MSG91's support.
+              components: { body_1: { type: "text", value: code } },
+            },
+          ],
+        },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`MSG91 WhatsApp send failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+}

@@ -57,6 +57,13 @@
       "when": 1788890264147,
       "tag": "0007_add_project_coordinates",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788895526979,
+      "tag": "0008_trust_and_verification",
+      "breakpoints": true
     }
   ]
 }

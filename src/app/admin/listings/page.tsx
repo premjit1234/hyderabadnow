@@ -104,6 +104,7 @@ export default async function AdminListingsPage({
                       <option value="pending">Pending</option>
                       <option value="sold">Sold</option>
                       <option value="rented">Rented</option>
+                      <option value="expired">Expired</option>
                     </select>
                     <button
                       type="submit"
@@ -112,6 +113,16 @@ export default async function AdminListingsPage({
                       Save
                     </button>
                   </form>
+                  {l.status === "active" && l.staleNudgeSentAt && (
+                    <p className="mt-1 text-[11px] font-medium text-amber-600">
+                      Awaiting owner confirmation (nudged {new Date(l.staleNudgeSentAt).toLocaleDateString("en-IN")})
+                    </p>
+                  )}
+                  {l.status === "expired" && l.autoFlaggedStaleAt && (
+                    <p className="mt-1 text-[11px] font-medium text-red-600">
+                      Auto-expired — no response ({new Date(l.autoFlaggedStaleAt).toLocaleDateString("en-IN")})
+                    </p>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <form action={adminToggleFeaturedAction}>

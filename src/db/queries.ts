@@ -137,6 +137,38 @@ export async function getListingById(id: number) {
   return { ...listing, images, owner, project };
 }
 
+// Locality-level price/sqft benchmark for the "how does this compare?"
+// indicator on a listing page (see ListingPriceComparison usage in
+// listing/[id]/page.tsx) — averages price-per-sqft across other *active*
+// listings of the same listingType (sale vs rent) in the same locality, so
+// a rental never gets compared against sale prices or vice versa. Excludes
+// the listing itself (excludeListingId) so a locality with only one listing
+// never "compares" a listing to its own price. Requires at least 2
+// comparables (enforced by the caller checking sampleSize) since a single
+// other listing isn't a meaningful "average".
+export async function getLocalityPricePerSqft(
+  locality: string,
+  listingType: "sale" | "rent",
+  excludeListingId: number
+): Promise<{ avgPricePerSqft: number | null; sampleSize: number }> {
+  const [row] = await db
+    .select({
+      avgPricePerSqft: sql<number | null>`avg(${listings.price} * 1.0 / ${listings.areaSqft})`,
+      sampleSize: sql<number>`count(*)`,
+    })
+    .from(listings)
+    .where(
+      and(
+        eq(listings.status, "active"),
+        eq(listings.locality, locality),
+        eq(listings.listingType, listingType),
+        sql`${listings.areaSqft} > 0`,
+        sql`${listings.id} != ${excludeListingId}`
+      )
+    );
+  return row ?? { avgPricePerSqft: null, sampleSize: 0 };
+}
+
 export type HomeCategory = {
   id: number;
   label: string;
@@ -230,6 +262,15 @@ const userListingCountSubquery = sql<number>`(
   select count(*) from ${listings} where ${listings.ownerId} = "users"."id"
 )`.as("listingCount");
 
+// Fresh, un-cached lookup of a user's current verification state — used by
+// the post-listing page to decide whether to show PhoneVerificationGate.
+// Deliberately not read from the session cookie: that JWT is signed once at
+// login and can be up to 30 days stale (see lib/auth.ts), so it can't be
+// trusted to reflect a phoneVerified flip that happened mid-session.
+export async function getUserById(id: number) {
+  return db.query.users.findFirst({ where: eq(users.id, id) });
+}
+
 export async function getAllUsersForAdmin(q?: string) {
   const conditions = q
     ? [sql`(${users.name} like ${"%" + q + "%"} or ${users.email} like ${"%" + q + "%"})`]
@@ -271,6 +312,8 @@ export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: s
       verified: listings.verified,
       views: listings.views,
       createdAt: listings.createdAt,
+      staleNudgeSentAt: listings.staleNudgeSentAt,
+      autoFlaggedStaleAt: listings.autoFlaggedStaleAt,
       ownerId: listings.ownerId,
       ownerName: users.name,
       ownerEmail: users.email,
@@ -665,6 +708,7 @@ export async function getListingsByOwner(ownerId: number) {
       verified: listings.verified,
       status: listings.status,
       views: listings.views,
+      staleNudgeSentAt: listings.staleNudgeSentAt,
       imageUrl: firstImageSubquery,
     })
     .from(listings)

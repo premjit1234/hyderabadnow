@@ -89,6 +89,14 @@ function PhoneIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function ShieldIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
+      <path d="M12 3.5 5 6v5.5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-2.5Z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} {...props}>
@@ -98,8 +106,8 @@ function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function ReraBadge({ year }: { year: number | null }) {
-  return (
+function ReraBadge({ year, reraNumber }: { year: number | null; reraNumber?: string | null }) {
+  const badge = (
     <div className="flex flex-col items-center gap-0.5 text-center">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-8 w-8 text-emerald-700">
         <path d="M12 3.5 5 6v5.5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-2.5Z" strokeLinejoin="round" />
@@ -107,6 +115,20 @@ function ReraBadge({ year }: { year: number | null }) {
       </svg>
       <p className="text-[10px] font-semibold uppercase text-stone-500">RERA{year ? ` '${String(year).slice(2)}` : ""}</p>
     </div>
+  );
+  // Clicking through only makes sense once there's an actual registration
+  // number to look up — otherwise this is just a decorative year badge, same
+  // as before this feature existed.
+  if (!reraNumber) return badge;
+  return (
+    <a
+      href="https://rera.telangana.gov.in"
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Verify RERA No. ${reraNumber} on the Telangana RERA portal`}
+    >
+      {badge}
+    </a>
   );
 }
 
@@ -193,7 +215,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">{project.name}</h1>
             </div>
             <div className="flex shrink-0 gap-3">
-              <ReraBadge year={project.reraApprovalYear} />
+              <ReraBadge year={project.reraApprovalYear} reraNumber={project.reraNumber} />
               <PossessionBadge year={project.possessionYear} />
             </div>
           </div>
@@ -323,10 +345,25 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </p>
 
-          {(project.unitsPerFloor || project.unitDensityPerAcre || project.floorAreaRatio) && (
+          {(project.reraNumber || project.unitsPerFloor || project.unitDensityPerAcre || project.floorAreaRatio) && (
             <div className="mt-4 border-t border-stone-100 pt-4">
               <h3 className="mb-2 text-sm font-bold text-stone-900">Key Stats</h3>
               <dl className="flex flex-col gap-1.5 text-sm text-stone-700">
+                {project.reraNumber && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <ShieldIcon className="h-4 w-4 text-stone-400" />
+                    <dt className="font-medium">RERA No.:</dt>
+                    <dd>{project.reraNumber}</dd>
+                    <a
+                      href="https://rera.telangana.gov.in"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium text-emerald-700 hover:underline"
+                    >
+                      Verify on Telangana RERA →
+                    </a>
+                  </div>
+                )}
                 {project.unitsPerFloor && (
                   <div className="flex items-center gap-1.5">
                     <UnitsIcon className="h-4 w-4 text-stone-400" />

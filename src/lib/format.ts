@@ -11,6 +11,13 @@ export function formatPrice(price: number, listingType: "sale" | "rent") {
   return `₹${price.toLocaleString("en-IN")}`;
 }
 
+/** Plain rupee amount with Indian digit grouping, e.g. "₹45,231" — for
+ * calculator outputs (EMI, stamp duty) where lakh/crore shorthand would be
+ * less readable than the exact figure. */
+export function formatRupees(amount: number) {
+  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+}
+
 /** e.g. "24 September 2026" — used for blog post dates. */
 export function formatDate(value: string | Date) {
   const date = typeof value === "string" ? new Date(value) : value;

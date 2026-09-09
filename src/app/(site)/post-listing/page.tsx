@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getProjectsForSelect, getListingFieldSettings, getLocationNames, getAmenityCatalog } from "@/db/queries";
+import { getProjectsForSelect, getListingFieldSettings, getLocationNames, getAmenityCatalog, getUserById } from "@/db/queries";
 import PostListingForm from "@/components/PostListingForm";
+import PhoneVerificationGate from "@/components/PhoneVerificationGate";
 
 export default async function PostListingPage() {
   const session = await getSession();
@@ -30,11 +31,16 @@ export default async function PostListingPage() {
     );
   }
 
-  const [projects, fieldSettings, localities, amenityCatalog] = await Promise.all([
+  const [projects, fieldSettings, localities, amenityCatalog, currentUser] = await Promise.all([
     getProjectsForSelect(),
     getListingFieldSettings(),
     getLocationNames(),
     getAmenityCatalog(),
+    // Read fresh from the DB rather than trusting session.phoneVerified —
+    // the session cookie is a JWT signed once at login and can be stale for
+    // up to 30 days (see lib/auth.ts), so it can't be relied on to reflect a
+    // verification that happened earlier in this same session.
+    getUserById(session.id),
   ]);
 
   return (
@@ -43,12 +49,14 @@ export default async function PostListingPage() {
       <p className="mt-1 mb-6 text-sm text-stone-500">
         Fill in the details below. Your listing goes live immediately.
       </p>
-      <PostListingForm
-        projects={projects}
-        fieldSettings={fieldSettings}
-        localities={localities}
-        amenityCatalog={amenityCatalog}
-      />
+      <PhoneVerificationGate initialVerified={currentUser?.phoneVerified ?? false} initialPhone={currentUser?.phone ?? null}>
+        <PostListingForm
+          projects={projects}
+          fieldSettings={fieldSettings}
+          localities={localities}
+          amenityCatalog={amenityCatalog}
+        />
+      </PhoneVerificationGate>
     </main>
   );
 }

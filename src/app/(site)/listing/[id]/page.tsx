@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListingById, getListingFieldSettings, getAmenityCatalog } from "@/db/queries";
-import { formatPrice, propertyTypeLabel, projectHref } from "@/lib/format";
+import { getListingById, getListingFieldSettings, getAmenityCatalog, getLocalityPricePerSqft } from "@/db/queries";
+import { formatPrice, formatRupees, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
@@ -10,6 +10,7 @@ import { getVideoEmbedUrl } from "@/lib/video";
 import InquiryForm from "@/components/InquiryForm";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
+import ListingFinancialTools from "@/components/ListingFinancialTools";
 
 function BedIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -125,6 +126,19 @@ export default async function ListingDetailPage({
   ]);
   if (!listing) notFound();
 
+  // "How does this compare?" needs at least a couple of other active,
+  // same-locality, same-listingType comparables with a known area to mean
+  // anything — a single other listing (or none) isn't an "average".
+  const localityStats =
+    listing.areaSqft != null
+      ? await getLocalityPricePerSqft(listing.locality, listing.listingType as "sale" | "rent", listing.id)
+      : { avgPricePerSqft: null, sampleSize: 0 };
+  const pricePerSqft = listing.areaSqft ? listing.price / listing.areaSqft : null;
+  const showPriceComparison = pricePerSqft != null && localityStats.avgPricePerSqft != null && localityStats.sampleSize >= 2;
+  const percentVsAvg = showPriceComparison
+    ? Math.round(((pricePerSqft! - localityStats.avgPricePerSqft!) / localityStats.avgPricePerSqft!) * 100)
+    : null;
+
   const images = listing.images.length > 0 ? listing.images : [];
 
   const listingUrl = `${await getAppUrl()}/listing/${listing.id}`;
@@ -168,6 +182,19 @@ export default async function ListingDetailPage({
           <p className="text-2xl font-extrabold text-emerald-700 sm:text-3xl">
             {formatPrice(listing.price, listing.listingType as "sale" | "rent")}
           </p>
+          {showPriceComparison && (
+            <p
+              className={`text-xs font-medium ${
+                percentVsAvg! > 0 ? "text-red-600" : percentVsAvg! < 0 ? "text-emerald-700" : "text-stone-500"
+              }`}
+            >
+              {formatRupees(pricePerSqft!)}/sqft —{" "}
+              {percentVsAvg === 0
+                ? "right at"
+                : `${Math.abs(percentVsAvg!)}% ${percentVsAvg! > 0 ? "above" : "below"}`}{" "}
+              the {listing.locality} avg ({formatRupees(localityStats.avgPricePerSqft!)}/sqft)
+            </p>
+          )}
           <div className="flex flex-wrap justify-end gap-2">
             {listing.featured && (
               <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
@@ -444,6 +471,12 @@ export default async function ListingDetailPage({
                 </div>
               );
             })()}
+
+          {listing.listingType === "sale" && (
+            <div className="mt-8">
+              <ListingFinancialTools price={listing.price} />
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-1">
@@ -466,6 +499,14 @@ export default async function ListingDetailPage({
               <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-stone-700">
                 <PhoneIcon className="h-4 w-4 text-emerald-700" />
                 {listing.owner.phone}
+                {listing.owner.phoneVerified && (
+                  <span
+                    title="This phone number was confirmed with a one-time SMS code"
+                    className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"
+                  >
+                    ✓ Phone Verified
+                  </span>
+                )}
               </p>
             )}
 

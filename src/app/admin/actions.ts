@@ -45,7 +45,7 @@ async function requireAdmin() {
 }
 
 const USER_ROLES = ["buyer", "agent", "seller", "admin"] as const;
-const LISTING_STATUSES = ["active", "pending", "sold", "rented"] as const;
+const LISTING_STATUSES = ["active", "pending", "sold", "rented", "expired"] as const;
 
 export async function adminUpdateUserRoleAction(formData: FormData) {
   await requireAdmin();
@@ -89,9 +89,17 @@ export async function adminUpdateListingStatusAction(formData: FormData) {
   const status = formData.get("status");
   if (!listingId || !LISTING_STATUSES.includes(status as (typeof LISTING_STATUSES)[number])) return;
 
+  // Manually setting a listing back to "active" here is the admin-side
+  // equivalent of the owner clicking "Yes, still available" in the
+  // stale-listing nudge email (see lib/staleListings.ts) — reset its
+  // staleness clock the same way, so it doesn't immediately look overdue
+  // for another nudge.
+  const resetStaleness =
+    status === "active" ? { lastConfirmedAt: new Date().toISOString(), staleNudgeSentAt: null, autoFlaggedStaleAt: null } : {};
+
   await db
     .update(listings)
-    .set({ status: status as (typeof LISTING_STATUSES)[number] })
+    .set({ status: status as (typeof LISTING_STATUSES)[number], ...resetStaleness })
     .where(eq(listings.id, listingId));
   revalidatePath("/admin/listings");
 }
@@ -238,6 +246,12 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      // An admin editing a listing is itself a sign a human looked at it —
+      // reset the staleness clock the same way a manual "confirm" would
+      // (see lib/staleListings.ts), so it isn't immediately flagged again.
+      lastConfirmedAt: new Date().toISOString(),
+      staleNudgeSentAt: null,
+      autoFlaggedStaleAt: null,
     })
     .where(eq(listings.id, listingId));
 
@@ -383,6 +397,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      lastConfirmedAt: new Date().toISOString(),
     })
     .returning();
 
@@ -506,6 +521,7 @@ function readProjectFields(formData: FormData) {
     minAreaSqft: formData.get("minAreaSqft") || undefined,
     maxAreaSqft: formData.get("maxAreaSqft") || undefined,
     bhkOptions: formData.get("bhkOptions") || undefined,
+    reraNumber: formData.get("reraNumber") || undefined,
     reraApprovalYear: formData.get("reraApprovalYear") || undefined,
     possessionYear: formData.get("possessionYear") || undefined,
     unitDensityPerAcre: formData.get("unitDensityPerAcre") || undefined,
@@ -625,6 +641,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       minAreaSqft: data.minAreaSqft ?? null,
       maxAreaSqft: data.maxAreaSqft ?? null,
       bhkOptions: data.bhkOptions || null,
+      reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
@@ -716,6 +733,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       minAreaSqft: data.minAreaSqft ?? null,
       maxAreaSqft: data.maxAreaSqft ?? null,
       bhkOptions: data.bhkOptions || null,
+      reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,

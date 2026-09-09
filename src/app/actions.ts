@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, listings, listingImages, inquiries, blogPosts, blogComments, pageViews } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { users, listings, listingImages, inquiries, blogPosts, blogComments, pageViews, phoneOtps } from "@/db/schema";
+import { eq, sql, desc } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -16,6 +16,9 @@ import {
 import { saveUploadedImage } from "@/lib/uploads";
 import { resolveListingAmenities } from "@/app/admin/actions";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { confirmListingStillAvailable } from "@/lib/staleListings";
+import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
+import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -151,6 +154,84 @@ const listingSchema = z.object({
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
 });
 
+// ---- Phone verification (OTP via MSG91 WhatsApp — see lib/whatsappOtp.ts) ----
+// Gates posting a listing (see PhoneVerificationGate.tsx / post-listing/page.tsx)
+// so the "Phone Verified" badge shown next to a listing's contact number
+// actually means something, rather than being an unverified self-report.
+
+const otpPhoneSchema = z
+  .string()
+  .trim()
+  .regex(/^(?:\+?91[\s-]?|0)?[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number");
+
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+const OTP_EXPIRY_MINUTES = 10;
+const OTP_MAX_ATTEMPTS = 5;
+
+export async function requestPhoneOtpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in first." };
+
+  const parsed = otpPhoneSchema.safeParse(formData.get("phone"));
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Enter a valid phone number." };
+  const normalized = normalizePhoneForOtp(parsed.data);
+
+  // One resend per cooldown window, regardless of which phone number it's
+  // for — simplest possible rate limit against someone mashing "send code"
+  // to run up a WhatsApp messaging bill.
+  const recent = await db.query.phoneOtps.findFirst({
+    where: eq(phoneOtps.userId, session.id),
+    orderBy: [desc(phoneOtps.createdAt)],
+  });
+  if (recent && Date.now() - new Date(recent.createdAt).getTime() < OTP_RESEND_COOLDOWN_SECONDS * 1000) {
+    return { error: "Please wait a minute before requesting another code." };
+  }
+
+  const code = generateOtpCode();
+  const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000).toISOString();
+
+  await db.insert(phoneOtps).values({ userId: session.id, phone: normalized, codeHash: hashOtpCode(code), expiresAt });
+
+  try {
+    await sendOtpWhatsApp(normalized, code);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Couldn't send the verification code — try again." };
+  }
+
+  return { success: "Code sent." };
+}
+
+export async function verifyPhoneOtpAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in first." };
+
+  const code = String(formData.get("code") || "").trim();
+  if (!/^\d{6}$/.test(code)) return { error: "Enter the 6-digit code." };
+
+  const row = await db.query.phoneOtps.findFirst({
+    where: eq(phoneOtps.userId, session.id),
+    orderBy: [desc(phoneOtps.createdAt)],
+  });
+  if (!row || row.consumedAt) return { error: "No pending code — request a new one." };
+  if (new Date(row.expiresAt).getTime() < Date.now()) return { error: "That code expired — request a new one." };
+  if (row.attempts >= OTP_MAX_ATTEMPTS) return { error: "Too many incorrect attempts — request a new code." };
+
+  if (hashOtpCode(code) !== row.codeHash) {
+    await db.update(phoneOtps).set({ attempts: row.attempts + 1 }).where(eq(phoneOtps.id, row.id));
+    const left = OTP_MAX_ATTEMPTS - row.attempts - 1;
+    return { error: left > 0 ? `Incorrect code (${left} attempt${left === 1 ? "" : "s"} left).` : "Too many incorrect attempts — request a new code." };
+  }
+
+  await db.update(phoneOtps).set({ consumedAt: new Date().toISOString() }).where(eq(phoneOtps.id, row.id));
+  await db
+    .update(users)
+    .set({ phone: row.phone, phoneVerified: true, phoneVerifiedAt: new Date().toISOString() })
+    .where(eq(users.id, session.id));
+
+  revalidatePath("/post-listing");
+  return { success: "Phone verified." };
+}
+
 export async function createListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const session = await getSession();
   if (!session || (session.role !== "agent" && session.role !== "seller" && session.role !== "admin")) {
@@ -224,6 +305,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      lastConfirmedAt: new Date().toISOString(),
     })
     .returning();
 
@@ -241,6 +323,25 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   }
 
   redirect(`/listing/${listing.id}`);
+}
+
+// Lets a logged-in owner confirm their own listing right from the dashboard
+// — a same-effect, no-email-needed alternative to clicking "Yes, still
+// available" in the stale-listing nudge email (see lib/staleListings.ts and
+// app/api/listings/confirm/route.ts, which handles the emailed link for a
+// visitor who isn't logged in). Ownership is checked here since, unlike the
+// emailed link, this comes from a plain form post rather than a signed
+// per-listing token.
+export async function dashboardConfirmListingAction(formData: FormData) {
+  const session = await getSession();
+  const listingId = Number(formData.get("listingId"));
+  if (!session || !listingId) return;
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!listing || listing.ownerId !== session.id) return;
+
+  await confirmListingStillAvailable(listingId);
+  revalidatePath("/dashboard");
 }
 
 const inquirySchema = z.object({

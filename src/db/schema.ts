@@ -18,6 +18,42 @@ export const users = sqliteTable("users", {
     .notNull()
     .default("password"),
   googleId: text("google_id").unique(),
+  // Set once this account's phone (above) has been confirmed via a one-time
+  // SMS code (see src/lib/sms.ts, phoneOtps below, and the OTP actions in
+  // src/app/actions.ts) — this is what backs the "Phone Verified" badge shown
+  // next to a listing owner's contact number, distinct from the admin-only
+  // `listings.verified` flag which is a full manual review. Re-verification
+  // is required if the phone number itself is later changed (see
+  // adminUpdateUserAction / any future self-service profile edit — both must
+  // reset this to false when `phone` changes).
+  phoneVerified: integer("phone_verified", { mode: "boolean" }).notNull().default(false),
+  phoneVerifiedAt: text("phone_verified_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// Short-lived one-time codes for phone verification (see phoneVerified
+// above). One row per OTP request — never overwritten in place, so a user
+// mashing "resend" just creates more rows, each independently rate-limited
+// and expired; only the most recent unconsumed, unexpired one for a given
+// user+phone is ever accepted by verifyPhoneOtpAction. The code itself is
+// never stored in plain text (see lib/sms.ts's hashOtpCode) so a database
+// leak alone can't be used to complete someone else's verification.
+export const phoneOtps = sqliteTable("phone_otps", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Digits-only, country-code-prefixed (e.g. "919848011223") — see
+  // normalizePhoneForOtp in lib/sms.ts. Stored per-row (not just read from
+  // users.phone) so a code sent to one number can't later be used to verify
+  // a different number the user typed in after a mistake.
+  phone: text("phone").notNull(),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: text("expires_at").notNull(),
+  consumedAt: text("consumed_at"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -70,6 +106,14 @@ export const projects = sqliteTable("projects", {
   minAreaSqft: integer("min_area_sqft"),
   maxAreaSqft: integer("max_area_sqft"),
   bhkOptions: text("bhk_options"), // comma-separated, e.g. "2,2.5,3,4" (Indian listings do use half-BHK)
+  // The actual Telangana RERA registration number (e.g.
+  // "P02400001234"), as opposed to reraApprovalYear below which is just the
+  // year — this is what lets a visitor independently verify the project on
+  // https://rera.telangana.gov.in themselves rather than taking the badge on
+  // faith. Free text (not validated against a fixed pattern) since RERA
+  // number formats have varied over the years; shown as plain text with a
+  // link to the portal's search page, never auto-verified against it.
+  reraNumber: text("rera_number"),
   reraApprovalYear: integer("rera_approval_year"),
   possessionYear: integer("possession_year"),
   unitDensityPerAcre: integer("unit_density_per_acre"),
@@ -125,7 +169,14 @@ export const listings = sqliteTable("listings", {
   // or owner listing). Deliberately not cascade-on-delete: removing a project
   // should detach its listings, not delete other people's listings.
   projectId: integer("project_id").references(() => projects.id, { onDelete: "set null" }),
-  status: text("status", { enum: ["active", "pending", "sold", "rented"] })
+  // "expired" means "nobody confirmed this is still available" — either an
+  // owner said so explicitly or the stale-listing check gave up waiting (see
+  // autoFlaggedStaleAt above) — distinct from "sold"/"rented" (a completed
+  // transaction) and "pending" (an owner/admin-initiated pause). Treated
+  // exactly like "pending" everywhere that filters for `status = "active"`;
+  // this is a TEXT column with no DB-level CHECK constraint, so adding this
+  // value needed no migration, only this type update.
+  status: text("status", { enum: ["active", "pending", "sold", "rented", "expired"] })
     .notNull()
     .default("active"),
   featured: integer("featured", { mode: "boolean" }).notNull().default(false),
@@ -171,6 +222,34 @@ export const listings = sqliteTable("listings", {
   // validation as projects.videoUrl / blogPosts.videoUrl (lib/video.ts).
   videoUrl: text("video_url"),
   views: integer("views").notNull().default(0),
+  // Staleness tracking for the "still available?" nudge (see
+  // src/lib/staleListings.ts and src/instrumentation.ts) — fake/abandoned
+  // listings that never get taken down are one of the most common
+  // complaints about Indian property portals, so an "active" listing that's
+  // gone quiet gets checked on rather than left to rot indefinitely.
+  // lastConfirmedAt starts at creation time and is bumped either by the
+  // owner clicking "Yes, still available" (in the nudge email or their
+  // dashboard) or by any edit they make to the listing — anything that
+  // shows a human is still paying attention to it. No DB-level default:
+  // SQLite's ALTER TABLE ADD COLUMN flatly rejects CURRENT_TIMESTAMP-style
+  // defaults (only literal constants are allowed there, unlike CREATE
+  // TABLE), so every insert path sets this explicitly instead (see
+  // createListingAction / adminCreateListingAction) — every code path that
+  // reads it treats a still-null row (only possible on very old data from
+  // before this column existed) the same as "use createdAt" (see
+  // staleListings.ts).
+  lastConfirmedAt: text("last_confirmed_at"),
+  // Set when the nudge email goes out; cleared back to null whenever
+  // lastConfirmedAt is bumped. A non-null value that's more than
+  // STALE_AUTO_FLAG_AFTER_DAYS old (see staleListings.ts) is what triggers
+  // the automatic flip to status "expired" below.
+  staleNudgeSentAt: text("stale_nudge_sent_at"),
+  // Set only when staleListings.ts itself flips the status to "expired"
+  // after a nudge went unanswered — left null when an owner explicitly
+  // clicks "No, no longer available", so the admin listings page can tell
+  // apart "we gave up waiting" from "the owner told us". Cleared whenever
+  // the listing is reconfirmed.
+  autoFlaggedStaleAt: text("auto_flagged_stale_at"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

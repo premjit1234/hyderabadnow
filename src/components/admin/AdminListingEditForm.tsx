@@ -110,6 +110,7 @@ export default function AdminListingEditForm({
             <option value="pending">Pending</option>
             <option value="sold">Sold</option>
             <option value="rented">Rented</option>
+            <option value="expired">Expired</option>
           </select>
         </div>
       </div>

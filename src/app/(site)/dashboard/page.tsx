@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { getListingsByOwner } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
+import { dashboardConfirmListingAction } from "@/app/actions";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -69,7 +70,32 @@ export default async function DashboardPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       {formatPrice(l.price, l.listingType as "sale" | "rent")}
                     </td>
-                    <td className="px-4 py-3 capitalize">{l.status}</td>
+                    <td className="px-4 py-3">
+                      <span className="capitalize">{l.status}</span>
+                      {l.status === "active" && l.staleNudgeSentAt && (
+                        <form action={dashboardConfirmListingAction} className="mt-1">
+                          <input type="hidden" name="listingId" value={l.id} />
+                          <p className="text-[11px] text-amber-600">Still available?</p>
+                          <button
+                            type="submit"
+                            className="mt-0.5 rounded-md border border-emerald-600 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Yes, confirm
+                          </button>
+                        </form>
+                      )}
+                      {l.status === "expired" && (
+                        <form action={dashboardConfirmListingAction} className="mt-1">
+                          <input type="hidden" name="listingId" value={l.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md border border-emerald-600 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Relist as available
+                          </button>
+                        </form>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-medium ${

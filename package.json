@@ -17,7 +17,8 @@
     "db:ensure-locations": "tsx src/db/ensure-locations.ts",
     "db:ensure-project-slugs": "tsx src/db/ensure-project-slugs.ts",
     "db:ensure-amenity-catalog": "tsx src/db/ensure-amenity-catalog.ts",
-    "db:ensure-project-coordinates": "tsx src/db/ensure-project-coordinates.ts"
+    "db:ensure-project-coordinates": "tsx src/db/ensure-project-coordinates.ts",
+    "db:check-stale-listings": "tsx src/db/checkStaleListings.ts"
   },
   "dependencies": {
     "@types/sanitize-html": "^2.16.1",

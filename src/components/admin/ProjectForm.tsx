@@ -29,6 +29,7 @@ type EditableProject = {
   minAreaSqft: number | null;
   maxAreaSqft: number | null;
   bhkOptions: string | null;
+  reraNumber: string | null;
   reraApprovalYear: number | null;
   possessionYear: number | null;
   unitDensityPerAcre: number | null;
@@ -149,6 +150,27 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
       <div className="rounded-lg border border-stone-200 p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Approval &amp; stats</p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="col-span-2">
+            <label className={labelClass}>RERA registration number</label>
+            <input
+              name="reraNumber"
+              defaultValue={project?.reraNumber ?? ""}
+              placeholder="e.g. P02400001234"
+              className={inputClass}
+            />
+            <p className="mt-1 text-xs text-stone-500">
+              Shown on the public page with a link so buyers can independently check it on{" "}
+              <a
+                href="https://rera.telangana.gov.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-700 hover:underline"
+              >
+                rera.telangana.gov.in
+              </a>{" "}
+              — leave blank if this project isn&rsquo;t RERA-registered yet.
+            </p>
+          </div>
           <div>
             <label className={labelClass}>RERA approval year</label>
             <input type="number" name="reraApprovalYear" defaultValue={project?.reraApprovalYear ?? undefined} className={inputClass} />

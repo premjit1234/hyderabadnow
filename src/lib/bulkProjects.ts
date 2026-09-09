@@ -31,6 +31,7 @@ export const BULK_PROJECT_COLUMNS = [
   "minAreaSqft",
   "maxAreaSqft",
   "bhkOptions",
+  "reraNumber",
   "reraApprovalYear",
   "possessionYear",
   "unitDensityPerAcre",
@@ -59,6 +60,7 @@ export const BULK_PROJECT_HEADERS = [
   "Min Area (sqft)",
   "Max Area (sqft)",
   "BHK Options",
+  "RERA Registration Number",
   "RERA Approval Year",
   "Possession Year",
   "Unit Density Per Acre",
@@ -85,6 +87,7 @@ const FIELD_LABELS: Record<string, string> = {
   minAreaSqft: "Min Area (sqft)",
   maxAreaSqft: "Max Area (sqft)",
   bhkOptions: "BHK Options",
+  reraNumber: "RERA Registration Number",
   reraApprovalYear: "RERA Approval Year",
   possessionYear: "Possession Year",
   unitDensityPerAcre: "Unit Density Per Acre",
@@ -124,6 +127,7 @@ export type NewProjectValues = {
   minAreaSqft: number | null;
   maxAreaSqft: number | null;
   bhkOptions: string | null;
+  reraNumber: string | null;
   reraApprovalYear: number | null;
   possessionYear: number | null;
   unitDensityPerAcre: number | null;
@@ -205,6 +209,7 @@ export function validateBulkProjectRow(fields: BulkProjectFields, rowNumber: num
     minAreaSqft: fields.minAreaSqft || undefined,
     maxAreaSqft: fields.maxAreaSqft || undefined,
     bhkOptions: fields.bhkOptions || undefined,
+    reraNumber: fields.reraNumber || undefined,
     reraApprovalYear: fields.reraApprovalYear || undefined,
     possessionYear: fields.possessionYear || undefined,
     unitDensityPerAcre: fields.unitDensityPerAcre || undefined,
@@ -287,6 +292,7 @@ export function validateBulkProjectRow(fields: BulkProjectFields, rowNumber: num
       minAreaSqft: data.minAreaSqft ?? null,
       maxAreaSqft: data.maxAreaSqft ?? null,
       bhkOptions: data.bhkOptions || null,
+      reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
