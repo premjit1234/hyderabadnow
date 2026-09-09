@@ -87,14 +87,20 @@ export async function sendOtpWhatsApp(phone: string, code: string): Promise<void
           to_and_components: [
             {
               to: [mobile],
-              // MSG91's generic per-template curl sample shows an empty
-              // `components: {}` here (it can't know your variable names
-              // ahead of time) — `body_1` populating the template's one
-              // {{1}} placeholder comes from MSG91's WhatsApp-OTP-specific
-              // help doc. If the first real send comes back with a
-              // component/variable-mismatch error, this key is the first
-              // thing to check against MSG91's support.
-              components: { body_1: { type: "text", value: code } },
+              // Two things populate the same code, confirmed against a real
+              // failed send (MSG91 error: "buttons: Button at index 0 of
+              // type Url requires a parameter"): body_1 fills the {{1}} in
+              // the message text, and button_1 fills the "Copy Code"
+              // button's own parameter — Meta's Cloud API implements that
+              // button as a URL-type button under the hood even though the
+              // UI just calls it "Copy Code," and it needs the code passed
+              // to it separately from the body. Omitting button_1 is what
+              // caused every real send to fail after MSG91 had already
+              // accepted the request.
+              components: {
+                body_1: { type: "text", value: code },
+                button_1: { type: "text", value: code },
+              },
             },
           ],
         },
