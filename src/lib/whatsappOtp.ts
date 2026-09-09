@@ -102,8 +102,29 @@ export async function sendOtpWhatsApp(phone: string, code: string): Promise<void
     }),
   });
 
+  // Log every attempt's raw response, success or not — MSG91's API has been
+  // observed returning HTTP 200 with an error payload in the body for some
+  // requests (rather than a non-2xx status), which res.ok alone would miss
+  // and silently treat as a successful send. Temporary extra visibility
+  // while diagnosing the first real-world sends; safe to trim down once
+  // WhatsApp OTP delivery is confirmed reliable end-to-end.
+  const responseBody = await res.text().catch(() => "");
+  console.log(`[whatsapp-otp] MSG91 response (status ${res.status}) for +${mobile}: ${responseBody.slice(0, 500)}`);
+
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`MSG91 WhatsApp send failed (${res.status}): ${body.slice(0, 300)}`);
+    throw new Error(`MSG91 WhatsApp send failed (${res.status}): ${responseBody.slice(0, 300)}`);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(responseBody);
+  } catch {
+    // Not JSON — nothing more to check, treat the 2xx status as success.
+    return;
+  }
+  // Some MSG91 endpoints report failure as `{"type": "error", ...}` inside a
+  // 200 response rather than via the HTTP status code — catch that case too.
+  if (parsed && typeof parsed === "object" && (parsed as { type?: string }).type === "error") {
+    throw new Error(`MSG91 WhatsApp send failed: ${responseBody.slice(0, 300)}`);
   }
 }
