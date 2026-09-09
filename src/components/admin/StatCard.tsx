@@ -1,7 +1,11 @@
 import Link from "next/link";
 
-// Shared by the Overview and Analytics admin pages so their stat tiles stay
-// visually identical.
+// Shared by the admin Overview/Analytics pages AND the logged-in-user
+// dashboard (src/app/(site)/dashboard/page.tsx) so their stat tiles stay
+// visually identical — kept in components/admin for historical reasons
+// (that's where it was first written) even though it has no admin-specific
+// behavior; imported cross-folder from the dashboard rather than moved, to
+// avoid leaving a stale duplicate file behind on disk.
 export default function StatCard({ label, value, href }: { label: string; value: number | string; href?: string }) {
   const content = (
     <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">

@@ -827,13 +827,41 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
     heroImageUrl = null;
   }
 
+  let dashboardBannerImageUrl = existing?.dashboardBannerImageUrl ?? null;
+  const dashboardBannerFile = formData.get("dashboardBannerFile");
+  if (dashboardBannerFile instanceof File && dashboardBannerFile.size > 0) {
+    const saved = await saveUploadedImage(dashboardBannerFile);
+    if (!saved) return { error: "Dashboard banner must be a JPG, PNG, WebP, or GIF under 8MB." };
+    dashboardBannerImageUrl = saved;
+  } else if (formData.get("removeDashboardBanner") === "on") {
+    dashboardBannerImageUrl = null;
+  }
+
+  // Link is meaningless without an image to click, and an image with no
+  // link just wouldn't render as a link — keep them consistent rather than
+  // storing a dangling link with no banner or vice versa.
+  const dashboardBannerLinkUrlRaw = formData.get("dashboardBannerLinkUrl");
+  const dashboardBannerLinkUrl =
+    dashboardBannerImageUrl && typeof dashboardBannerLinkUrlRaw === "string" && dashboardBannerLinkUrlRaw.trim()
+      ? dashboardBannerLinkUrlRaw.trim()
+      : null;
+
   if (existing) {
     await db
       .update(siteSettings)
-      .set({ logoUrl, faviconUrl, heroImageUrl, updatedAt: sql`(current_timestamp)` })
+      .set({
+        logoUrl,
+        faviconUrl,
+        heroImageUrl,
+        dashboardBannerImageUrl,
+        dashboardBannerLinkUrl,
+        updatedAt: sql`(current_timestamp)`,
+      })
       .where(eq(siteSettings.id, 1));
   } else {
-    await db.insert(siteSettings).values({ id: 1, logoUrl, faviconUrl, heroImageUrl });
+    await db
+      .insert(siteSettings)
+      .values({ id: 1, logoUrl, faviconUrl, heroImageUrl, dashboardBannerImageUrl, dashboardBannerLinkUrl });
   }
 
   // The root layout's generateMetadata reads site settings on every request,

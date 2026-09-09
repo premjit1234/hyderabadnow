@@ -64,6 +64,13 @@
       "when": 1788895526979,
       "tag": "0008_trust_and_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1788944651327,
+      "tag": "0009_dashboard_banner",
+      "breakpoints": true
     }
   ]
 }

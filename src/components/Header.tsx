@@ -104,6 +104,12 @@ export default async function Header() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-4 md:flex">
+          <Link
+            href="/post-listing"
+            className="rounded-full bg-emerald-700 px-4 py-2 text-[15px] font-semibold text-white hover:bg-emerald-800"
+          >
+            Post a property
+          </Link>
           {session ? (
             <div className="flex items-center gap-4 text-[15px]">
               <Link href="/dashboard" className="hidden font-medium text-stone-700 hover:text-emerald-700 sm:inline">
@@ -130,11 +136,19 @@ export default async function Header() {
           )}
         </div>
 
-        <MobileNav
-          navItems={navItems}
-          session={session ? { name: session.name } : null}
-          logoutAction={logoutAction}
-        />
+        <div className="ml-auto flex items-center gap-2 md:hidden">
+          <Link
+            href="/post-listing"
+            className="rounded-full bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            Post a property
+          </Link>
+          <MobileNav
+            navItems={navItems}
+            session={session ? { name: session.name } : null}
+            logoutAction={logoutAction}
+          />
+        </div>
       </div>
     </header>
   );

@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getListingsByOwner } from "@/db/queries";
+import { getListingsByOwner, getSiteSettings, getUserById } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
 import { dashboardConfirmListingAction } from "@/app/actions";
+import DashboardBanner from "@/components/DashboardBanner";
+import StatCard from "@/components/admin/StatCard";
+import ListingFinancialTools from "@/components/ListingFinancialTools";
+import { computeDashboardNudges } from "@/lib/dashboardNudges";
+
+// Fallback starting price for the EMI/stamp-duty calculator when the owner
+// has no sale listings of their own to derive a realistic default from (or
+// for a buyer, who has none at all) — a round, plausible Hyderabad
+// apartment price, not a real figure of any kind.
+const DEFAULT_EMI_CALCULATOR_PRICE = 5_000_000;
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -22,10 +32,26 @@ export default async function DashboardPage() {
   }
 
   const canPost = session.role === "agent" || session.role === "seller" || session.role === "admin";
-  const myListings = canPost ? await getListingsByOwner(session.id) : [];
+  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl }, freshUser] = await Promise.all([
+    canPost ? getListingsByOwner(session.id) : Promise.resolve([]),
+    getSiteSettings(),
+    getUserById(session.id),
+  ]);
+
+  const nudges = canPost
+    ? computeDashboardNudges({ listings: myListings, phoneVerified: freshUser?.phoneVerified ?? false })
+    : [];
+
+  const saleListingPrices = myListings.filter((l) => l.listingType === "sale").map((l) => l.price);
+  const emiDefaultPrice =
+    saleListingPrices.length > 0
+      ? Math.round(saleListingPrices.reduce((sum, p) => sum + p, 0) / saleListingPrices.length)
+      : DEFAULT_EMI_CALCULATOR_PRICE;
 
   return (
     <main className="mx-auto max-w-4xl flex-1 px-4 py-10 sm:px-6">
+      <DashboardBanner imageUrl={dashboardBannerImageUrl} linkUrl={dashboardBannerLinkUrl} />
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-stone-900">Welcome, {session.name}</h1>
@@ -42,6 +68,36 @@ export default async function DashboardPage() {
           </Link>
         )}
       </div>
+
+      {canPost && myListings.length > 0 && (
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatCard label="Listings" value={myListings.length} />
+          <StatCard label="Total views" value={myListings.reduce((sum, l) => sum + l.views, 0)} />
+          <StatCard label="Verified" value={`${myListings.filter((l) => l.verified).length}/${myListings.length}`} />
+        </div>
+      )}
+
+      {nudges.length > 0 && (
+        <div className="mb-6 flex flex-col gap-2">
+          {nudges.map((n) => (
+            <div
+              key={n.id}
+              className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-3 text-sm ${
+                n.tone === "warning"
+                  ? "border-amber-200 bg-amber-50 text-amber-800"
+                  : "border-stone-200 bg-stone-50 text-stone-600"
+              }`}
+            >
+              <span>{n.message}</span>
+              {n.actionHref && n.actionLabel && (
+                <Link href={n.actionHref} className="shrink-0 font-semibold text-emerald-700 hover:text-emerald-800">
+                  {n.actionLabel} →
+                </Link>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {canPost ? (
         myListings.length === 0 ? (
@@ -118,6 +174,14 @@ export default async function DashboardPage() {
           <span className="text-stone-700">Contact us to switch your account to an agent or owner.</span>
         </p>
       )}
+
+      {/* Same calculator shown on a listing page (src/lib/finance.ts has the
+          actual math) — here it's general-purpose rather than tied to one
+          property, so buyers can plan a budget and owners/agents can sanity
+          check a price even without an active sale listing. */}
+      <div className="mt-8">
+        <ListingFinancialTools price={emiDefaultPrice} />
+      </div>
     </main>
   );
 }

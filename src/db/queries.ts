@@ -559,6 +559,8 @@ export async function getSiteSettings(): Promise<{
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
+  dashboardBannerImageUrl: string | null;
+  dashboardBannerLinkUrl: string | null;
 }> {
   try {
     const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
@@ -566,9 +568,17 @@ export async function getSiteSettings(): Promise<{
       logoUrl: row?.logoUrl ?? null,
       faviconUrl: row?.faviconUrl ?? null,
       heroImageUrl: row?.heroImageUrl ?? null,
+      dashboardBannerImageUrl: row?.dashboardBannerImageUrl ?? null,
+      dashboardBannerLinkUrl: row?.dashboardBannerLinkUrl ?? null,
     };
   } catch {
-    return { logoUrl: null, faviconUrl: null, heroImageUrl: null };
+    return {
+      logoUrl: null,
+      faviconUrl: null,
+      heroImageUrl: null,
+      dashboardBannerImageUrl: null,
+      dashboardBannerLinkUrl: null,
+    };
   }
 }
 
@@ -709,6 +719,7 @@ export async function getListingsByOwner(ownerId: number) {
       status: listings.status,
       views: listings.views,
       staleNudgeSentAt: listings.staleNudgeSentAt,
+      createdAt: listings.createdAt,
       imageUrl: firstImageSubquery,
     })
     .from(listings)

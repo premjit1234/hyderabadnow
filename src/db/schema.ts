@@ -291,6 +291,14 @@ export const siteSettings = sqliteTable("site_settings", {
   logoUrl: text("logo_url"),
   faviconUrl: text("favicon_url"),
   heroImageUrl: text("hero_image_url"),
+  // Optional promo banner shown on the logged-in dashboard page only (see
+  // DashboardBanner.tsx) — e.g. "list with an agent" or a partner offer.
+  // Fully admin-controlled (not self-serve for owners/agents): a plain
+  // image + destination link, no ad-network integration. Null image means
+  // "don't show a banner at all", which is also the default until an admin
+  // uploads one.
+  dashboardBannerImageUrl: text("dashboard_banner_image_url"),
+  dashboardBannerLinkUrl: text("dashboard_banner_link_url"),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
