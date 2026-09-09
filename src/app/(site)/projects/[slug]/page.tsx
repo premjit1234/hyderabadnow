@@ -1,14 +1,66 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { getProjectById, getProjectBySlug, getListingsByProject, getPageViewCountForPath } from "@/db/queries";
 import { propertyTypeLabel, formatPrice } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
+import { getAppUrl } from "@/lib/site";
 import { AMENITIES, parseAmenities } from "@/lib/amenities";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { absoluteUrl, jsonLdScriptContent } from "@/lib/seo";
+import {
+  buildProjectBreadcrumbJsonLd,
+  buildProjectJsonLd,
+  buildProjectSeoDescription,
+  buildProjectSeoTitle,
+  projectSeoPath,
+} from "@/lib/projectSeo";
 import AmenityIcon from "@/components/AmenityIcon";
 import ProjectGallery from "@/components/ProjectGallery";
 import ProjectListingsTabs from "@/components/ProjectListingsTabs";
 import ProjectSaveShareButtons from "@/components/ProjectSaveShareButtons";
+
+// Same treatment as the listing page's generateMetadata (see
+// src/lib/listingSeo.ts) — every project previously shared the site-wide
+// title/description, so this gives each one its own, built from its actual
+// name/developer/locality/specs, plus a canonical URL and OG image.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  let project = await getProjectBySlug(slug);
+  if (!project) {
+    // Same numeric-id fallback as the page component below — don't redirect
+    // here, just resolve enough to describe the page; the page component
+    // itself is what actually issues the permanent redirect.
+    const numericId = Number(slug);
+    if (Number.isInteger(numericId) && String(numericId) === slug) {
+      project = await getProjectById(numericId);
+    }
+  }
+  if (!project) return {};
+
+  const appUrl = await getAppUrl();
+  const url = `${appUrl}${projectSeoPath(project)}`;
+  const title = buildProjectSeoTitle(project);
+  const description = buildProjectSeoDescription(project);
+  const firstImage = project.images[0] ? absoluteUrl(project.images[0].url, appUrl) : null;
+
+  return {
+    title: `${title} | HyderabadNow`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      images: firstImage ? [{ url: firstImage }] : undefined,
+    },
+  };
+}
 
 function PinIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -167,11 +219,15 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   }
   if (!project) notFound();
 
-  const [saleListings, rentListings, viewCount] = await Promise.all([
+  const [saleListings, rentListings, viewCount, appUrl] = await Promise.all([
     getListingsByProject(project.id, "sale"),
     getListingsByProject(project.id, "rent"),
     getPageViewCountForPath(`/projects/${project.slug ?? project.id}`),
+    getAppUrl(),
   ]);
+
+  const projectJsonLd = buildProjectJsonLd(project, appUrl);
+  const projectBreadcrumbJsonLd = buildProjectBreadcrumbJsonLd(project, appUrl);
 
   const amenityKeys = parseAmenities(project.amenities);
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
@@ -196,6 +252,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
+      {/* Structured data for search engines — not rendered visibly. See
+          src/lib/projectSeo.ts for what each object contains and why. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(projectJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(projectBreadcrumbJsonLd) }}
+      />
       <Link href="/projects" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-emerald-700">
         ← Back to projects
       </Link>

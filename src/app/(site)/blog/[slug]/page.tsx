@@ -1,16 +1,51 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getBlogPostBySlug } from "@/db/queries";
 import { getSession } from "@/lib/auth";
+import { getAppUrl } from "@/lib/site";
 import { formatDate } from "@/lib/format";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { getVideoEmbedUrl } from "@/lib/blog";
+import { absoluteUrl, jsonLdScriptContent } from "@/lib/seo";
+import { buildBlogBreadcrumbJsonLd, buildBlogPostJsonLd, buildBlogSeoDescription } from "@/lib/blogSeo";
 import BlogCommentForm from "@/components/BlogCommentForm";
+
+// Same treatment as the listing/project pages' generateMetadata — every
+// post previously shared the site-wide title/description, giving Google (and
+// social link previews) no way to tell posts apart from the metadata alone.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getBlogPostBySlug(slug);
+  if (!post || post.status !== "published") return {};
+
+  const appUrl = await getAppUrl();
+  const url = `${appUrl}/blog/${post.slug}`;
+  const description = buildBlogSeoDescription(post);
+  const image = post.coverImageUrl ? absoluteUrl(post.coverImageUrl, appUrl) : null;
+
+  return {
+    title: `${post.title} | HyderabadNow Blog`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title: post.title,
+      description,
+      url,
+      type: "article",
+      images: image ? [{ url: image }] : undefined,
+    },
+  };
+}
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [post, session] = await Promise.all([getBlogPostBySlug(slug), getSession()]);
+  const [post, session, appUrl] = await Promise.all([getBlogPostBySlug(slug), getSession(), getAppUrl()]);
 
   if (!post || post.status !== "published") notFound();
 
@@ -19,8 +54,18 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   // done when the post was saved — see lib/sanitizeHtml.ts for why.
   const safeContent = sanitizeBlogContent(post.contentHtml);
 
+  const blogJsonLd = buildBlogPostJsonLd({ ...post, authorName: post.author?.name ?? null }, appUrl);
+  const blogBreadcrumbJsonLd = buildBlogBreadcrumbJsonLd(post, appUrl);
+
   return (
     <main className="mx-auto max-w-3xl flex-1 px-4 py-8 sm:px-6">
+      {/* Structured data for search engines — not rendered visibly. See
+          src/lib/blogSeo.ts for what each object contains and why. */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(blogJsonLd) }} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(blogBreadcrumbJsonLd) }}
+      />
       <Link href="/blog" className="text-sm font-medium text-indigo-600 hover:underline">
         ← Back to blog
       </Link>
