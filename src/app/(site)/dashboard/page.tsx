@@ -4,6 +4,7 @@ import { getListingsByOwner, getSiteSettings, getUserById } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
 import { dashboardConfirmListingAction } from "@/app/actions";
 import DashboardBanner from "@/components/DashboardBanner";
+import DeleteListingButton from "@/components/DeleteListingButton";
 import StatCard from "@/components/admin/StatCard";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
 import { computeDashboardNudges } from "@/lib/dashboardNudges";
@@ -112,6 +113,7 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Verified</th>
                   <th className="px-4 py-3">Views</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -162,6 +164,17 @@ export default async function DashboardPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{l.views}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Link
+                          href={`/dashboard/listings/${l.id}/edit`}
+                          className="text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                          View/Edit
+                        </Link>
+                        <DeleteListingButton listingId={l.id} listingTitle={l.title} />
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

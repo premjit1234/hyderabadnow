@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
 import { users, listings, listingImages, inquiries, blogPosts, blogComments, pageViews, phoneOtps } from "@/db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { and, eq, inArray, sql, desc } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
 import { resolveListingAmenities } from "@/app/admin/actions";
+import { editListingSchema } from "@/lib/listingValidation";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
@@ -344,6 +345,160 @@ export async function dashboardConfirmListingAction(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+// ---- Owner self-service: edit / delete a listing from the dashboard ----
+//
+// Same validation shape as adminUpdateListingAction (see editListingSchema,
+// exported from app/admin/actions.ts specifically so this doesn't duplicate
+// it) — the fields an owner can edit are identical to what an admin can.
+// Two differences from the admin action: authorization is an ownership
+// check instead of requireAdmin(), and featured/verified are never touched
+// here at all (not read from the form, not included in the update) — those
+// stay admin-only trust/promotion signals an owner can't grant themselves,
+// same rule listing.verified already follows everywhere else in the app.
+export async function updateOwnListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in to edit your listing." };
+
+  const listingId = Number(formData.get("listingId"));
+  if (!listingId) return { error: "Missing listing." };
+
+  const existing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!existing || (existing.ownerId !== session.id && session.role !== "admin")) {
+    return { error: "You don't have permission to edit this listing." };
+  }
+
+  const parsed = editListingSchema.safeParse({
+    title: formData.get("title"),
+    description: formData.get("description"),
+    price: formData.get("price"),
+    listingType: formData.get("listingType"),
+    propertyType: formData.get("propertyType"),
+    bhk: formData.get("bhk") || undefined,
+    bathrooms: formData.get("bathrooms") || undefined,
+    carParking: formData.get("carParking") || undefined,
+    areaSqft: formData.get("areaSqft"),
+    locality: formData.get("locality"),
+    city: formData.get("city"),
+    address: formData.get("address") || undefined,
+    status: formData.get("status"),
+    contactPhone: formData.get("contactPhone") || undefined,
+    towerName: formData.get("towerName") || undefined,
+    unitNumber: formData.get("unitNumber") || undefined,
+    unitFloor: formData.get("unitFloor") || undefined,
+    facing: formData.get("facing") || undefined,
+    furnishingStatus: formData.get("furnishingStatus") || undefined,
+    inventoryState: formData.get("inventoryState") || undefined,
+    sellerAskPrice: formData.get("sellerAskPrice") || undefined,
+    sellerBestPrice: formData.get("sellerBestPrice") || undefined,
+    cashRatioPercent: formData.get("cashRatioPercent") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+  const whatsappEnabled = formData.get("whatsappEnabled") === "on";
+  if (whatsappEnabled && !data.contactPhone?.trim()) {
+    return { error: "Enter a contact phone number to enable the WhatsApp button." };
+  }
+  const projectIdRaw = formData.get("projectId");
+  const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
+  const amenities = await resolveListingAmenities(formData);
+
+  await db
+    .update(listings)
+    .set({
+      title: data.title,
+      description: data.description,
+      price: data.price,
+      listingType: data.listingType,
+      propertyType: data.propertyType,
+      bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
+      bathrooms: data.bathrooms ?? null,
+      carParking: data.carParking ?? null,
+      areaSqft: data.areaSqft,
+      locality: data.locality,
+      city: data.city,
+      address: data.address || null,
+      status: data.status,
+      contactPhone: data.contactPhone?.trim() || null,
+      whatsappEnabled,
+      projectId,
+      towerName: data.towerName?.trim() || null,
+      unitNumber: data.unitNumber?.trim() || null,
+      unitFloor: data.unitFloor ?? null,
+      facing: data.facing ?? null,
+      furnishingStatus: data.furnishingStatus ?? null,
+      inventoryState: data.inventoryState ?? "new",
+      sellerAskPrice: data.sellerAskPrice ?? null,
+      sellerBestPrice: data.sellerBestPrice ?? null,
+      cashRatioPercent: data.cashRatioPercent ?? null,
+      amenities,
+      videoUrl: data.videoUrl || null,
+      // Same reasoning as the admin edit action: an owner actively editing
+      // their listing is itself a sign it's still real and attended-to, so
+      // this resets the staleness clock exactly like the "Yes, still
+      // available" confirm button does (see lib/staleListings.ts).
+      lastConfirmedAt: new Date().toISOString(),
+      staleNudgeSentAt: null,
+      autoFlaggedStaleAt: null,
+    })
+    .where(eq(listings.id, listingId));
+
+  // Remove any photos the owner unchecked, scoped to this listing so a
+  // tampered form field can never touch another listing's images.
+  const removeIds = formData
+    .getAll("removeImageId")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n));
+  if (removeIds.length > 0) {
+    await db
+      .delete(listingImages)
+      .where(and(eq(listingImages.listingId, listingId), inArray(listingImages.id, removeIds)));
+  }
+
+  // Add any newly uploaded photos after the existing ones.
+  const [{ maxOrder }] = await db
+    .select({ maxOrder: sql<number>`coalesce(max(${listingImages.sortOrder}), -1)` })
+    .from(listingImages)
+    .where(eq(listingImages.listingId, listingId));
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  let order = maxOrder + 1;
+  const newRows: { listingId: number; url: string; sortOrder: number }[] = [];
+  for (const file of files.slice(0, 10)) {
+    const url = await saveUploadedImage(file);
+    if (url) newRows.push({ listingId, url, sortOrder: order++ });
+  }
+  if (newRows.length > 0) {
+    await db.insert(listingImages).values(newRows);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/dashboard/listings/${listingId}/edit`);
+  revalidatePath(`/listing/${listingId}`);
+  redirect(`/dashboard/listings/${listingId}/edit?saved=1`);
+}
+
+// Permanently deletes a listing the current user owns (or any listing, for
+// an admin) — listingImages and inquiries both reference listings with ON
+// DELETE CASCADE (see schema.ts), so this cleanly removes the listing's
+// photos and inquiries too, same as adminDeleteListingAction. No separate
+// confirmation step here since the dashboard's delete button itself asks
+// for confirmation before this ever gets submitted (see
+// DeleteListingButton.tsx) — this action trusts that already happened, the
+// same way a plain form submit always does.
+export async function deleteOwnListingAction(formData: FormData) {
+  const session = await getSession();
+  const listingId = Number(formData.get("listingId"));
+  if (!session || !listingId) return;
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!listing || (listing.ownerId !== session.id && session.role !== "admin")) return;
+
+  await db.delete(listings).where(eq(listings.id, listingId));
+  revalidatePath("/dashboard");
+}
+
 const inquirySchema = z.object({
   listingId: z.coerce.number().int().positive(),
   name: z.string().min(2, "Enter your name"),
@@ -409,6 +564,15 @@ export async function createBlogCommentAction(_prev: ActionState, formData: Form
 // a state change a user account owns) and no revalidatePath (the admin
 // Analytics page reads fresh on every load; blog view counts are read live
 // too since those pages are already dynamically rendered).
+//
+// listings.views works the same way as blogPosts.viewCount just above it —
+// bumped here, on every tracked page view of a /listing/[id] page. Before
+// this, nothing anywhere ever wrote to listings.views at all: the column
+// existed and was shown on the owner dashboard and the listing table, but
+// stayed permanently at its insert-time default of 0 no matter how many
+// times a listing was actually viewed. No dedup by visitor, same as blog
+// view counts — a repeat visit still counts, since this mirrors "page
+// views" (an analytics number), not "unique viewers".
 export async function recordPageViewAction(path: string, visitorId: string) {
   if (typeof path !== "string" || typeof visitorId !== "string") return;
   if (!path.startsWith("/") || path.length > 300) return;
@@ -421,11 +585,20 @@ export async function recordPageViewAction(path: string, visitorId: string) {
     if (post) blogPostId = post.id;
   }
 
+  const listingMatch = path.match(/^\/listing\/(\d+)\/?$/);
+  const listingId = listingMatch ? Number(listingMatch[1]) : null;
+
   await db.insert(pageViews).values({ path: path.slice(0, 300), visitorId, blogPostId });
   if (blogPostId) {
     await db
       .update(blogPosts)
       .set({ viewCount: sql`${blogPosts.viewCount} + 1` })
       .where(eq(blogPosts.id, blogPostId));
+  }
+  if (listingId != null) {
+    await db
+      .update(listings)
+      .set({ views: sql`${listings.views} + 1` })
+      .where(eq(listings.id, listingId));
   }
 }
