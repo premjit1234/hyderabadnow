@@ -45,116 +45,114 @@ export default async function BrowsePage({
       </h1>
       <p className="mt-1 text-sm text-stone-500">{results.length} listings found</p>
 
-      <div className="mt-6 flex flex-col gap-8 lg:flex-row">
-        <aside className="lg:w-64 lg:shrink-0">
-          <form method="GET" className="flex flex-col gap-4 rounded-lg border border-stone-200 p-4">
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Locality
-              </label>
-              <input
-                type="text"
-                name="q"
-                defaultValue={q}
-                placeholder="e.g. Kondapur"
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Listing type
-              </label>
-              <select
-                name="listingType"
-                defaultValue={listingType ?? ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                <option value="sale">Buy</option>
-                <option value="rent">Rent</option>
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Property type
-              </label>
-              <select
-                name="propertyType"
-                defaultValue={propertyType ?? ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                {PROPERTY_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {propertyTypeLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Bedrooms (BHK)
-              </label>
-              <select
-                name="bhk"
-                defaultValue={bhk ? String(bhk) : ""}
-                className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-              >
-                <option value="">Any</option>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>
-                    {n}+ BHK
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  Min price
-                </label>
-                <input
-                  type="number"
-                  name="minPrice"
-                  defaultValue={minPrice}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  Max price
-                </label>
-                <input
-                  type="number"
-                  name="maxPrice"
-                  defaultValue={maxPrice}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              className="rounded-md bg-emerald-700 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+      <form method="GET" className="mt-6 rounded-lg border border-stone-200 p-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Locality
+            </label>
+            <input
+              type="text"
+              name="q"
+              defaultValue={q}
+              placeholder="e.g. Kondapur"
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Listing type
+            </label>
+            <select
+              name="listingType"
+              defaultValue={listingType ?? ""}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
             >
-              Apply filters
-            </button>
-            <a href="/browse" className="text-center text-xs text-stone-500 hover:underline">
-              Clear filters
-            </a>
-          </form>
-        </aside>
-
-        <div className="flex-1">
-          {results.length === 0 ? (
-            <p className="text-stone-500">No listings match those filters yet. Try widening your search.</p>
-          ) : (
-            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {results.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
+              <option value="">Any</option>
+              <option value="sale">Buy</option>
+              <option value="rent">Rent</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Property type
+            </label>
+            <select
+              name="propertyType"
+              defaultValue={propertyType ?? ""}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            >
+              <option value="">Any</option>
+              {PROPERTY_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {propertyTypeLabel(t)}
+                </option>
               ))}
-            </div>
-          )}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Bedrooms (BHK)
+            </label>
+            <select
+              name="bhk"
+              defaultValue={bhk ? String(bhk) : ""}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            >
+              <option value="">Any</option>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <option key={n} value={n}>
+                  {n}+ BHK
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Min price
+            </label>
+            <input
+              type="number"
+              name="minPrice"
+              defaultValue={minPrice}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Max price
+            </label>
+            <input
+              type="number"
+              name="maxPrice"
+              defaultValue={maxPrice}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            />
+          </div>
         </div>
+        <div className="mt-3 flex items-center gap-4">
+          <button
+            type="submit"
+            className="rounded-md bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          >
+            Apply filters
+          </button>
+          <a href="/browse" className="text-xs text-stone-500 hover:underline">
+            Clear filters
+          </a>
+        </div>
+      </form>
+
+      <div className="mt-6">
+        {results.length === 0 ? (
+          <p className="text-stone-500">No listings match those filters yet. Try widening your search.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {results.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
