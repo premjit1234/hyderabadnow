@@ -2,9 +2,10 @@ import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { getListingsByOwner, getSiteSettings, getUserById } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
-import { dashboardConfirmListingAction } from "@/app/actions";
+import { dashboardConfirmListingAction, featureListingWithCreditAction, unfeatureOwnListingAction } from "@/app/actions";
 import DashboardBanner from "@/components/DashboardBanner";
 import DeleteListingButton from "@/components/DeleteListingButton";
+import BuyFeaturedCreditsForm from "@/components/BuyFeaturedCreditsForm";
 import StatCard from "@/components/admin/StatCard";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
 import { computeDashboardNudges } from "@/lib/dashboardNudges";
@@ -33,11 +34,13 @@ export default async function DashboardPage() {
   }
 
   const canPost = session.role === "agent" || session.role === "seller" || session.role === "admin";
-  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl }, freshUser] = await Promise.all([
-    canPost ? getListingsByOwner(session.id) : Promise.resolve([]),
-    getSiteSettings(),
-    getUserById(session.id),
-  ]);
+  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees }, freshUser] =
+    await Promise.all([
+      canPost ? getListingsByOwner(session.id) : Promise.resolve([]),
+      getSiteSettings(),
+      getUserById(session.id),
+    ]);
+  const featuredCredits = freshUser?.featuredCredits ?? 0;
 
   const nudges = canPost
     ? computeDashboardNudges({ listings: myListings, phoneVerified: freshUser?.phoneVerified ?? false })
@@ -78,6 +81,22 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {canPost && (
+        <div className="mb-6">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="text-sm font-bold text-stone-900">Featured listing credits</h2>
+            <span className="text-sm text-stone-600">
+              Balance: <span className="font-semibold text-stone-900">{featuredCredits}</span>
+            </span>
+          </div>
+          <BuyFeaturedCreditsForm
+            pricePerCredit={featuredCreditPriceRupees}
+            buyerName={session.name}
+            buyerEmail={session.email}
+          />
+        </div>
+      )}
+
       {nudges.length > 0 && (
         <div className="mb-6 flex flex-col gap-2">
           {nudges.map((n) => (
@@ -104,7 +123,7 @@ export default async function DashboardPage() {
         myListings.length === 0 ? (
           <p className="text-stone-500">You haven&apos;t posted any listings yet.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border border-stone-200">
+          <div className="overflow-x-auto rounded-lg border border-stone-200">
             <table className="w-full text-left text-sm">
               <thead className="bg-stone-50 text-xs uppercase tracking-wide text-stone-500">
                 <tr>
@@ -113,6 +132,7 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Verified</th>
                   <th className="px-4 py-3">Views</th>
+                  <th className="px-4 py-3">Featured</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -164,6 +184,33 @@ export default async function DashboardPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{l.views}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {l.featured ? (
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                            ★ Featured
+                          </span>
+                          <form action={unfeatureOwnListingAction}>
+                            <input type="hidden" name="listingId" value={l.id} />
+                            <button type="submit" className="text-xs font-medium text-stone-500 hover:underline">
+                              Unfeature
+                            </button>
+                          </form>
+                        </div>
+                      ) : featuredCredits > 0 ? (
+                        <form action={featureListingWithCreditAction}>
+                          <input type="hidden" name="listingId" value={l.id} />
+                          <button
+                            type="submit"
+                            className="rounded-md border border-amber-500 px-2 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                          >
+                            Feature (1 credit)
+                          </button>
+                        </form>
+                      ) : (
+                        <span className="text-xs text-stone-400">No credits</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <Link

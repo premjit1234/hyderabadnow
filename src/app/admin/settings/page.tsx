@@ -2,7 +2,7 @@ import { getSiteSettings } from "@/db/queries";
 import SiteSettingsForm from "@/components/admin/SiteSettingsForm";
 
 export default async function AdminSiteSettingsPage() {
-  const { logoUrl, faviconUrl, heroImageUrl, dashboardBannerImageUrl, dashboardBannerLinkUrl } =
+  const { logoUrl, faviconUrl, heroImageUrl, dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees } =
     await getSiteSettings();
 
   return (
@@ -17,6 +17,7 @@ export default async function AdminSiteSettingsPage() {
         heroImageUrl={heroImageUrl}
         dashboardBannerImageUrl={dashboardBannerImageUrl}
         dashboardBannerLinkUrl={dashboardBannerLinkUrl}
+        featuredCreditPriceRupees={featuredCreditPriceRupees}
       />
     </div>
   );

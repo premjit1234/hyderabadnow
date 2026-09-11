@@ -586,12 +586,18 @@ export async function getProjectsForSelect() {
 // builder stage, against a throwaway sqlite file that has no tables at all yet
 // (schema is only pushed at container start, see docker-entrypoint.sh). So this
 // must tolerate "no such table" rather than fail the whole build.
+// Falls back to the same 500 that schema.ts's column default uses, kept as
+// one named constant so the "table row missing" catch-branch below and the
+// column default never drift apart.
+const DEFAULT_FEATURED_CREDIT_PRICE_RUPEES = 500;
+
 export async function getSiteSettings(): Promise<{
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
   dashboardBannerImageUrl: string | null;
   dashboardBannerLinkUrl: string | null;
+  featuredCreditPriceRupees: number;
 }> {
   try {
     const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
@@ -601,6 +607,7 @@ export async function getSiteSettings(): Promise<{
       heroImageUrl: row?.heroImageUrl ?? null,
       dashboardBannerImageUrl: row?.dashboardBannerImageUrl ?? null,
       dashboardBannerLinkUrl: row?.dashboardBannerLinkUrl ?? null,
+      featuredCreditPriceRupees: row?.featuredCreditPriceRupees ?? DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
     };
   } catch {
     return {
@@ -609,6 +616,7 @@ export async function getSiteSettings(): Promise<{
       heroImageUrl: null,
       dashboardBannerImageUrl: null,
       dashboardBannerLinkUrl: null,
+      featuredCreditPriceRupees: DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
     };
   }
 }

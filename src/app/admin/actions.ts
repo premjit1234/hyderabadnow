@@ -850,6 +850,11 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
       ? dashboardBannerLinkUrlRaw.trim()
       : null;
 
+  const featuredCreditPriceRaw = Number(formData.get("featuredCreditPriceRupees"));
+  if (!Number.isInteger(featuredCreditPriceRaw) || featuredCreditPriceRaw <= 0) {
+    return { error: "Featured listing credit price must be a whole number of rupees greater than 0." };
+  }
+
   if (existing) {
     await db
       .update(siteSettings)
@@ -859,13 +864,20 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
         heroImageUrl,
         dashboardBannerImageUrl,
         dashboardBannerLinkUrl,
+        featuredCreditPriceRupees: featuredCreditPriceRaw,
         updatedAt: sql`(current_timestamp)`,
       })
       .where(eq(siteSettings.id, 1));
   } else {
-    await db
-      .insert(siteSettings)
-      .values({ id: 1, logoUrl, faviconUrl, heroImageUrl, dashboardBannerImageUrl, dashboardBannerLinkUrl });
+    await db.insert(siteSettings).values({
+      id: 1,
+      logoUrl,
+      faviconUrl,
+      heroImageUrl,
+      dashboardBannerImageUrl,
+      dashboardBannerLinkUrl,
+      featuredCreditPriceRupees: featuredCreditPriceRaw,
+    });
   }
 
   // The root layout's generateMetadata reads site settings on every request,

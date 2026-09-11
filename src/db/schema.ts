@@ -28,6 +28,14 @@ export const users = sqliteTable("users", {
   // reset this to false when `phone` changes).
   phoneVerified: integer("phone_verified", { mode: "boolean" }).notNull().default(false),
   phoneVerifiedAt: text("phone_verified_at"),
+  // Balance of "make a listing featured" credits this user has bought but
+  // not yet spent — see creditOrders below for the purchase history and
+  // featureListingWithCreditAction/adminToggleFeaturedAction (app/actions.ts
+  // and admin/actions.ts) for the two ways featured actually gets set.
+  // Spending one is an atomic conditional decrement (only when > 0) rather
+  // than a plain read-then-write, so two rapid clicks — or a click racing a
+  // webhook credit — can never send this negative.
+  featuredCredits: integer("featured_credits").notNull().default(0),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -304,9 +312,42 @@ export const siteSettings = sqliteTable("site_settings", {
   // uploads one.
   dashboardBannerImageUrl: text("dashboard_banner_image_url"),
   dashboardBannerLinkUrl: text("dashboard_banner_link_url"),
+  // Price (in INR) an owner/agent pays per "featured listing" credit — see
+  // users.featuredCredits and creditOrders below. Snapshotted onto each
+  // creditOrders row at purchase time, so changing this later never alters
+  // the amount of an order already created (paid or not).
+  featuredCreditPriceRupees: integer("featured_credit_price_rupees").notNull().default(500),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
+});
+
+// One row per attempted featured-credit purchase (see
+// createFeaturedCreditOrderAction in app/actions.ts) — created the moment a
+// Razorpay order is opened, before any payment has actually happened, so
+// every checkout attempt is auditable regardless of whether it's ever
+// completed. `status` only ever moves created -> paid or created -> failed,
+// never backwards. Crediting users.featuredCredits happens exactly once,
+// gated on this row's status still being "created" at update time (see
+// verifyFeaturedCreditPaymentAction and the /api/payments/razorpay/webhook
+// route, which both race to be the one that marks it paid — whichever gets
+// there first wins, the other is a no-op) — that's what makes it safe for
+// both the client-side confirmation and the webhook to attempt the same
+// credit without ever double-crediting a purchase.
+export const creditOrders = sqliteTable("credit_orders", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  quantity: integer("quantity").notNull(),
+  amountRupees: integer("amount_rupees").notNull(),
+  razorpayOrderId: text("razorpay_order_id").notNull().unique(),
+  razorpayPaymentId: text("razorpay_payment_id"),
+  status: text("status", { enum: ["created", "paid", "failed"] }).notNull().default("created"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  paidAt: text("paid_at"),
 });
 
 // Legal/policy pages (Terms of Use, Privacy Policy, Cookie Policy) shown in

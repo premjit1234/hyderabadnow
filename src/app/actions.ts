@@ -4,8 +4,18 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db/client";
-import { users, listings, listingImages, inquiries, blogPosts, blogComments, pageViews, phoneOtps } from "@/db/schema";
-import { and, eq, inArray, sql, desc } from "drizzle-orm";
+import {
+  users,
+  listings,
+  listingImages,
+  inquiries,
+  blogPosts,
+  blogComments,
+  pageViews,
+  phoneOtps,
+  creditOrders,
+} from "@/db/schema";
+import { and, eq, gt, inArray, sql, desc } from "drizzle-orm";
 import {
   hashPassword,
   verifyPassword,
@@ -20,6 +30,9 @@ import { getVideoEmbedUrl } from "@/lib/video";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
 import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
+import { getSiteSettings } from "@/db/queries";
+import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpayPaymentSignature } from "@/lib/razorpay";
+import { creditFeaturedCreditOrder } from "@/lib/featuredCredits";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -496,6 +509,159 @@ export async function deleteOwnListingAction(formData: FormData) {
   if (!listing || (listing.ownerId !== session.id && session.role !== "admin")) return;
 
   await db.delete(listings).where(eq(listings.id, listingId));
+  revalidatePath("/dashboard");
+}
+
+// --- Featured-listing credits (buy credits, spend one to feature a listing) ---
+//
+// This is entirely separate from adminToggleFeaturedAction (admin/actions.ts)
+// — that stays a free, unlimited, admin-only override for promotional
+// purposes. These four actions are the owner-facing, credit-gated path:
+// buy credits via Razorpay, then spend exactly one to feature your own
+// listing. Deliberately no admin bypass here (unlike
+// updateOwnListingAction/deleteOwnListingAction) — spending a credit should
+// only ever spend the actual owner's own balance, and the dashboard only
+// ever surfaces a user's own listings anyway, so a bypass would never be
+// reachable through the UI.
+
+// Starts a purchase: creates a Razorpay order for `quantity` credits at the
+// current admin-set price, and a matching "created" row in creditOrders so
+// verifyFeaturedCreditPaymentAction (below) and the webhook route both have
+// something to look up and mark paid once Razorpay confirms the payment.
+// Nothing is credited to the user yet — that only happens once a signature
+// proves the payment actually went through (see creditFeaturedCreditOrder).
+export async function createFeaturedCreditOrderAction(
+  quantity: number
+): Promise<
+  | { success: true; razorpayOrderId: string; amountRupees: number; keyId: string; quantity: number }
+  | { success: false; error: string }
+> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Please log in first." };
+
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
+    return { success: false, error: "Enter a quantity between 1 and 100." };
+  }
+
+  if (!isRazorpayConfigured()) {
+    return { success: false, error: "Buying credits isn't set up yet on this server. Please try again later." };
+  }
+
+  const { featuredCreditPriceRupees } = await getSiteSettings();
+  const amountRupees = featuredCreditPriceRupees * quantity;
+
+  let razorpayOrder: { id: string };
+  try {
+    razorpayOrder = await createRazorpayOrder({
+      amountRupees,
+      receipt: `fc_${session.id}_${Date.now()}`,
+    });
+  } catch (err) {
+    console.error("Razorpay order creation failed", err);
+    return { success: false, error: "Could not start payment. Please try again." };
+  }
+
+  await db.insert(creditOrders).values({
+    userId: session.id,
+    quantity,
+    amountRupees,
+    razorpayOrderId: razorpayOrder.id,
+    status: "created",
+  });
+
+  const keyId = getRazorpayKeyId();
+  if (!keyId) {
+    // Shouldn't happen given the isRazorpayConfigured() check above, but
+    // keep TypeScript honest and fail closed rather than sending the
+    // browser a null key.
+    return { success: false, error: "Buying credits isn't set up yet on this server. Please try again later." };
+  }
+
+  return { success: true, razorpayOrderId: razorpayOrder.id, amountRupees, keyId, quantity };
+}
+
+// Runs right after Razorpay Checkout's "handler" callback reports success in
+// the browser. Verifies the cryptographic signature Razorpay hands back
+// (proof the payment actually happened — see verifyRazorpayPaymentSignature)
+// before crediting anything. The /api/payments/razorpay/webhook route calls
+// the same shared creditFeaturedCreditOrder helper as a safety net in case
+// the browser loses its connection right after paying and never reaches
+// this action at all — whichever of the two gets there first wins, the
+// other is a safe no-op (see that helper's own comment).
+export async function verifyFeaturedCreditPaymentAction(params: {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}): Promise<{ success: true; creditsAdded: number } | { success: false; error: string }> {
+  const session = await getSession();
+  if (!session) return { success: false, error: "Please log in first." };
+
+  const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = params;
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    return { success: false, error: "Missing payment details." };
+  }
+
+  const order = await db.query.creditOrders.findFirst({ where: eq(creditOrders.razorpayOrderId, razorpayOrderId) });
+  if (!order || order.userId !== session.id) {
+    return { success: false, error: "Order not found." };
+  }
+
+  const validSignature = verifyRazorpayPaymentSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
+  if (!validSignature) {
+    return {
+      success: false,
+      error: "Payment could not be verified. If money was deducted, it will be credited automatically shortly.",
+    };
+  }
+
+  const result = await creditFeaturedCreditOrder(razorpayOrderId, razorpayPaymentId);
+  if (!result) return { success: false, error: "Order not found." };
+
+  revalidatePath("/dashboard");
+  return { success: true, creditsAdded: result.quantity };
+}
+
+// Spends exactly one credit to feature a listing the current user owns. The
+// decrement is a single conditional UPDATE (`WHERE featured_credits > 0`)
+// rather than a read-then-write, so two rapid clicks — or a click racing a
+// webhook crediting the same account — can never push the balance negative
+// or feature a listing without actually having spent a credit for it.
+export async function featureListingWithCreditAction(formData: FormData) {
+  const session = await getSession();
+  const listingId = Number(formData.get("listingId"));
+  if (!session || !listingId) return;
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!listing || listing.ownerId !== session.id) return;
+  if (listing.featured) return;
+
+  const updated = await db
+    .update(users)
+    .set({ featuredCredits: sql`${users.featuredCredits} - 1` })
+    .where(and(eq(users.id, session.id), gt(users.featuredCredits, 0)))
+    .returning({ id: users.id });
+
+  if (updated.length === 0) {
+    // No credits available — nothing to spend, nothing to feature.
+    return;
+  }
+
+  await db.update(listings).set({ featured: true }).where(eq(listings.id, listingId));
+  revalidatePath("/dashboard");
+}
+
+// Turns featured back off. Free, and does not refund the credit that was
+// spent to turn it on (the user explicitly chose this policy) — a listing
+// can simply be re-featured later by spending another credit.
+export async function unfeatureOwnListingAction(formData: FormData) {
+  const session = await getSession();
+  const listingId = Number(formData.get("listingId"));
+  if (!session || !listingId) return;
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+  if (!listing || listing.ownerId !== session.id) return;
+
+  await db.update(listings).set({ featured: false }).where(eq(listings.id, listingId));
   revalidatePath("/dashboard");
 }
 

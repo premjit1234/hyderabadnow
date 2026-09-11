@@ -9,12 +9,14 @@ export default function SiteSettingsForm({
   heroImageUrl,
   dashboardBannerImageUrl,
   dashboardBannerLinkUrl,
+  featuredCreditPriceRupees,
 }: {
   logoUrl: string | null;
   faviconUrl: string | null;
   heroImageUrl: string | null;
   dashboardBannerImageUrl: string | null;
   dashboardBannerLinkUrl: string | null;
+  featuredCreditPriceRupees: number;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     adminUpdateSiteSettingsAction,
@@ -159,6 +161,27 @@ export default function SiteSettingsForm({
             className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
           />
           <p className="mt-1 text-xs text-stone-400">Only used while a banner image is set above.</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-bold text-stone-900">Featured listing credits</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          Owners and agents spend one credit to feature a listing themselves (see their dashboard). This is what one
+          credit costs — they buy credits in bulk via Razorpay checkout.
+        </p>
+
+        <div className="mt-4 max-w-[160px]">
+          <label className="mb-1 block text-xs font-medium text-stone-600">Price per credit (₹)</label>
+          <input
+            type="number"
+            name="featuredCreditPriceRupees"
+            min={1}
+            step={1}
+            required
+            defaultValue={featuredCreditPriceRupees}
+            className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
+          />
         </div>
       </div>
 
