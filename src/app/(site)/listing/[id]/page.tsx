@@ -17,6 +17,7 @@ import {
   jsonLdScriptContent,
 } from "@/lib/listingSeo";
 import InquiryForm from "@/components/InquiryForm";
+import ShareListingButton from "@/components/ShareListingButton";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
@@ -598,6 +599,7 @@ export default async function ListingDetailPage({
                     Connect on WhatsApp
                   </a>
                 )}
+                <ShareListingButton url={listingUrl} title={listing.title} />
               </div>
             )}
 
