@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getAllProjectsForAdmin } from "@/db/queries";
-import { adminDeleteProjectAction } from "@/app/admin/actions";
+import { adminDeleteProjectAction, adminToggleFeaturedProjectAction } from "@/app/admin/actions";
 import { projectHref } from "@/lib/format";
 
 export default async function AdminProjectsPage() {
@@ -46,6 +46,7 @@ export default async function AdminProjectsPage() {
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Units</th>
                 <th className="px-4 py-3">Listings</th>
+                <th className="px-4 py-3">Featured</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -69,6 +70,19 @@ export default async function AdminProjectsPage() {
                   <td className="px-4 py-3 text-stone-600">{p.totalUnits ?? "—"}</td>
                   <td className="px-4 py-3 text-stone-600">
                     {p.saleListings} sale · {p.rentListings} rent
+                  </td>
+                  <td className="px-4 py-3">
+                    <form action={adminToggleFeaturedProjectAction}>
+                      <input type="hidden" name="projectId" value={p.id} />
+                      <button
+                        type="submit"
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          p.featured ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-500"
+                        }`}
+                      >
+                        {p.featured ? "Featured" : "Not featured"}
+                      </button>
+                    </form>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">

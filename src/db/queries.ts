@@ -409,6 +409,7 @@ export async function getAllProjectsForAdmin() {
       constructionStatus: projects.constructionStatus,
       totalUnits: projects.totalUnits,
       createdAt: projects.createdAt,
+      featured: projects.featured,
       imageUrl: firstProjectImageSubquery,
       saleListings: activeListingCountSubquery("sale"),
       rentListings: activeListingCountSubquery("rent"),
@@ -479,6 +480,36 @@ export async function getProjectsForPublic(filters: ProjectFilters = {}) {
     .from(projects)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(...orderBy);
+}
+
+// Homepage counterpart to getFeaturedListings above — same idea (admin-set
+// featured flag, newest first) but for projects, powering the "Featured
+// projects" section below "Featured listings" on the homepage.
+export async function getFeaturedProjects(limit = 6) {
+  return db
+    .select({
+      id: projects.id,
+      slug: projects.slug,
+      name: projects.name,
+      locality: projects.locality,
+      city: projects.city,
+      propertyType: projects.propertyType,
+      constructionStatus: projects.constructionStatus,
+      minAreaSqft: projects.minAreaSqft,
+      maxAreaSqft: projects.maxAreaSqft,
+      bhkOptions: projects.bhkOptions,
+      possessionYear: projects.possessionYear,
+      reraApprovalYear: projects.reraApprovalYear,
+      imageUrl: firstProjectImageSubquery,
+      saleListings: activeListingCountSubquery("sale"),
+      rentListings: activeListingCountSubquery("rent"),
+      minSalePrice: minListingPriceSubquery("sale"),
+      minRentPrice: minListingPriceSubquery("rent"),
+    })
+    .from(projects)
+    .where(eq(projects.featured, true))
+    .orderBy(desc(projects.createdAt))
+    .limit(limit);
 }
 
 export async function getProjectById(id: number) {

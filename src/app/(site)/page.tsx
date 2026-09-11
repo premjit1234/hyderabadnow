@@ -1,12 +1,14 @@
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import ListingCard from "@/components/ListingCard";
+import ProjectCard from "@/components/ProjectCard";
 import CategoryTile from "@/components/CategoryTile";
-import { getFeaturedListings, getHomeCategories, getSiteSettings, getLocationNames } from "@/db/queries";
+import { getFeaturedListings, getFeaturedProjects, getHomeCategories, getSiteSettings, getLocationNames } from "@/db/queries";
 
 export default async function Home() {
-  const [featured, categories, { heroImageUrl }, localities] = await Promise.all([
+  const [featured, featuredProjects, categories, { heroImageUrl }, localities] = await Promise.all([
     getFeaturedListings(6),
+    getFeaturedProjects(6),
     getHomeCategories(),
     getSiteSettings(),
     getLocationNames(),
@@ -57,6 +59,24 @@ export default async function Home() {
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
+        <div className="mb-5 flex items-end justify-between">
+          <h2 className="text-xl font-bold text-stone-900">Featured projects</h2>
+          <Link href="/projects" className="text-sm font-medium text-emerald-700 hover:underline">
+            View all →
+          </Link>
+        </div>
+        {featuredProjects.length === 0 ? (
+          <p className="text-stone-500">No featured projects yet — check back soon.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {featuredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
             ))}
           </div>
         )}

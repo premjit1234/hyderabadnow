@@ -130,6 +130,11 @@ export const projects = sqliteTable("projects", {
   // any individual listing's contact details.
   contactPhone: text("contact_phone"),
   whatsappEnabled: integer("whatsapp_enabled", { mode: "boolean" }).notNull().default(false),
+  // Same idea as listings.featured — admin-set, surfaces the project in the
+  // "Featured projects" section on the homepage (see queries.ts's
+  // getFeaturedProjects). Defaults to false so nothing appears there until an
+  // admin deliberately picks it, same as featured listings.
+  featured: integer("featured", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

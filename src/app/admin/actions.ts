@@ -567,6 +567,22 @@ export async function resolveListingAmenities(formData: FormData): Promise<strin
   return JSON.stringify(Array.from(selected));
 }
 
+// Quick toggle from the admin projects list, same pattern as
+// adminToggleFeaturedAction for listings above — lets an admin feature/
+// unfeature a project without opening its full edit form.
+export async function adminToggleFeaturedProjectAction(formData: FormData) {
+  await requireAdmin();
+  const projectId = Number(formData.get("projectId"));
+  if (!projectId) return;
+
+  const project = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
+  if (!project) return;
+
+  await db.update(projects).set({ featured: !project.featured }).where(eq(projects.id, projectId));
+  revalidatePath("/admin/projects");
+  revalidatePath("/");
+}
+
 // Slugs power the public /projects/[slug] URL and, like blog post slugs
 // (see uniqueBlogSlug above), are generated once from the name and must be
 // unique. `excludeId` lets a project keep its own slug when backfilling one
@@ -592,6 +608,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
   }
+  const featured = formData.get("featured") === "on";
 
   const slug = await uniqueProjectSlug(slugify(data.name));
   // An admin who placed the pin manually in LocationPicker (ProjectForm.tsx)
@@ -633,6 +650,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       brochureUrl: data.brochureUrl || null,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
+      featured,
       videoUrl: data.videoUrl || null,
     })
     .returning();
@@ -650,6 +668,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
 
   revalidatePath("/admin/projects");
   revalidatePath("/projects");
+  revalidatePath("/");
   redirect(`/admin/projects/${project.id}/edit?saved=1`);
 }
 
@@ -667,6 +686,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
   }
+  const featured = formData.get("featured") === "on";
 
   // Slug is stable once set — an edited name never changes an
   // already-shared/bookmarked project URL out from under people (same rule
@@ -725,6 +745,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       brochureUrl: data.brochureUrl || null,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
+      featured,
       videoUrl: data.videoUrl || null,
     })
     .where(eq(projects.id, projectId));
@@ -757,6 +778,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   revalidatePath("/admin/projects");
   revalidatePath(`/admin/projects/${projectId}/edit`);
   revalidatePath(`/projects/${slug}`);
+  revalidatePath("/");
   redirect(`/admin/projects/${projectId}/edit?saved=1`);
 }
 

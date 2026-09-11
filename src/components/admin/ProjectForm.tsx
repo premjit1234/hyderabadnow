@@ -40,6 +40,7 @@ type EditableProject = {
   videoUrl: string | null;
   contactPhone: string | null;
   whatsappEnabled: boolean;
+  featured: boolean;
   images: { id: number; url: string }[];
 };
 
@@ -250,6 +251,11 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
           ))}
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+        <input type="checkbox" name="featured" defaultChecked={project?.featured} className="h-4 w-4" />
+        Featured on homepage
+      </label>
 
       {project && project.images.length > 0 && (
         <div>
