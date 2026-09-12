@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getLocalityGuideBySlug } from "@/db/queries";
 import { getAppUrl } from "@/lib/site";
+import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { absoluteUrl, jsonLdScriptContent, buildBreadcrumbJsonLd } from "@/lib/seo";
 
@@ -45,6 +46,7 @@ export default async function AreaGuidePage({ params }: { params: Promise<{ slug
   // done when the guide was saved — same defense-in-depth as blog posts,
   // see lib/sanitizeHtml.ts.
   const safeContent = sanitizeBlogContent(guide.contentHtml);
+  const embedUrl = guide.videoUrl ? getVideoEmbedUrl(guide.videoUrl) : null;
   const breadcrumbJsonLd = buildBreadcrumbJsonLd([
     { name: "Home", item: appUrl },
     { name: "Area guides", item: `${appUrl}/areas` },
@@ -74,6 +76,18 @@ export default async function AreaGuidePage({ params }: { params: Promise<{ slug
       {guide.heroImageUrl && (
         <div className="relative mt-6 aspect-[16/9] w-full overflow-hidden rounded-xl bg-stone-100">
           <Image src={guide.heroImageUrl} alt={guide.name} fill sizes="768px" className="object-cover" priority />
+        </div>
+      )}
+
+      {embedUrl && (
+        <div className="mt-6 aspect-video w-full overflow-hidden rounded-xl bg-black">
+          <iframe
+            src={embedUrl}
+            title={guide.title}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
         </div>
       )}
 

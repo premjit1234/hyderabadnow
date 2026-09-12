@@ -70,3 +70,10 @@ body {
   color: #4338ca; /* indigo-700 */
   text-decoration: underline;
 }
+.blog-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25rem 0;
+  border-radius: 0.75rem;
+}

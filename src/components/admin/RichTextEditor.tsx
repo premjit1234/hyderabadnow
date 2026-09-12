@@ -1,18 +1,23 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { uploadContentImageAction } from "@/app/admin/actions";
 
-// A small dependency-free rich text editor for blog post bodies: a
-// contentEditable <div> driven by the browser's own editing commands
-// (document.execCommand — deprecated, but still universally supported for
-// exactly this kind of basic bold/italic/list/link chrome, and it avoids
-// pulling in a whole editor library for a handful of buttons). Its HTML is
-// mirrored into a hidden <input> on every change so it travels as a normal
-// form field — the server action sanitizes it again before saving (see
-// lib/sanitizeHtml.ts), so nothing this editor produces is trusted as-is.
+// A small dependency-free rich text editor for blog post / locality guide
+// bodies: a contentEditable <div> driven by the browser's own editing
+// commands (document.execCommand — deprecated, but still universally
+// supported for exactly this kind of basic bold/italic/list/link/image
+// chrome, and it avoids pulling in a whole editor library for a handful of
+// buttons). Its HTML is mirrored into a hidden <input> on every change so it
+// travels as a normal form field — the server action sanitizes it again
+// before saving (see lib/sanitizeHtml.ts), so nothing this editor produces
+// is trusted as-is.
 export default function RichTextEditor({ name, defaultValue }: { name: string; defaultValue?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const hiddenRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   function sync() {
     if (editorRef.current && hiddenRef.current) {
@@ -30,6 +35,47 @@ export default function RichTextEditor({ name, defaultValue }: { name: string; d
     editorRef.current?.focus();
     const url = window.prompt("Link URL (https://…)");
     if (url) exec("createLink", url);
+  }
+
+  // Opens the OS file picker; the actual upload + insert happens in
+  // handleImageFile once a file is chosen (see the hidden <input> below).
+  function addImage() {
+    setUploadError(null);
+    fileInputRef.current?.click();
+  }
+
+  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    // Reset immediately so picking the exact same file again still fires
+    // this handler (the browser otherwise treats it as "no change").
+    e.target.value = "";
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.set("image", file);
+      const result = await uploadContentImageAction(formData);
+      if ("error" in result) {
+        setUploadError(result.error);
+        return;
+      }
+      // Same focus-then-execCommand pattern as every other toolbar button —
+      // the contentEditable div reliably restores its last cursor position
+      // on refocus, so no manual selection save/restore is needed here.
+      editorRef.current?.focus();
+      document.execCommand(
+        "insertHTML",
+        false,
+        `<img src="${result.url}" alt="" />`,
+      );
+      sync();
+    } catch {
+      setUploadError("Upload failed — check your connection and try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   const buttonClass =
@@ -70,7 +116,12 @@ export default function RichTextEditor({ name, defaultValue }: { name: string; d
         <button type="button" onClick={addLink} className={buttonClass}>
           Link
         </button>
+        <span className="mx-1 my-1 w-px bg-stone-200" />
+        <button type="button" onClick={addImage} disabled={uploading} className={`${buttonClass} disabled:opacity-50`}>
+          {uploading ? "Uploading…" : "Image"}
+        </button>
       </div>
+      {uploadError && <p className="mb-2 text-xs text-red-600">{uploadError}</p>}
 
       <div
         ref={editorRef}
@@ -79,9 +130,16 @@ export default function RichTextEditor({ name, defaultValue }: { name: string; d
         onInput={sync}
         onBlur={sync}
         dangerouslySetInnerHTML={{ __html: defaultValue ?? "" }}
-        className="min-h-[240px] w-full rounded-md border border-stone-200 px-3.5 py-3 text-sm leading-relaxed text-stone-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 [&_a]:text-indigo-600 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-stone-600 [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:mb-1.5 [&_h3]:mt-3 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-stone-900 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
+        className="min-h-[240px] w-full rounded-md border border-stone-200 px-3.5 py-3 text-sm leading-relaxed text-stone-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 [&_a]:text-indigo-600 [&_a]:underline [&_blockquote]:border-l-4 [&_blockquote]:border-stone-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-stone-600 [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h2]:text-stone-900 [&_h3]:mb-1.5 [&_h3]:mt-3 [&_h3]:text-base [&_h3]:font-bold [&_h3]:text-stone-900 [&_img]:my-3 [&_img]:max-w-full [&_img]:rounded-md [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
       />
       <input ref={hiddenRef} type="hidden" name={name} defaultValue={defaultValue ?? ""} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={handleImageFile}
+        className="hidden"
+      />
     </div>
   );
 }

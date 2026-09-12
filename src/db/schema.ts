@@ -540,6 +540,10 @@ export const localityGuides = sqliteTable("locality_guides", {
   title: text("title").notNull(),
   excerpt: text("excerpt"),
   heroImageUrl: text("hero_image_url"),
+  // Same YouTube/Vimeo-only validation as blogPosts.videoUrl (see lib/video.ts)
+  // — an optional short video (drone flyover, walkthrough) shown above the
+  // write-up once an admin adds a link; renders nothing when null.
+  videoUrl: text("video_url"),
   metroConnectivity: text("metro_connectivity"),
   orrAccess: text("orr_access"),
   upcomingInfra: text("upcoming_infra"),

@@ -1,0 +1,1 @@
+ALTER TABLE `locality_guides` ADD `video_url` text;

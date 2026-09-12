@@ -46,6 +46,28 @@ async function requireAdmin() {
   return session;
 }
 
+// Called directly (not as a <form action>) from RichTextEditor.tsx's "Image"
+// button — the editor needs to upload one file and get a URL back mid-edit,
+// well before the surrounding blog/locality-guide form itself is submitted.
+// Reuses the same saveUploadedImage() pipeline as every other image field in
+// the admin (cover photo, hero image, gallery), so it lands in the same
+// /api/uploads store with the same type/size limits. The returned URL is
+// inserted into the editor's HTML as a plain <img src>, which is only ever
+// rendered after passing back through sanitizeBlogContent (see
+// lib/sanitizeHtml.ts) both at save time and at render time.
+export async function uploadContentImageAction(formData: FormData): Promise<{ url: string } | { error: string }> {
+  await requireAdmin();
+  const file = formData.get("image");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "No image selected." };
+  }
+  const url = await saveUploadedImage(file);
+  if (!url) {
+    return { error: "Couldn't upload that image — use a JPG, PNG, WebP, or GIF under 8MB." };
+  }
+  return { url };
+}
+
 const USER_ROLES = ["buyer", "agent", "seller", "admin"] as const;
 
 export async function adminUpdateUserRoleAction(formData: FormData) {
@@ -1291,6 +1313,10 @@ const localityGuideSchema = z.object({
   name: z.string().trim().min(2, "Locality name is required"),
   title: z.string().trim().min(3, "Title is required"),
   excerpt: z.string().max(300, "Keep the excerpt under 300 characters").optional(),
+  videoUrl: z
+    .string()
+    .optional()
+    .refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube or Vimeo link"),
   metroConnectivity: z.string().max(2000).optional(),
   orrAccess: z.string().max(2000).optional(),
   upcomingInfra: z.string().max(2000).optional(),
@@ -1304,6 +1330,7 @@ function readLocalityGuideFields(formData: FormData) {
     name: formData.get("name"),
     title: formData.get("title"),
     excerpt: formData.get("excerpt") || undefined,
+    videoUrl: formData.get("videoUrl") || undefined,
     metroConnectivity: formData.get("metroConnectivity") || undefined,
     orrAccess: formData.get("orrAccess") || undefined,
     upcomingInfra: formData.get("upcomingInfra") || undefined,
@@ -1347,6 +1374,7 @@ export async function adminCreateLocalityGuideAction(_prev: ActionState, formDat
       title: data.title,
       excerpt: data.excerpt?.trim() || null,
       heroImageUrl,
+      videoUrl: data.videoUrl || null,
       metroConnectivity: data.metroConnectivity?.trim() || null,
       orrAccess: data.orrAccess?.trim() || null,
       upcomingInfra: data.upcomingInfra?.trim() || null,
@@ -1394,6 +1422,7 @@ export async function adminUpdateLocalityGuideAction(_prev: ActionState, formDat
       title: data.title,
       excerpt: data.excerpt?.trim() || null,
       heroImageUrl: newHeroUrl ?? (removeHero ? null : existing.heroImageUrl),
+      videoUrl: data.videoUrl || null,
       metroConnectivity: data.metroConnectivity?.trim() || null,
       orrAccess: data.orrAccess?.trim() || null,
       upcomingInfra: data.upcomingInfra?.trim() || null,

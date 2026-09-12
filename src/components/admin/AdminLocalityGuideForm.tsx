@@ -15,6 +15,7 @@ type EditableGuide = {
   title: string;
   excerpt: string | null;
   heroImageUrl: string | null;
+  videoUrl: string | null;
   metroConnectivity: string | null;
   orrAccess: string | null;
   upcomingInfra: string | null;
@@ -102,6 +103,17 @@ export default function AdminLocalityGuideForm({ guide }: { guide?: EditableGuid
       <div>
         <label className={labelClass}>{guide?.heroImageUrl ? "Replace hero image" : "Hero image"}</label>
         <input type="file" name="heroImage" accept="image/png,image/jpeg,image/webp,image/gif" className={inputClass} />
+      </div>
+
+      <div>
+        <label className={labelClass}>Video link (optional — YouTube or Vimeo)</label>
+        <input
+          name="videoUrl"
+          defaultValue={guide?.videoUrl ?? ""}
+          placeholder="https://www.youtube.com/watch?v=…"
+          className={inputClass}
+        />
+        <p className={helpClass}>Shown above the write-up on the live page once set — e.g. a drone flyover or walkthrough.</p>
       </div>
 
       <div className="rounded-xl border border-stone-200 bg-stone-50 p-4">
