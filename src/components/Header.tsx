@@ -23,8 +23,7 @@ export default async function Header() {
     { href: "/post-listing", label: "Sell" },
     { href: "/browse", label: "All listings" },
     { href: "/projects", label: "Projects" },
-    { href: "/areas", label: "Areas" },
-    { href: "/nri-guide", label: "NRI Guide" },
+    { href: "/areas", label: "Neighborhood" },
     { href: "/blog", label: "Blog" },
     ...(canPost ? [{ href: "/dashboard", label: "My listings" }] : []),
     ...(session ? [{ href: "/messages", label: unreadMessages > 0 ? `Messages (${unreadMessages})` : "Messages" }] : []),
@@ -93,10 +92,7 @@ export default async function Header() {
             Projects
           </Link>
           <Link href="/areas" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
-            Areas
-          </Link>
-          <Link href="/nri-guide" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
-            NRI Guide
+            Neighborhood
           </Link>
           <Link href="/blog" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
             Blog
