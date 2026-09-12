@@ -36,6 +36,13 @@ export const users = sqliteTable("users", {
   // than a plain read-then-write, so two rapid clicks — or a click racing a
   // webhook credit — can never send this negative.
   featuredCredits: integer("featured_credits").notNull().default(0),
+  // Per-user override of siteSettings.defaultMonthlyListingLimit (see
+  // listingPostLog below, and createListingAction/getListingQuotaStatus for
+  // where this actually gets enforced). Null means "use the site-wide
+  // default" — this column exists only to grant a specific user a
+  // different cap (higher for a trusted power agent, lower/zero to rein in
+  // someone), not to store the site default itself.
+  monthlyListingLimitOverride: integer("monthly_listing_limit_override"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -317,6 +324,13 @@ export const siteSettings = sqliteTable("site_settings", {
   // creditOrders row at purchase time, so changing this later never alters
   // the amount of an order already created (paid or not).
   featuredCreditPriceRupees: integer("featured_credit_price_rupees").notNull().default(500),
+  // How many listings a user can post per calendar month before
+  // createListingAction starts rejecting new ones (see
+  // users.monthlyListingLimitOverride for the per-user exception, and
+  // listingPostLog below for how "posted this month" is actually counted).
+  // Applies to every agent/owner account that doesn't have its own
+  // override; admins are never subject to this at all.
+  defaultMonthlyListingLimit: integer("default_monthly_listing_limit").notNull().default(20),
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -350,6 +364,29 @@ export const creditOrders = sqliteTable("credit_orders", {
   paidAt: text("paid_at"),
 });
 
+// Permanent, append-only record of every listing a user has ever posted —
+// exists solely to enforce the monthly posting limit (see
+// users.monthlyListingLimitOverride / siteSettings.defaultMonthlyListingLimit
+// and createListingAction / db/queries.ts's getMonthlyPostCount). Rows here
+// are NEVER derived from or kept in sync with the live `listings` table: a
+// row stays right where it is even after that listing is deleted, edited,
+// or expires, specifically so deleting a listing and reposting it can't be
+// used to dodge the cap. `listingId` is kept only so an admin can trace a
+// log entry back to the listing it came from when it still exists — it
+// plays no part in the quota count itself (only the presence of the row,
+// keyed by user + month, does), and is nulled out (not cascaded away) if
+// that listing is later deleted.
+export const listingPostLog = sqliteTable("listing_post_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id),
+  listingId: integer("listing_id").references(() => listings.id, { onDelete: "set null" }),
+  postedAt: text("posted_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 // Legal/policy pages (Terms of Use, Privacy Policy, Cookie Policy) shown in
 // the footer, at fixed routes (/terms, /privacy, /cookies). The route and
 // slug are fixed; title and body content are admin-editable from
@@ -358,7 +395,12 @@ export const creditOrders = sqliteTable("credit_orders", {
 // deliberately not HTML, so admin-authored text can never inject markup.
 export const legalPages = sqliteTable("legal_pages", {
   id: integer("id").primaryKey({ autoIncrement: true }),
-  slug: text("slug", { enum: ["terms", "privacy", "cookies"] }).notNull().unique(),
+  // "nri-guide" isn't legal boilerplate like the other three, but it's the
+  // same shape of content (one long-form page, admin-edited as plain text
+  // with "## " section headings, rendered by components/LegalContent.tsx) —
+  // reusing this table avoids standing up a whole second CMS pattern (like
+  // locality_guides) for what is, structurally, a single static page.
+  slug: text("slug", { enum: ["terms", "privacy", "cookies", "nri-guide"] }).notNull().unique(),
   title: text("title").notNull(),
   content: text("content").notNull().default(""),
   updatedAt: text("updated_at")
@@ -479,6 +521,44 @@ export const blogImages = sqliteTable("blog_images", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+// Admin-editable locality/area guide pages (e.g. "Gachibowli", "Kokapet") —
+// same shape as blogPosts on purpose (slug, status, contentHtml sanitized
+// with the same allowlist, publishedAt stamped once) since it's the same
+// "admin writes long-form content, public reads it" pattern, just under
+// /areas instead of /blog. Exists mainly for local SEO: a locality name is
+// exactly what someone searches before they ever look at a specific
+// listing, so a well-written page here can rank and pull them in before
+// they've picked a property. metroConnectivity/orrAccess/upcomingInfra are
+// short, separately-editable notes shown as a highlights strip at the top
+// of the page — kept apart from the free-form contentHtml body so an admin
+// can update "which metro line serves this" without hunting for it inside a
+// long article.
+export const localityGuides = sqliteTable("locality_guides", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  title: text("title").notNull(),
+  excerpt: text("excerpt"),
+  heroImageUrl: text("hero_image_url"),
+  metroConnectivity: text("metro_connectivity"),
+  orrAccess: text("orr_access"),
+  upcomingInfra: text("upcoming_infra"),
+  contentHtml: text("content_html").notNull().default(""),
+  status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+  // Manual ordering for the /areas index — locality guides don't have a
+  // natural publish-date ordering that matters to a reader the way blog
+  // posts do, so the admin picks the order explicitly instead.
+  displayOrder: integer("display_order").notNull().default(0),
+  authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+  publishedAt: text("published_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 // Comments — logged-in users only, no anonymous/guest comments. New
 // comments start "pending" and stay hidden from the public post until an
 // admin approves them from /admin/blog/comments, so spam or abuse never
@@ -527,7 +607,134 @@ export const inquiries = sqliteTable("inquiries", {
   email: text("email").notNull(),
   phone: text("phone"),
   message: text("message").notNull(),
+  // Set when the listing's owner/agent marks this inquiry as responded to
+  // (see markInquiryRespondedAction) — null means still pending. The
+  // contact-form inquiry and the in-app chat (conversations/chatMessages
+  // below) are separate paths a buyer can use to reach a seller, so this
+  // stays a manual "I replied by phone/email" checkbox rather than a real
+  // read-receipt; it's what powers the response-rate and response-time
+  // stats on /dashboard/inquiries.
+  respondedAt: text("responded_at"),
   createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// ---- In-app chat (buyer ↔ seller/agent, per listing) ----
+//
+// One conversation per (listing, buyer) pair — every message a buyer sends
+// about a given listing lands in the same thread rather than starting a new
+// one each time, and the seller/agent always replies into that same thread.
+// No DB-level uniqueness constraint on (listingId, buyerId): this schema
+// otherwise has no composite/multi-column indexes, so the "find existing
+// thread or create one" logic lives in getOrCreateConversation (queries.ts)
+// instead of introducing that pattern for just this one table. A double
+// -submit race would at worst create two threads for the same pair, which
+// is harmless (both just show the same listing/buyer context) rather than
+// a data-integrity problem.
+//
+// sellerId is denormalized from the listing's ownerId at creation time
+// (listing ownership never changes after posting) purely so "my
+// conversations as seller" can filter on conversations.sellerId directly
+// instead of joining through listings on every read.
+//
+// buyerId/sellerId/chatMessages.senderId all cascade on user delete, same
+// as blogComments.userId above — there's no admin "delete a user" feature
+// today, so this is a not-yet-exercised default rather than a live concern,
+// but it matches this schema's existing convention: a required (non-null)
+// user reference cascades, a nullable "who authored this" reference (blog
+// posts, locality guides) sets null instead.
+export const conversations = sqliteTable("conversations", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  listingId: integer("listing_id")
+    .notNull()
+    .references(() => listings.id, { onDelete: "cascade" }),
+  buyerId: integer("buyer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  sellerId: integer("seller_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  // Bumped on every new message so the inbox list can sort "most recently
+  // active thread first" with a plain column read instead of a subquery
+  // join against chat_messages on every dashboard load.
+  lastMessageAt: text("last_message_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  // Each side's own "I've seen messages up to this point" marker, used to
+  // compute unread counts (a message is unread if its createdAt is after
+  // the reader's *ReadAt). Two separate columns rather than a per-message
+  // read receipt table, since a thread only ever has two participants.
+  buyerReadAt: text("buyer_read_at"),
+  sellerReadAt: text("seller_read_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const chatMessages = sqliteTable("chat_messages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  conversationId: integer("conversation_id")
+    .notNull()
+    .references(() => conversations.id, { onDelete: "cascade" }),
+  senderId: integer("sender_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// ---- Scheduled viewings (video-call or in-person) ----
+//
+// One row per bookable slot the owner/agent opens up, which doubles as the
+// booking itself once a buyer takes it — there's exactly one booking per
+// slot, so this is a single table rather than a separate slots + bookings
+// pair that would need a 1:1 join on every read. `status` walks
+// open -> booked -> (optionally back to open, if the buyer cancels, or ->
+// cancelled if the owner cancels it outright).
+//
+// startsAt is stored as a plain UTC ISO instant (a JS `new Date(...)
+// .toISOString()`, same shape as every other *At column here) rather than
+// in the owner's local time — that's what makes "show this in whichever
+// timezone the viewer's browser is in" (the whole point of this feature for
+// NRI buyers) just a client-side Date/Intl formatting concern (see
+// components/LocalTime.tsx) instead of something this schema needs to know
+// about at all.
+//
+// buyerId is nullable (only set once booked) and set-null on user delete —
+// unlike conversations/chatMessages above, a slot's *existence* belongs to
+// the owner, not to whichever buyer (if any) has booked it, so losing the
+// buyer account shouldn't cascade-delete the owner's slot.
+export const availabilitySlots = sqliteTable("availability_slots", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  listingId: integer("listing_id")
+    .notNull()
+    .references(() => listings.id, { onDelete: "cascade" }),
+  // Denormalized from the listing's ownerId at creation time (same
+  // rationale as conversations.sellerId above) so "my listings' slots" can
+  // filter directly on this column without joining through listings.
+  ownerId: integer("owner_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  startsAt: text("starts_at").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(30),
+  meetingType: text("meeting_type", { enum: ["video_call", "in_person"] })
+    .notNull()
+    .default("video_call"),
+  status: text("status", { enum: ["open", "booked", "cancelled"] })
+    .notNull()
+    .default("open"),
+  buyerId: integer("buyer_id").references(() => users.id, { onDelete: "set null" }),
+  // A short note the buyer can leave when booking (e.g. an alternate phone
+  // number, or a specific question) — shown to the owner alongside the
+  // booking, not a chat thread of its own.
+  buyerNote: text("buyer_note"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });

@@ -17,8 +17,13 @@ import {
   pageViews,
   locations,
   amenityCatalog,
+  listingPostLog,
+  localityGuides,
+  conversations,
+  chatMessages,
+  availabilitySlots,
 } from "./schema";
-import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
 
 export type ListingFilters = {
@@ -286,6 +291,7 @@ export async function getAllUsersForAdmin(q?: string) {
       authProvider: users.authProvider,
       createdAt: users.createdAt,
       listingCount: userListingCountSubquery,
+      monthlyListingLimitOverride: users.monthlyListingLimitOverride,
     })
     .from(users)
     .where(conditions.length ? and(...conditions) : undefined)
@@ -357,6 +363,335 @@ export async function getAllInquiriesForAdmin() {
     .from(inquiries)
     .leftJoin(listings, eq(inquiries.listingId, listings.id))
     .orderBy(desc(inquiries.createdAt));
+}
+
+// ---- Lead management: owner/agent-facing inquiry stats (dashboard) ----
+//
+// Everything below powers /dashboard/inquiries and the "Inquiries" /
+// "Response rate" tiles on the main dashboard — the per-listing inquiry
+// counts, response-rate, and response-time stats requested alongside the
+// locality guides and chat features. There's no in-app messaging yet (see
+// Phase 3 plans), so "responded" is the owner manually marking an inquiry
+// as handled (see markInquiryRespondedAction in app/actions.ts) rather than
+// a real read-receipt — an honest proxy, not a perfect one.
+
+/** Every inquiry against any listing this owner/agent owns, newest first —
+ * the data behind /dashboard/inquiries. Scoped by an inner join on
+ * listings.ownerId rather than trusting a passed-in listing list, so a
+ * deleted listing's inquiries (cascade-deleted, see schema.ts) simply stop
+ * appearing rather than needing separate cleanup. */
+export async function getInquiriesForOwner(ownerId: number) {
+  return db
+    .select({
+      id: inquiries.id,
+      name: inquiries.name,
+      email: inquiries.email,
+      phone: inquiries.phone,
+      message: inquiries.message,
+      createdAt: inquiries.createdAt,
+      respondedAt: inquiries.respondedAt,
+      listingId: listings.id,
+      listingTitle: listings.title,
+    })
+    .from(inquiries)
+    .innerJoin(listings, eq(inquiries.listingId, listings.id))
+    .where(eq(listings.ownerId, ownerId))
+    .orderBy(desc(inquiries.createdAt));
+}
+
+/** Aggregate lead-quality stats across every listing this owner/agent owns:
+ * total inquiries, how many are still unanswered, the response rate as a
+ * whole percentage, and the average time-to-respond in hours (null until at
+ * least one inquiry has been marked responded). Powers the dashboard's
+ * "Inquiries" / "Response rate" StatCards. */
+export async function getOwnerLeadStats(ownerId: number) {
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)`,
+      responded: sql<number>`count(${inquiries.respondedAt})`,
+      // Average hours between an inquiry landing and it being marked
+      // responded, computed only over the responded subset — julianday
+      // difference * 24 converts SQLite's day-based date math to hours.
+      avgResponseHours: sql<number | null>`avg(
+        case when ${inquiries.respondedAt} is not null
+        then (julianday(${inquiries.respondedAt}) - julianday(${inquiries.createdAt})) * 24
+        end
+      )`,
+    })
+    .from(inquiries)
+    .innerJoin(listings, eq(inquiries.listingId, listings.id))
+    .where(eq(listings.ownerId, ownerId));
+
+  const total = row?.total ?? 0;
+  const responded = row?.responded ?? 0;
+  return {
+    total,
+    responded,
+    pending: total - responded,
+    responseRatePct: total > 0 ? Math.round((responded / total) * 100) : null,
+    avgResponseHours: row?.avgResponseHours != null ? Math.round(row.avgResponseHours * 10) / 10 : null,
+  };
+}
+
+/** Per-listing {total, pending} inquiry counts for one owner/agent, keyed by
+ * listing id — merged into the dashboard's listings table as an "Inquiries"
+ * column next to each listing's views. */
+export async function getInquiryCountsByListingForOwner(ownerId: number) {
+  const rows = await db
+    .select({
+      listingId: listings.id,
+      total: sql<number>`count(${inquiries.id})`,
+      pending: sql<number>`count(${inquiries.id}) filter (where ${inquiries.respondedAt} is null)`,
+    })
+    .from(listings)
+    .leftJoin(inquiries, eq(inquiries.listingId, listings.id))
+    .where(eq(listings.ownerId, ownerId))
+    .groupBy(listings.id);
+
+  return new Map(rows.map((r) => [r.listingId, { total: r.total, pending: r.pending }]));
+}
+
+/** Page views recorded against `/listing/{id}` in the last `days` days, for
+ * each listing id given — the "Views (7d)" trend indicator next to the
+ * dashboard's lifetime views column. Empty input returns an empty map
+ * without querying (there's nothing to look up, and an empty `IN ()` isn't
+ * valid SQL anyway). */
+export async function getRecentViewCountsForListings(listingIds: number[], days = 7) {
+  if (listingIds.length === 0) return new Map<number, number>();
+
+  const paths = listingIds.map((id) => `/listing/${id}`);
+  const rows = await db
+    .select({ path: pageViews.path, n: sql<number>`count(*)` })
+    .from(pageViews)
+    .where(
+      and(
+        inArray(pageViews.path, paths),
+        sql`${pageViews.createdAt} >= datetime('now', ${`-${days} days`})`
+      )
+    )
+    .groupBy(pageViews.path);
+
+  const byPath = new Map(rows.map((r) => [r.path, r.n]));
+  return new Map(listingIds.map((id) => [id, byPath.get(`/listing/${id}`) ?? 0]));
+}
+
+// ---- In-app chat (buyer ↔ seller/agent) ----
+//
+// A conversation counts as unread for a given side the same way everywhere
+// below: its `lastMessageAt` is later than that side's own `*ReadAt` marker.
+// sendMessageAction bumps both the conversation's lastMessageAt AND the
+// sender's own readAt to "now" on every send (see app/actions.ts) — sending
+// a message obviously means you've seen everything up to it — which is what
+// keeps this comparison correct without needing to inspect who sent the
+// most recent message.
+
+/** Every conversation this user is a party to (as buyer or as seller),
+ * newest activity first, with the other participant's name, the listing
+ * it's about, a preview of the latest message, and whether it's unread for
+ * this user. Three queries total regardless of conversation count — no
+ * self-join against `users` (this schema doesn't use table aliases
+ * anywhere else), just a batch lookup of the "other party" ids and the
+ * latest message per thread. Powers /messages. */
+export async function getConversationsForUser(userId: number) {
+  const rows = await db
+    .select({
+      id: conversations.id,
+      listingId: conversations.listingId,
+      listingTitle: listings.title,
+      buyerId: conversations.buyerId,
+      sellerId: conversations.sellerId,
+      buyerReadAt: conversations.buyerReadAt,
+      sellerReadAt: conversations.sellerReadAt,
+      lastMessageAt: conversations.lastMessageAt,
+    })
+    .from(conversations)
+    .innerJoin(listings, eq(conversations.listingId, listings.id))
+    .where(or(eq(conversations.buyerId, userId), eq(conversations.sellerId, userId)))
+    .orderBy(desc(conversations.lastMessageAt));
+
+  if (rows.length === 0) return [];
+
+  const otherPartyIds = Array.from(new Set(rows.map((r) => (r.buyerId === userId ? r.sellerId : r.buyerId))));
+  const otherParties = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, otherPartyIds));
+  const nameById = new Map(otherParties.map((u) => [u.id, u.name]));
+
+  const conversationIds = rows.map((r) => r.id);
+  const recentMessages = await db
+    .select({ conversationId: chatMessages.conversationId, body: chatMessages.body, createdAt: chatMessages.createdAt })
+    .from(chatMessages)
+    .where(inArray(chatMessages.conversationId, conversationIds))
+    .orderBy(desc(chatMessages.createdAt));
+  // Keep only the newest row per conversation — cheaper than a per-thread
+  // "ORDER BY ... LIMIT 1" subquery for what's normally a short list.
+  const lastMessageByConvo = new Map<number, { body: string; createdAt: string }>();
+  for (const m of recentMessages) {
+    if (!lastMessageByConvo.has(m.conversationId)) lastMessageByConvo.set(m.conversationId, m);
+  }
+
+  return rows.map((r) => {
+    const isBuyer = r.buyerId === userId;
+    const myReadAt = isBuyer ? r.buyerReadAt : r.sellerReadAt;
+    const last = lastMessageByConvo.get(r.id);
+    return {
+      id: r.id,
+      listingId: r.listingId,
+      listingTitle: r.listingTitle,
+      role: isBuyer ? ("buyer" as const) : ("seller" as const),
+      otherPartyName: nameById.get(isBuyer ? r.sellerId : r.buyerId) ?? "Unknown user",
+      lastMessageAt: r.lastMessageAt,
+      lastMessagePreview: last?.body ?? null,
+      unread: !myReadAt || r.lastMessageAt > myReadAt,
+    };
+  });
+}
+
+/** How many of this user's conversations have unseen activity — the badge
+ * next to the "Messages" link in the header. A leaner version of the unread
+ * computation above: no listing join, no other-party names, no message
+ * preview, since the header only needs a count and renders on every page
+ * load. */
+export async function getUnreadConversationCountForUser(userId: number): Promise<number> {
+  const rows = await db
+    .select({
+      buyerId: conversations.buyerId,
+      sellerId: conversations.sellerId,
+      buyerReadAt: conversations.buyerReadAt,
+      sellerReadAt: conversations.sellerReadAt,
+      lastMessageAt: conversations.lastMessageAt,
+    })
+    .from(conversations)
+    .where(or(eq(conversations.buyerId, userId), eq(conversations.sellerId, userId)));
+
+  return rows.filter((r) => {
+    const myReadAt = r.buyerId === userId ? r.buyerReadAt : r.sellerReadAt;
+    return !myReadAt || r.lastMessageAt > myReadAt;
+  }).length;
+}
+
+/** One conversation's full detail for the /messages/[id] thread page —
+ * listing + both participants' ids/names, so the page can render "chatting
+ * with Priya about Spacious 3BHK..." and figure out which side the current
+ * viewer is on. Returns undefined if the id doesn't exist; the page itself
+ * is responsible for checking the viewer is actually one of the two
+ * participants (or an admin) before showing anything. */
+export async function getConversationDetail(conversationId: number) {
+  const convo = await db.query.conversations.findFirst({ where: eq(conversations.id, conversationId) });
+  if (!convo) return undefined;
+
+  const [listing, buyer, seller] = await Promise.all([
+    db.query.listings.findFirst({ where: eq(listings.id, convo.listingId) }),
+    db.query.users.findFirst({ where: eq(users.id, convo.buyerId) }),
+    db.query.users.findFirst({ where: eq(users.id, convo.sellerId) }),
+  ]);
+
+  return {
+    ...convo,
+    listingTitle: listing?.title ?? "Listing no longer exists",
+    buyerName: buyer?.name ?? "Unknown user",
+    sellerName: seller?.name ?? "Unknown user",
+  };
+}
+
+/** Every message in one thread, oldest first (chat reads top-to-bottom). */
+export async function getMessagesForConversation(conversationId: number) {
+  return db
+    .select({ id: chatMessages.id, senderId: chatMessages.senderId, body: chatMessages.body, createdAt: chatMessages.createdAt })
+    .from(chatMessages)
+    .where(eq(chatMessages.conversationId, conversationId))
+    .orderBy(asc(chatMessages.createdAt));
+}
+
+// ---- Scheduled viewings (video-call or in-person) ----
+//
+// startsAt is stored as a UTC ISO instant everywhere below — every query
+// just hands it back as-is; converting it to "your local time" vs "IST" is
+// entirely a rendering concern (see components/LocalTime.tsx), not
+// something any of these queries need to do.
+
+/** Every future, still-open slot for one listing, soonest first — what a
+ * buyer sees as "pick a time" on the listing page. Past slots are excluded
+ * even if never explicitly cancelled (an owner who opens a slot and lets it
+ * lapse shouldn't leave a stale, unbookable time on the page). */
+export async function getUpcomingOpenSlotsForListing(listingId: number) {
+  return db
+    .select({
+      id: availabilitySlots.id,
+      startsAt: availabilitySlots.startsAt,
+      durationMinutes: availabilitySlots.durationMinutes,
+      meetingType: availabilitySlots.meetingType,
+    })
+    .from(availabilitySlots)
+    .where(
+      and(
+        eq(availabilitySlots.listingId, listingId),
+        eq(availabilitySlots.status, "open"),
+        sql`${availabilitySlots.startsAt} > datetime('now')`
+      )
+    )
+    .orderBy(asc(availabilitySlots.startsAt));
+}
+
+/** Every slot an owner/agent has ever opened for one of their listings —
+ * open, booked (with the buyer's name/note), and cancelled — for the
+ * /dashboard/listings/[id]/availability management page. Past slots stay
+ * visible here (unlike the buyer-facing query above) so an owner can still
+ * see who booked a viewing that's already happened. */
+export async function getSlotsForOwnerListing(listingId: number) {
+  const rows = await db
+    .select({
+      id: availabilitySlots.id,
+      startsAt: availabilitySlots.startsAt,
+      durationMinutes: availabilitySlots.durationMinutes,
+      meetingType: availabilitySlots.meetingType,
+      status: availabilitySlots.status,
+      buyerId: availabilitySlots.buyerId,
+      buyerNote: availabilitySlots.buyerNote,
+    })
+    .from(availabilitySlots)
+    .where(eq(availabilitySlots.listingId, listingId))
+    .orderBy(asc(availabilitySlots.startsAt));
+
+  const buyerIds = Array.from(new Set(rows.map((r) => r.buyerId).filter((id): id is number => id != null)));
+  const buyers = buyerIds.length
+    ? await db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(inArray(users.id, buyerIds))
+    : [];
+  const buyerById = new Map(buyers.map((b) => [b.id, b]));
+
+  return rows.map((r) => ({ ...r, buyer: r.buyerId != null ? (buyerById.get(r.buyerId) ?? null) : null }));
+}
+
+/** One slot by id, with its listing's title and ownerId — used by the
+ * book/cancel actions to check who's allowed to do what without re-deriving
+ * listing ownership separately. */
+export async function getSlotDetail(slotId: number) {
+  const slot = await db.query.availabilitySlots.findFirst({ where: eq(availabilitySlots.id, slotId) });
+  if (!slot) return undefined;
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, slot.listingId) });
+  return { ...slot, listingTitle: listing?.title ?? "Listing no longer exists" };
+}
+
+/** A buyer's own upcoming (future, still-booked) viewings across every
+ * listing — the "Your upcoming viewings" block on the dashboard. */
+export async function getUpcomingBookingsForBuyer(buyerId: number) {
+  return db
+    .select({
+      id: availabilitySlots.id,
+      startsAt: availabilitySlots.startsAt,
+      durationMinutes: availabilitySlots.durationMinutes,
+      meetingType: availabilitySlots.meetingType,
+      listingId: listings.id,
+      listingTitle: listings.title,
+    })
+    .from(availabilitySlots)
+    .innerJoin(listings, eq(availabilitySlots.listingId, listings.id))
+    .where(
+      and(
+        eq(availabilitySlots.buyerId, buyerId),
+        eq(availabilitySlots.status, "booked"),
+        sql`${availabilitySlots.startsAt} > datetime('now')`
+      )
+    )
+    .orderBy(asc(availabilitySlots.startsAt));
 }
 
 // ---- Projects ----
@@ -590,6 +925,9 @@ export async function getProjectsForSelect() {
 // one named constant so the "table row missing" catch-branch below and the
 // column default never drift apart.
 const DEFAULT_FEATURED_CREDIT_PRICE_RUPEES = 500;
+// Kept as one named constant, same reasoning as DEFAULT_FEATURED_CREDIT_PRICE_RUPEES
+// above — must match schema.ts's column default for defaultMonthlyListingLimit.
+const DEFAULT_MONTHLY_LISTING_LIMIT = 20;
 
 export async function getSiteSettings(): Promise<{
   logoUrl: string | null;
@@ -598,6 +936,7 @@ export async function getSiteSettings(): Promise<{
   dashboardBannerImageUrl: string | null;
   dashboardBannerLinkUrl: string | null;
   featuredCreditPriceRupees: number;
+  defaultMonthlyListingLimit: number;
 }> {
   try {
     const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
@@ -608,6 +947,7 @@ export async function getSiteSettings(): Promise<{
       dashboardBannerImageUrl: row?.dashboardBannerImageUrl ?? null,
       dashboardBannerLinkUrl: row?.dashboardBannerLinkUrl ?? null,
       featuredCreditPriceRupees: row?.featuredCreditPriceRupees ?? DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
+      defaultMonthlyListingLimit: row?.defaultMonthlyListingLimit ?? DEFAULT_MONTHLY_LISTING_LIMIT,
     };
   } catch {
     return {
@@ -617,15 +957,92 @@ export async function getSiteSettings(): Promise<{
       dashboardBannerImageUrl: null,
       dashboardBannerLinkUrl: null,
       featuredCreditPriceRupees: DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
+      defaultMonthlyListingLimit: DEFAULT_MONTHLY_LISTING_LIMIT,
     };
   }
 }
 
-// ---- Legal pages (Terms of Use / Privacy Policy / Cookie Policy) ----
+// ---- Monthly listing-post limit (users.monthlyListingLimitOverride /
+// siteSettings.defaultMonthlyListingLimit / listingPostLog) ----
+
+function toSqliteUtcDateTime(d: Date): string {
+  return d.toISOString().slice(0, 19).replace("T", " ");
+}
+
+// Fixed UTC calendar month — every user's quota resets on the 1st at once,
+// same convention as getPageViewStats' "this month" bucket above.
+function startOfCurrentMonthUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+export function nextMonthlyLimitResetDate(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+}
+
+/** How many listings `userId` has posted since the start of this calendar
+ * month — counted from the permanent listingPostLog, not the live
+ * `listings` table, so deleting a listing never frees up a slot (see that
+ * table's schema comment). */
+export async function getMonthlyPostCount(userId: number): Promise<number> {
+  const since = toSqliteUtcDateTime(startOfCurrentMonthUtc());
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(listingPostLog)
+    .where(and(eq(listingPostLog.userId, userId), sql`${listingPostLog.postedAt} >= ${since}`));
+  return row?.n ?? 0;
+}
+
+/** This month's post count for every user who has posted at all this month,
+ * in one query — used by the admin Users page so it isn't one query per
+ * row. Users with 0 posts this month simply won't have a key here. */
+export async function getMonthlyPostCountsByUser(): Promise<Record<number, number>> {
+  const since = toSqliteUtcDateTime(startOfCurrentMonthUtc());
+  const rows = await db
+    .select({ userId: listingPostLog.userId, n: sql<number>`count(*)` })
+    .from(listingPostLog)
+    .where(sql`${listingPostLog.postedAt} >= ${since}`)
+    .groupBy(listingPostLog.userId);
+  return Object.fromEntries(rows.map((r) => [r.userId, r.n]));
+}
+
+/** null override means "use the site-wide default admin set in Settings". */
+export async function getEffectiveMonthlyLimit(monthlyListingLimitOverride: number | null): Promise<number> {
+  if (monthlyListingLimitOverride != null) return monthlyListingLimitOverride;
+  const { defaultMonthlyListingLimit } = await getSiteSettings();
+  return defaultMonthlyListingLimit;
+}
+
+/** Full quota picture for one user — used by both the post-listing page
+ * (to show/block before the form even renders) and createListingAction (to
+ * reject the actual submit, since the page-level check alone can't stop a
+ * direct form post). Never call this for an admin — admins have no cap at
+ * all, checked by the caller before reaching here. */
+export async function getListingQuotaStatus(user: {
+  id: number;
+  monthlyListingLimitOverride: number | null;
+}): Promise<{ used: number; limit: number; remaining: number; reachedLimit: boolean; resetsAt: Date }> {
+  const [used, limit] = await Promise.all([
+    getMonthlyPostCount(user.id),
+    getEffectiveMonthlyLimit(user.monthlyListingLimitOverride),
+  ]);
+  return {
+    used,
+    limit,
+    remaining: Math.max(0, limit - used),
+    reachedLimit: used >= limit,
+    resetsAt: nextMonthlyLimitResetDate(),
+  };
+}
+
+// ---- Legal pages (Terms of Use / Privacy Policy / Cookie Policy / NRI Guide) ----
 
 // Fixed display order regardless of insertion order (matches the footer's
-// "Terms of Use | Privacy Policy | Cookie Policy" layout).
-const LEGAL_PAGE_ORDER = ["terms", "privacy", "cookies"] as const;
+// "NRI Guide | Terms of Use | Privacy Policy | Cookie Policy" layout) — the
+// NRI guide leads since, unlike the other three, it's content someone would
+// actually seek out rather than boilerplate they skim past.
+const LEGAL_PAGE_ORDER = ["nri-guide", "terms", "privacy", "cookies"] as const;
 function bySlugOrder<T extends { slug: string }>(rows: T[]): T[] {
   return [...rows].sort(
     (a, b) =>
@@ -1000,6 +1417,61 @@ export async function getPublishedBlogPostsForSitemap() {
       .select({ slug: blogPosts.slug, updatedAt: blogPosts.updatedAt })
       .from(blogPosts)
       .where(eq(blogPosts.status, "published"));
+  } catch {
+    return [];
+  }
+}
+
+// ---- Locality/area guides (admin-editable, see schema.ts's own comment) ----
+
+export async function getPublishedLocalityGuides() {
+  return db
+    .select({
+      id: localityGuides.id,
+      slug: localityGuides.slug,
+      name: localityGuides.name,
+      title: localityGuides.title,
+      excerpt: localityGuides.excerpt,
+      heroImageUrl: localityGuides.heroImageUrl,
+      displayOrder: localityGuides.displayOrder,
+    })
+    .from(localityGuides)
+    .where(eq(localityGuides.status, "published"))
+    .orderBy(asc(localityGuides.displayOrder), asc(localityGuides.name));
+}
+
+export async function getLocalityGuideBySlug(slug: string) {
+  const guide = await db.query.localityGuides.findFirst({ where: eq(localityGuides.slug, slug) });
+  if (!guide) return null;
+  const author = guide.authorId ? await db.query.users.findFirst({ where: eq(users.id, guide.authorId) }) : null;
+  return { ...guide, author };
+}
+
+export async function getAllLocalityGuidesForAdmin() {
+  return db
+    .select({
+      id: localityGuides.id,
+      name: localityGuides.name,
+      slug: localityGuides.slug,
+      status: localityGuides.status,
+      displayOrder: localityGuides.displayOrder,
+      createdAt: localityGuides.createdAt,
+      publishedAt: localityGuides.publishedAt,
+    })
+    .from(localityGuides)
+    .orderBy(asc(localityGuides.displayOrder), desc(localityGuides.createdAt));
+}
+
+export async function getLocalityGuideForAdminEdit(id: number) {
+  return db.query.localityGuides.findFirst({ where: eq(localityGuides.id, id) });
+}
+
+export async function getPublishedLocalityGuidesForSitemap() {
+  try {
+    return await db
+      .select({ slug: localityGuides.slug, updatedAt: localityGuides.updatedAt })
+      .from(localityGuides)
+      .where(eq(localityGuides.status, "published"));
   } catch {
     return [];
   }

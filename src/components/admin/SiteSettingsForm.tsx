@@ -10,6 +10,7 @@ export default function SiteSettingsForm({
   dashboardBannerImageUrl,
   dashboardBannerLinkUrl,
   featuredCreditPriceRupees,
+  defaultMonthlyListingLimit,
 }: {
   logoUrl: string | null;
   faviconUrl: string | null;
@@ -17,6 +18,7 @@ export default function SiteSettingsForm({
   dashboardBannerImageUrl: string | null;
   dashboardBannerLinkUrl: string | null;
   featuredCreditPriceRupees: number;
+  defaultMonthlyListingLimit: number;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     adminUpdateSiteSettingsAction,
@@ -180,6 +182,27 @@ export default function SiteSettingsForm({
             step={1}
             required
             defaultValue={featuredCreditPriceRupees}
+            className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-bold text-stone-900">Monthly listing limit</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          How many listings an agent/owner can post per calendar month, resetting on the 1st. Applies to everyone
+          unless a specific user has their own override (set per-user on the Users page). Admins are never limited.
+        </p>
+
+        <div className="mt-4 max-w-[160px]">
+          <label className="mb-1 block text-xs font-medium text-stone-600">Default limit (per month)</label>
+          <input
+            type="number"
+            name="defaultMonthlyListingLimit"
+            min={0}
+            step={1}
+            required
+            defaultValue={defaultMonthlyListingLimit}
             className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
           />
         </div>

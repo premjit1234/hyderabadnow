@@ -2,8 +2,15 @@ import { getSiteSettings } from "@/db/queries";
 import SiteSettingsForm from "@/components/admin/SiteSettingsForm";
 
 export default async function AdminSiteSettingsPage() {
-  const { logoUrl, faviconUrl, heroImageUrl, dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees } =
-    await getSiteSettings();
+  const {
+    logoUrl,
+    faviconUrl,
+    heroImageUrl,
+    dashboardBannerImageUrl,
+    dashboardBannerLinkUrl,
+    featuredCreditPriceRupees,
+    defaultMonthlyListingLimit,
+  } = await getSiteSettings();
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -18,6 +25,7 @@ export default async function AdminSiteSettingsPage() {
         dashboardBannerImageUrl={dashboardBannerImageUrl}
         dashboardBannerLinkUrl={dashboardBannerLinkUrl}
         featuredCreditPriceRupees={featuredCreditPriceRupees}
+        defaultMonthlyListingLimit={defaultMonthlyListingLimit}
       />
     </div>
   );

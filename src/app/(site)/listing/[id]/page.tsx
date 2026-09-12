@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getListingById, getListingFieldSettings, getAmenityCatalog, getLocalityPricePerSqft } from "@/db/queries";
+import { getSession } from "@/lib/auth";
+import {
+  getListingById,
+  getListingFieldSettings,
+  getAmenityCatalog,
+  getLocalityPricePerSqft,
+  getUpcomingOpenSlotsForListing,
+} from "@/db/queries";
 import { formatPrice, formatRupees, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
@@ -17,6 +24,8 @@ import {
   jsonLdScriptContent,
 } from "@/lib/listingSeo";
 import InquiryForm from "@/components/InquiryForm";
+import ChatMessageForm from "@/components/ChatMessageForm";
+import ScheduleViewingSection from "@/components/ScheduleViewingSection";
 import ShareListingButton from "@/components/ShareListingButton";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
@@ -171,12 +180,15 @@ export default async function ListingDetailPage({
   const listingId = Number(id);
   if (!Number.isInteger(listingId)) notFound();
 
-  const [listing, fieldSettings, amenityCatalog] = await Promise.all([
+  const [listing, fieldSettings, amenityCatalog, session] = await Promise.all([
     getListingById(listingId),
     getListingFieldSettings(),
     getAmenityCatalog(),
+    getSession(),
   ]);
   if (!listing) notFound();
+
+  const openSlots = await getUpcomingOpenSlotsForListing(listingId);
 
   // "How does this compare?" needs at least a couple of other active,
   // same-locality, same-listingType comparables with a known area to mean
@@ -603,8 +615,54 @@ export default async function ListingDetailPage({
               </div>
             )}
 
+            {session && session.id !== listing.ownerId && (
+              <div className="mt-4 border-t border-stone-200 pt-4">
+                <p className="mb-3 text-sm font-semibold text-stone-900">Chat with the lister</p>
+                <ChatMessageForm listingId={listing.id} submitLabel="Start chat" />
+              </div>
+            )}
+
+            {session && session.id !== listing.ownerId && (
+              // Rendered whenever a logged-in non-owner CAN book, and also
+              // right after they just did — not gated on openSlots.length,
+              // because a successful booking (see bookAvailabilitySlotAction)
+              // revalidates this page and openSlots drops to 0 the moment
+              // the slot they just took is no longer "open". Gating on slot
+              // count would unmount ScheduleViewingSection at exactly the
+              // moment its own "Viewing booked!" success state needs to
+              // stay on screen. The component's own empty-state message
+              // covers "no slots posted" for everyone else.
+              <div className="mt-4 border-t border-stone-200 pt-4">
+                <p className="mb-1 text-sm font-semibold text-stone-900">Schedule a viewing</p>
+                <p className="mb-3 text-xs text-stone-500">
+                  Times shown in your own timezone — handy for NRI buyers comparing against Hyderabad hours.
+                </p>
+                <ScheduleViewingSection slots={openSlots} />
+              </div>
+            )}
+
+            {!session && openSlots.length > 0 && (
+              <div className="mt-4 border-t border-stone-200 pt-4">
+                <p className="mb-1 text-sm font-semibold text-stone-900">Schedule a viewing</p>
+                <p className="text-xs text-stone-400">
+                  <Link href="/login" className="font-medium text-emerald-700 hover:underline">
+                    Log in
+                  </Link>{" "}
+                  to book a viewing slot.
+                </p>
+              </div>
+            )}
+
             <div className="mt-4 border-t border-stone-200 pt-4">
               <p className="mb-3 text-sm font-semibold text-stone-900">Send a message</p>
+              {!session && (
+                <p className="mb-2 text-xs text-stone-400">
+                  <Link href="/login" className="font-medium text-emerald-700 hover:underline">
+                    Log in
+                  </Link>{" "}
+                  to chat directly with the lister, or send a one-off message below without an account.
+                </p>
+              )}
               <InquiryForm listingId={listing.id} />
             </div>
           </div>

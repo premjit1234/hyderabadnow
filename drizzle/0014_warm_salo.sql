@@ -1,0 +1,1 @@
+ALTER TABLE `inquiries` ADD `responded_at` text;

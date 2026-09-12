@@ -14,6 +14,10 @@ import {
   pageViews,
   phoneOtps,
   creditOrders,
+  listingPostLog,
+  conversations,
+  chatMessages,
+  availabilitySlots,
 } from "@/db/schema";
 import { and, eq, gt, inArray, sql, desc } from "drizzle-orm";
 import {
@@ -30,7 +34,9 @@ import { getVideoEmbedUrl } from "@/lib/video";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
 import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
-import { getSiteSettings } from "@/db/queries";
+import { getAppUrl } from "@/lib/site";
+import { sendBookingConfirmedEmails, sendBookingCancelledEmail } from "@/lib/bookingEmail";
+import { getSiteSettings, getListingQuotaStatus, getUserById } from "@/db/queries";
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpayPaymentSignature } from "@/lib/razorpay";
 import { creditFeaturedCreditOrder } from "@/lib/featuredCredits";
 
@@ -252,6 +258,31 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     return { error: "Log in as an agent or owner to post a listing." };
   }
 
+  // Monthly posting cap (siteSettings.defaultMonthlyListingLimit /
+  // users.monthlyListingLimitOverride) — admins are exempt entirely. Read
+  // the override fresh from the DB rather than trusting the session JWT,
+  // which can be stale for up to 30 days (see PostListingPage's own comment
+  // on the same point). This is the enforcing check — the post-listing page
+  // shows the same limit up front so a form submit like this is rarely
+  // someone's first sign of it, but a direct POST still can't bypass it.
+  if (session.role !== "admin") {
+    const freshUser = await getUserById(session.id);
+    const quota = await getListingQuotaStatus({
+      id: session.id,
+      monthlyListingLimitOverride: freshUser?.monthlyListingLimitOverride ?? null,
+    });
+    if (quota.reachedLimit) {
+      const resetLabel = quota.resetsAt.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      return {
+        error: `You've reached your monthly posting limit (${quota.used}/${quota.limit} listings this month). It resets on ${resetLabel}.`,
+      };
+    }
+  }
+
   const parsed = listingSchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description"),
@@ -335,6 +366,12 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   if (imageRows.length > 0) {
     await db.insert(listingImages).values(imageRows);
   }
+
+  // Permanent record for the monthly posting cap (see listingPostLog's
+  // schema comment) — written unconditionally, admin posts included, purely
+  // for consistent bookkeeping on the admin Users page; it's never actually
+  // checked against a limit for an admin account.
+  await db.insert(listingPostLog).values({ userId: session.id, listingId: listing.id });
 
   redirect(`/listing/${listing.id}`);
 }
@@ -692,6 +729,132 @@ export async function createInquiryAction(_prev: ActionState, formData: FormData
   return { success: "Your message has been sent. The lister will be in touch soon." };
 }
 
+// Toggles one inquiry between responded/pending from the owner/agent's
+// /dashboard/inquiries inbox. There's no in-app messaging yet, so this is a
+// manual "I replied by phone/email" checkbox rather than a real
+// read-receipt — it's what the response-rate/response-time stats in
+// getOwnerLeadStats are built from. A plain (non-useActionState) action like
+// dashboardConfirmListingAction/unfeatureOwnListingAction above: no form
+// fields to round-trip back into, just an ownership check and a redirect
+// back to the page that called it.
+export async function markInquiryRespondedAction(formData: FormData) {
+  const session = await getSession();
+  const inquiryId = Number(formData.get("inquiryId"));
+  if (!session || !inquiryId) return;
+
+  const inquiry = await db.query.inquiries.findFirst({ where: eq(inquiries.id, inquiryId) });
+  if (!inquiry) return;
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, inquiry.listingId) });
+  if (!listing || (listing.ownerId !== session.id && session.role !== "admin")) return;
+
+  await db
+    .update(inquiries)
+    .set({ respondedAt: inquiry.respondedAt ? null : sql`(current_timestamp)` })
+    .where(eq(inquiries.id, inquiryId));
+
+  revalidatePath("/dashboard/inquiries");
+  revalidatePath("/dashboard");
+}
+
+// ---- In-app chat ----
+//
+// One action handles both "start a new conversation from the listing page"
+// (listingId present, no conversationId yet) and "reply into an existing
+// thread from /messages/[id]" (conversationId present) — a buyer's first
+// message and every reply after it all go through the same validation and
+// end up redirecting to the same place, so there's no reason to duplicate
+// this into two actions.
+const chatMessageSchema = z
+  .string()
+  .trim()
+  .min(1, "Message can't be empty")
+  .max(2000, "Keep messages under 2000 characters");
+
+export async function sendMessageAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in to send a message." };
+
+  const messageParsed = chatMessageSchema.safeParse(formData.get("message"));
+  if (!messageParsed.success) {
+    return { error: messageParsed.error.issues[0]?.message ?? "Please enter a message." };
+  }
+
+  const conversationIdRaw = formData.get("conversationId");
+  const listingIdRaw = formData.get("listingId");
+
+  let convo: { id: number; buyerId: number; sellerId: number } | undefined;
+
+  if (conversationIdRaw) {
+    const found = await db.query.conversations.findFirst({ where: eq(conversations.id, Number(conversationIdRaw)) });
+    if (!found || (found.buyerId !== session.id && found.sellerId !== session.id && session.role !== "admin")) {
+      return { error: "Conversation not found." };
+    }
+    convo = found;
+  } else if (listingIdRaw) {
+    const listingId = Number(listingIdRaw);
+    const listing = await db.query.listings.findFirst({ where: eq(listings.id, listingId) });
+    if (!listing) return { error: "Listing not found." };
+    if (listing.ownerId === session.id) return { error: "You can't message your own listing." };
+
+    const existing = await db.query.conversations.findFirst({
+      where: and(eq(conversations.listingId, listingId), eq(conversations.buyerId, session.id)),
+    });
+    if (existing) {
+      convo = existing;
+    } else {
+      const [created] = await db
+        .insert(conversations)
+        .values({ listingId, buyerId: session.id, sellerId: listing.ownerId })
+        .returning();
+      convo = created;
+    }
+  } else {
+    return { error: "Missing listing or conversation." };
+  }
+
+  await db.insert(chatMessages).values({ conversationId: convo.id, senderId: session.id, body: messageParsed.data });
+
+  // Bumping the sender's own *ReadAt alongside lastMessageAt is what lets
+  // every "is this unread" check elsewhere (getConversationsForUser,
+  // getUnreadConversationCountForUser) stay a simple lastMessageAt-vs-
+  // readAt comparison, without also having to know who sent the latest
+  // message — see the comment above those functions in db/queries.ts.
+  const isBuyer = convo.buyerId === session.id;
+  await db
+    .update(conversations)
+    .set({
+      lastMessageAt: sql`(current_timestamp)`,
+      ...(isBuyer ? { buyerReadAt: sql`(current_timestamp)` } : { sellerReadAt: sql`(current_timestamp)` }),
+    })
+    .where(eq(conversations.id, convo.id));
+
+  revalidatePath(`/messages/${convo.id}`);
+  revalidatePath("/messages");
+  redirect(`/messages/${convo.id}`);
+}
+
+// Called from a tiny client component on mount when a thread page opens
+// (see components/MarkConversationRead.tsx) — same "beacon-style" shape as
+// recordPageViewAction below: a plain function invoked directly from client
+// code, not a <form action>, since there's no form here to round-trip state
+// back into. Best-effort: silently no-ops for someone who isn't actually a
+// party to the conversation, same as the ownership guards above.
+export async function markConversationReadAction(conversationId: number) {
+  const session = await getSession();
+  if (!session || !Number.isInteger(conversationId)) return;
+
+  const convo = await db.query.conversations.findFirst({ where: eq(conversations.id, conversationId) });
+  if (!convo || (convo.buyerId !== session.id && convo.sellerId !== session.id)) return;
+
+  const isBuyer = convo.buyerId === session.id;
+  await db
+    .update(conversations)
+    .set(isBuyer ? { buyerReadAt: sql`(current_timestamp)` } : { sellerReadAt: sql`(current_timestamp)` })
+    .where(eq(conversations.id, conversationId));
+
+  revalidatePath("/messages");
+}
+
 const blogCommentSchema = z.object({
   content: z.string().trim().min(2, "Comment is too short").max(2000, "Keep comments under 2000 characters"),
 });
@@ -767,4 +930,207 @@ export async function recordPageViewAction(path: string, visitorId: string) {
       .set({ views: sql`${listings.views} + 1` })
       .where(eq(listings.id, listingId));
   }
+}
+
+// ---- Scheduled viewings (video-call or in-person) ----
+//
+// Owners post availability in their own local time via a plain
+// datetime-local input (see components/AvailabilitySlotForm.tsx), which is
+// always India-local since every owner using this form is managing a
+// Hyderabad listing — the value looks like "2026-09-20T14:30" with no
+// timezone of its own. Rather than trust `new Date(...)` to interpret that
+// string (it would parse as whatever timezone the Node process itself
+// happens to be running in, which is wrong wherever the server isn't IST),
+// this treats every datetime-local input as IST wall-clock time explicitly
+// and converts it to a UTC instant by hand.
+function istWallClockToUtcIso(dateTimeLocal: string): string | null {
+  const match = dateTimeLocal.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) return null;
+  const [, yStr, moStr, dStr, hStr, miStr] = match;
+  const IST_OFFSET_MINUTES = 5 * 60 + 30;
+  const utcMs =
+    Date.UTC(Number(yStr), Number(moStr) - 1, Number(dStr), Number(hStr), Number(miStr)) -
+    IST_OFFSET_MINUTES * 60 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+const addSlotSchema = z.object({
+  listingId: z.coerce.number().int().positive(),
+  startsAtIst: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "Pick a valid date and time"),
+  durationMinutes: z.coerce.number().int().min(10, "At least 10 minutes").max(240, "At most 4 hours"),
+  meetingType: z.enum(["video_call", "in_person"]),
+});
+
+export async function addAvailabilitySlotAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in to manage your availability." };
+
+  const parsed = addSlotSchema.safeParse({
+    listingId: formData.get("listingId"),
+    startsAtIst: formData.get("startsAtIst"),
+    durationMinutes: formData.get("durationMinutes"),
+    meetingType: formData.get("meetingType"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const listing = await db.query.listings.findFirst({ where: eq(listings.id, parsed.data.listingId) });
+  if (!listing || (listing.ownerId !== session.id && session.role !== "admin")) {
+    return { error: "You can only manage availability for your own listings." };
+  }
+
+  const startsAtUtc = istWallClockToUtcIso(parsed.data.startsAtIst);
+  if (!startsAtUtc) return { error: "Please pick a valid date and time." };
+  if (new Date(startsAtUtc).getTime() <= Date.now()) return { error: "Pick a time in the future." };
+
+  await db.insert(availabilitySlots).values({
+    listingId: listing.id,
+    ownerId: listing.ownerId,
+    startsAt: startsAtUtc,
+    durationMinutes: parsed.data.durationMinutes,
+    meetingType: parsed.data.meetingType,
+  });
+
+  revalidatePath(`/dashboard/listings/${listing.id}/availability`);
+  revalidatePath(`/listing/${listing.id}`);
+  return { success: "Slot added." };
+}
+
+// Owner-side cancel — works on an open slot (just removes it) or a booked
+// one (also emails the buyer it's off). A plain <form action>, same shape
+// as markInquiryRespondedAction/unfeatureOwnListingAction above: no fields
+// to round-trip state back into, just an ownership check and a revalidate.
+export async function cancelAvailabilitySlotAction(formData: FormData) {
+  const session = await getSession();
+  const slotId = Number(formData.get("slotId"));
+  if (!session || !slotId) return;
+
+  const slot = await db.query.availabilitySlots.findFirst({ where: eq(availabilitySlots.id, slotId) });
+  if (!slot || (slot.ownerId !== session.id && session.role !== "admin")) return;
+  if (slot.status === "cancelled") return;
+
+  const wasBooked = slot.status === "booked" && slot.buyerId != null;
+
+  await db
+    .update(availabilitySlots)
+    .set({ status: "cancelled", updatedAt: sql`(current_timestamp)` })
+    .where(eq(availabilitySlots.id, slotId));
+
+  if (wasBooked) {
+    const [listing, buyer] = await Promise.all([
+      db.query.listings.findFirst({ where: eq(listings.id, slot.listingId) }),
+      db.query.users.findFirst({ where: eq(users.id, slot.buyerId!) }),
+    ]);
+    if (listing && buyer) {
+      await sendBookingCancelledEmail({
+        listingTitle: listing.title,
+        startsAt: slot.startsAt,
+        recipientName: buyer.name,
+        recipientEmail: buyer.email,
+        cancelledByOwner: true,
+      });
+    }
+  }
+
+  revalidatePath(`/dashboard/listings/${slot.listingId}/availability`);
+  revalidatePath(`/listing/${slot.listingId}`);
+  revalidatePath("/dashboard");
+}
+
+const bookSlotSchema = z.object({
+  slotId: z.coerce.number().int().positive(),
+  note: z.string().trim().max(500, "Keep it under 500 characters").optional(),
+});
+
+export async function bookAvailabilitySlotAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in to book a viewing." };
+
+  const parsed = bookSlotSchema.safeParse({
+    slotId: formData.get("slotId"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const slot = await db.query.availabilitySlots.findFirst({ where: eq(availabilitySlots.id, parsed.data.slotId) });
+  if (!slot) return { error: "This slot no longer exists." };
+  if (slot.ownerId === session.id) return { error: "You can't book a viewing for your own listing." };
+  if (slot.status !== "open") return { error: "This slot has already been booked — pick another time." };
+  if (new Date(slot.startsAt).getTime() <= Date.now()) return { error: "This slot is no longer in the future." };
+
+  // Atomic conditional update — same "only one winner" guard as spending a
+  // featured-listing credit (see featureListingWithCreditAction) — so two
+  // buyers racing to book the same slot can't both succeed.
+  const [updated] = await db
+    .update(availabilitySlots)
+    .set({
+      status: "booked",
+      buyerId: session.id,
+      buyerNote: parsed.data.note ?? null,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(and(eq(availabilitySlots.id, slot.id), eq(availabilitySlots.status, "open")))
+    .returning();
+
+  if (!updated) return { error: "This slot was just booked by someone else — pick another time." };
+
+  const [listing, owner] = await Promise.all([
+    db.query.listings.findFirst({ where: eq(listings.id, slot.listingId) }),
+    db.query.users.findFirst({ where: eq(users.id, slot.ownerId) }),
+  ]);
+  if (listing && owner) {
+    const appUrl = await getAppUrl();
+    await sendBookingConfirmedEmails({
+      listingTitle: listing.title,
+      listingUrl: `${appUrl}/listing/${listing.id}`,
+      startsAt: updated.startsAt,
+      meetingType: updated.meetingType,
+      buyerName: session.name,
+      buyerEmail: session.email,
+      buyerNote: updated.buyerNote,
+      ownerName: owner.name,
+      ownerEmail: owner.email,
+    });
+  }
+
+  revalidatePath(`/listing/${slot.listingId}`);
+  revalidatePath("/dashboard");
+  return { success: "Viewing booked — check your email for confirmation." };
+}
+
+// Buyer-side cancel — reopens the slot (rather than cancelling it outright)
+// so the owner doesn't lose the time they'd already set aside; it just goes
+// back to "open" for someone else to book.
+export async function cancelMyBookingAction(formData: FormData) {
+  const session = await getSession();
+  const slotId = Number(formData.get("slotId"));
+  if (!session || !slotId) return;
+
+  const slot = await db.query.availabilitySlots.findFirst({ where: eq(availabilitySlots.id, slotId) });
+  if (!slot || slot.buyerId !== session.id || slot.status !== "booked") return;
+
+  await db
+    .update(availabilitySlots)
+    .set({ status: "open", buyerId: null, buyerNote: null, updatedAt: sql`(current_timestamp)` })
+    .where(eq(availabilitySlots.id, slotId));
+
+  const [listing, owner] = await Promise.all([
+    db.query.listings.findFirst({ where: eq(listings.id, slot.listingId) }),
+    db.query.users.findFirst({ where: eq(users.id, slot.ownerId) }),
+  ]);
+  if (listing && owner) {
+    await sendBookingCancelledEmail({
+      listingTitle: listing.title,
+      startsAt: slot.startsAt,
+      recipientName: owner.name,
+      recipientEmail: owner.email,
+      cancelledByOwner: false,
+    });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/listing/${slot.listingId}`);
 }

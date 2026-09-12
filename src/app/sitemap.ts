@@ -1,6 +1,11 @@
 import type { MetadataRoute } from "next";
 import { getAppUrl } from "@/lib/site";
-import { getActiveListingsForSitemap, getProjectsForSitemap, getPublishedBlogPostsForSitemap } from "@/db/queries";
+import {
+  getActiveListingsForSitemap,
+  getProjectsForSitemap,
+  getPublishedBlogPostsForSitemap,
+  getPublishedLocalityGuidesForSitemap,
+} from "@/db/queries";
 
 // Auto-generated at /sitemap.xml (Next's file-based convention — see
 // node_modules/next/dist/docs/.../metadata/sitemap.md). This is the biggest
@@ -24,6 +29,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${appUrl}/browse?listingType=sale`, changeFrequency: "hourly", priority: 0.8 },
     { url: `${appUrl}/browse?listingType=rent`, changeFrequency: "hourly", priority: 0.8 },
     { url: `${appUrl}/projects`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${appUrl}/areas`, changeFrequency: "weekly", priority: 0.6 },
+    { url: `${appUrl}/nri-guide`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${appUrl}/blog`, changeFrequency: "daily", priority: 0.6 },
     { url: `${appUrl}/post-listing`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${appUrl}/terms`, changeFrequency: "yearly", priority: 0.2 },
@@ -31,10 +38,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${appUrl}/cookies`, changeFrequency: "yearly", priority: 0.2 },
   ];
 
-  const [listingRows, projectRows, blogRows] = await Promise.all([
+  const [listingRows, projectRows, blogRows, areaRows] = await Promise.all([
     getActiveListingsForSitemap(),
     getProjectsForSitemap(),
     getPublishedBlogPostsForSitemap(),
+    getPublishedLocalityGuidesForSitemap(),
   ]);
 
   const listingEntries: MetadataRoute.Sitemap = listingRows.map((l) => ({
@@ -60,5 +68,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticEntries, ...listingEntries, ...projectEntries, ...blogEntries];
+  const areaEntries: MetadataRoute.Sitemap = areaRows.map((a) => ({
+    url: `${appUrl}/areas/${a.slug}`,
+    lastModified: a.updatedAt,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  return [...staticEntries, ...listingEntries, ...projectEntries, ...blogEntries, ...areaEntries];
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getAllUsersForAdmin } from "@/db/queries";
-import { adminUpdateUserRoleAction, adminDeleteUserAction } from "@/app/admin/actions";
+import { getAllUsersForAdmin, getMonthlyPostCountsByUser, getSiteSettings } from "@/db/queries";
+import { adminUpdateUserRoleAction, adminDeleteUserAction, adminUpdateUserListingLimitAction } from "@/app/admin/actions";
 
 const ERROR_MESSAGES: Record<string, string> = {
   has_listings: "Can't delete that account — it still owns listings. Delete or reassign those first (use the link in the Listings column).",
@@ -15,7 +15,11 @@ export default async function AdminUsersPage({
   const sp = await searchParams;
   const error = typeof sp.error === "string" ? sp.error : undefined;
   const q = typeof sp.q === "string" ? sp.q : undefined;
-  const allUsers = await getAllUsersForAdmin(q);
+  const [allUsers, monthlyPostCounts, { defaultMonthlyListingLimit }] = await Promise.all([
+    getAllUsersForAdmin(q),
+    getMonthlyPostCountsByUser(),
+    getSiteSettings(),
+  ]);
 
   return (
     <div>
@@ -54,6 +58,7 @@ export default async function AdminUsersPage({
               <th className="px-4 py-3">Signed in via</th>
               <th className="px-4 py-3">Listings</th>
               <th className="px-4 py-3">Role</th>
+              <th className="px-4 py-3">Monthly limit</th>
               <th className="px-4 py-3">Joined</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -94,6 +99,30 @@ export default async function AdminUsersPage({
                     </button>
                   </form>
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <form action={adminUpdateUserListingLimitAction} className="flex items-center gap-2">
+                    <input type="hidden" name="userId" value={u.id} />
+                    <input
+                      type="number"
+                      name="monthlyListingLimitOverride"
+                      min={0}
+                      step={1}
+                      placeholder={String(defaultMonthlyListingLimit)}
+                      defaultValue={u.monthlyListingLimitOverride ?? ""}
+                      className="w-16 rounded-md border border-stone-200 px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-indigo-600 hover:text-indigo-700"
+                    >
+                      Save
+                    </button>
+                  </form>
+                  <p className="mt-1 text-[11px] text-stone-400">
+                    {monthlyPostCounts[u.id] ?? 0}/{u.monthlyListingLimitOverride ?? defaultMonthlyListingLimit} used
+                    this month{u.monthlyListingLimitOverride == null ? " (default)" : " (override)"}
+                  </p>
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap text-stone-500">
                   {new Date(u.createdAt).toLocaleDateString("en-IN")}
                 </td>
@@ -113,7 +142,7 @@ export default async function AdminUsersPage({
             ))}
             {allUsers.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-stone-400">
                   No users match.
                 </td>
               </tr>

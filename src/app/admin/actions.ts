@@ -21,6 +21,7 @@ import {
   blogComments,
   locations,
   amenityCatalog,
+  localityGuides,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
@@ -57,6 +58,30 @@ export async function adminUpdateUserRoleAction(formData: FormData) {
     .update(users)
     .set({ role: role as (typeof USER_ROLES)[number] })
     .where(eq(users.id, userId));
+  revalidatePath("/admin/users");
+}
+
+// Sets (or clears) one user's personal override of the site-wide default
+// monthly posting limit (see siteSettings.defaultMonthlyListingLimit and
+// getListingQuotaStatus in db/queries.ts). Blank input clears the override
+// back to null, meaning "use the site default" again — it does NOT mean 0.
+export async function adminUpdateUserListingLimitAction(formData: FormData) {
+  await requireAdmin();
+  const userId = Number(formData.get("userId"));
+  if (!userId) return;
+
+  const raw = formData.get("monthlyListingLimitOverride");
+  const trimmed = typeof raw === "string" ? raw.trim() : "";
+  if (trimmed === "") {
+    await db.update(users).set({ monthlyListingLimitOverride: null }).where(eq(users.id, userId));
+    revalidatePath("/admin/users");
+    return;
+  }
+
+  const override = Number(trimmed);
+  if (!Number.isInteger(override) || override < 0) return;
+
+  await db.update(users).set({ monthlyListingLimitOverride: override }).where(eq(users.id, userId));
   revalidatePath("/admin/users");
 }
 
@@ -855,6 +880,11 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
     return { error: "Featured listing credit price must be a whole number of rupees greater than 0." };
   }
 
+  const defaultMonthlyListingLimitRaw = Number(formData.get("defaultMonthlyListingLimit"));
+  if (!Number.isInteger(defaultMonthlyListingLimitRaw) || defaultMonthlyListingLimitRaw < 0) {
+    return { error: "Default monthly listing limit must be a whole number, 0 or more." };
+  }
+
   if (existing) {
     await db
       .update(siteSettings)
@@ -865,6 +895,7 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
         dashboardBannerImageUrl,
         dashboardBannerLinkUrl,
         featuredCreditPriceRupees: featuredCreditPriceRaw,
+        defaultMonthlyListingLimit: defaultMonthlyListingLimitRaw,
         updatedAt: sql`(current_timestamp)`,
       })
       .where(eq(siteSettings.id, 1));
@@ -877,6 +908,7 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
       dashboardBannerImageUrl,
       dashboardBannerLinkUrl,
       featuredCreditPriceRupees: featuredCreditPriceRaw,
+      defaultMonthlyListingLimit: defaultMonthlyListingLimitRaw,
     });
   }
 
@@ -1251,6 +1283,145 @@ export async function adminDeleteBlogPostAction(formData: FormData) {
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   if (existing) revalidatePath(`/blog/${existing.slug}`);
+}
+
+// ---- Admin: locality/area guides (local SEO pages, see schema.ts) ----
+
+const localityGuideSchema = z.object({
+  name: z.string().trim().min(2, "Locality name is required"),
+  title: z.string().trim().min(3, "Title is required"),
+  excerpt: z.string().max(300, "Keep the excerpt under 300 characters").optional(),
+  metroConnectivity: z.string().max(2000).optional(),
+  orrAccess: z.string().max(2000).optional(),
+  upcomingInfra: z.string().max(2000).optional(),
+  contentHtml: z.string().optional(),
+  displayOrder: z.coerce.number().int().optional(),
+  status: z.enum(["draft", "published"]),
+});
+
+function readLocalityGuideFields(formData: FormData) {
+  return {
+    name: formData.get("name"),
+    title: formData.get("title"),
+    excerpt: formData.get("excerpt") || undefined,
+    metroConnectivity: formData.get("metroConnectivity") || undefined,
+    orrAccess: formData.get("orrAccess") || undefined,
+    upcomingInfra: formData.get("upcomingInfra") || undefined,
+    contentHtml: formData.get("contentHtml") || undefined,
+    displayOrder: formData.get("displayOrder") || undefined,
+    status: formData.get("status") || "draft",
+  };
+}
+
+// Same "keep an edit's own slug, otherwise dedupe with -2/-3/…" approach as
+// uniqueBlogSlug above — kept as its own function rather than a shared
+// generic helper since the two content types' admin actions don't otherwise
+// share any code, and a shared helper would just be an extra indirection.
+async function uniqueLocalityGuideSlug(base: string, excludeId?: number): Promise<string> {
+  let candidate = base;
+  let n = 2;
+  for (;;) {
+    const existing = await db.query.localityGuides.findFirst({ where: eq(localityGuides.slug, candidate) });
+    if (!existing || existing.id === excludeId) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
+export async function adminCreateLocalityGuideAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await requireAdmin();
+  const parsed = localityGuideSchema.safeParse(readLocalityGuideFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const slug = await uniqueLocalityGuideSlug(slugify(data.name));
+  const heroFile = formData.get("heroImage");
+  const heroImageUrl = heroFile instanceof File && heroFile.size > 0 ? await saveUploadedImage(heroFile) : null;
+
+  const [guide] = await db
+    .insert(localityGuides)
+    .values({
+      slug,
+      name: data.name,
+      title: data.title,
+      excerpt: data.excerpt?.trim() || null,
+      heroImageUrl,
+      metroConnectivity: data.metroConnectivity?.trim() || null,
+      orrAccess: data.orrAccess?.trim() || null,
+      upcomingInfra: data.upcomingInfra?.trim() || null,
+      contentHtml: sanitizeBlogContent(data.contentHtml || ""),
+      displayOrder: data.displayOrder ?? 0,
+      status: data.status,
+      authorId: session.id,
+      publishedAt: data.status === "published" ? sql`(current_timestamp)` : null,
+    })
+    .returning();
+
+  revalidatePath("/admin/locality-guides");
+  revalidatePath("/areas");
+  redirect(`/admin/locality-guides/${guide.id}/edit?saved=1`);
+}
+
+export async function adminUpdateLocalityGuideAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const guideId = Number(formData.get("guideId"));
+  if (!guideId) return { error: "Missing guide." };
+
+  const existing = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, guideId) });
+  if (!existing) return { error: "Guide not found." };
+
+  const parsed = localityGuideSchema.safeParse(readLocalityGuideFields(formData));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const data = parsed.data;
+
+  const slug =
+    slugify(data.name) === slugify(existing.name) && existing.slug
+      ? existing.slug
+      : await uniqueLocalityGuideSlug(slugify(data.name), guideId);
+
+  const heroFile = formData.get("heroImage");
+  const newHeroUrl = heroFile instanceof File && heroFile.size > 0 ? await saveUploadedImage(heroFile) : null;
+  const removeHero = formData.get("removeHeroImage") === "on";
+
+  await db
+    .update(localityGuides)
+    .set({
+      slug,
+      name: data.name,
+      title: data.title,
+      excerpt: data.excerpt?.trim() || null,
+      heroImageUrl: newHeroUrl ?? (removeHero ? null : existing.heroImageUrl),
+      metroConnectivity: data.metroConnectivity?.trim() || null,
+      orrAccess: data.orrAccess?.trim() || null,
+      upcomingInfra: data.upcomingInfra?.trim() || null,
+      contentHtml: sanitizeBlogContent(data.contentHtml || ""),
+      displayOrder: data.displayOrder ?? existing.displayOrder,
+      status: data.status,
+      publishedAt:
+        data.status === "published" && !existing.publishedAt ? sql`(current_timestamp)` : existing.publishedAt,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(eq(localityGuides.id, guideId));
+
+  revalidatePath("/admin/locality-guides");
+  revalidatePath("/areas");
+  revalidatePath(`/areas/${slug}`);
+  if (existing.slug !== slug) revalidatePath(`/areas/${existing.slug}`);
+  return { success: "Locality guide saved." };
+}
+
+export async function adminDeleteLocalityGuideAction(formData: FormData) {
+  await requireAdmin();
+  const guideId = Number(formData.get("guideId"));
+  if (!guideId) return;
+  const existing = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, guideId) });
+  await db.delete(localityGuides).where(eq(localityGuides.id, guideId));
+  revalidatePath("/admin/locality-guides");
+  revalidatePath("/areas");
+  if (existing) revalidatePath(`/areas/${existing.slug}`);
 }
 
 // ---- Admin: blog comment moderation ----

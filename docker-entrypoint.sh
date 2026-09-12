@@ -83,4 +83,11 @@ node_modules/.bin/tsx src/db/ensure-amenity-catalog.ts
 # few seconds to startup on a server with many un-geocoded projects.
 node_modules/.bin/tsx src/db/ensure-project-coordinates.ts
 
+# Idempotent — a no-op once any locality guide exists. Seeds the initial
+# batch of 4 researched area guides (Gachibowli, Kokapet, Tellapur,
+# Financial District) on first deploy of this feature; once an admin
+# creates/edits/deletes any guide through /admin/locality-guides, this
+# becomes a permanent no-op.
+node_modules/.bin/tsx src/db/ensure-locality-guides.ts
+
 exec "$@"

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getSiteSettings, getSocialLinks } from "@/db/queries";
+import { getSiteSettings, getSocialLinks, getUnreadConversationCountForUser } from "@/db/queries";
 import { logoutAction } from "@/app/actions";
 import SocialIcon from "@/components/SocialIcon";
 import MobileNav from "@/components/MobileNav";
@@ -12,6 +12,7 @@ export default async function Header() {
     getSocialLinks(),
   ]);
   const canPost = session && (session.role === "agent" || session.role === "seller" || session.role === "admin");
+  const unreadMessages = session ? await getUnreadConversationCountForUser(session.id) : 0;
 
   // Same set of links as the desktop nav below — kept in one place so the
   // hamburger menu (shown only below `md`, see MobileNav) never drifts out
@@ -22,8 +23,11 @@ export default async function Header() {
     { href: "/post-listing", label: "Sell" },
     { href: "/browse", label: "All listings" },
     { href: "/projects", label: "Projects" },
+    { href: "/areas", label: "Areas" },
+    { href: "/nri-guide", label: "NRI Guide" },
     { href: "/blog", label: "Blog" },
     ...(canPost ? [{ href: "/dashboard", label: "My listings" }] : []),
+    ...(session ? [{ href: "/messages", label: unreadMessages > 0 ? `Messages (${unreadMessages})` : "Messages" }] : []),
     ...(session?.role === "admin" ? [{ href: "/admin", label: "Admin" }] : []),
   ];
 
@@ -88,12 +92,31 @@ export default async function Header() {
           <Link href="/projects" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
             Projects
           </Link>
+          <Link href="/areas" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+            Areas
+          </Link>
+          <Link href="/nri-guide" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+            NRI Guide
+          </Link>
           <Link href="/blog" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
             Blog
           </Link>
           {canPost && (
             <Link href="/dashboard" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
               My listings
+            </Link>
+          )}
+          {session && (
+            <Link
+              href="/messages"
+              className="flex items-center gap-1.5 border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800"
+            >
+              Messages
+              {unreadMessages > 0 && (
+                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+                  {unreadMessages}
+                </span>
+              )}
             </Link>
           )}
           {session?.role === "admin" && (

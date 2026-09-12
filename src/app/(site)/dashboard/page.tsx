@@ -1,8 +1,22 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
-import { getListingsByOwner, getSiteSettings, getUserById } from "@/db/queries";
+import {
+  getListingsByOwner,
+  getSiteSettings,
+  getUserById,
+  getOwnerLeadStats,
+  getInquiryCountsByListingForOwner,
+  getRecentViewCountsForListings,
+  getUpcomingBookingsForBuyer,
+} from "@/db/queries";
 import { formatPrice } from "@/lib/format";
-import { dashboardConfirmListingAction, featureListingWithCreditAction, unfeatureOwnListingAction } from "@/app/actions";
+import {
+  dashboardConfirmListingAction,
+  featureListingWithCreditAction,
+  unfeatureOwnListingAction,
+  cancelMyBookingAction,
+} from "@/app/actions";
+import LocalTime from "@/components/LocalTime";
 import DashboardBanner from "@/components/DashboardBanner";
 import DeleteListingButton from "@/components/DeleteListingButton";
 import BuyFeaturedCreditsForm from "@/components/BuyFeaturedCreditsForm";
@@ -34,13 +48,23 @@ export default async function DashboardPage() {
   }
 
   const canPost = session.role === "agent" || session.role === "seller" || session.role === "admin";
-  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees }, freshUser] =
+  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees }, freshUser, leadStats, myBookings] =
     await Promise.all([
       canPost ? getListingsByOwner(session.id) : Promise.resolve([]),
       getSiteSettings(),
       getUserById(session.id),
+      canPost ? getOwnerLeadStats(session.id) : Promise.resolve(null),
+      getUpcomingBookingsForBuyer(session.id),
     ]);
   const featuredCredits = freshUser?.featuredCredits ?? 0;
+
+  const listingIds = myListings.map((l) => l.id);
+  const [inquiryCountsByListing, recentViewsByListing] = canPost
+    ? await Promise.all([
+        getInquiryCountsByListingForOwner(session.id),
+        getRecentViewCountsForListings(listingIds),
+      ])
+    : [new Map(), new Map()];
 
   const nudges = canPost
     ? computeDashboardNudges({ listings: myListings, phoneVerified: freshUser?.phoneVerified ?? false })
@@ -64,12 +88,25 @@ export default async function DashboardPage() {
           </p>
         </div>
         {canPost && (
-          <Link
-            href="/post-listing"
-            className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-          >
-            + New listing
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/inquiries"
+              className="rounded-md border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
+            >
+              Leads
+              {leadStats && leadStats.pending > 0 && (
+                <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                  {leadStats.pending}
+                </span>
+              )}
+            </Link>
+            <Link
+              href="/post-listing"
+              className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            >
+              + New listing
+            </Link>
+          </div>
         )}
       </div>
 
@@ -78,6 +115,29 @@ export default async function DashboardPage() {
           <StatCard label="Listings" value={myListings.length} />
           <StatCard label="Total views" value={myListings.reduce((sum, l) => sum + l.views, 0)} />
           <StatCard label="Verified" value={`${myListings.filter((l) => l.verified).length}/${myListings.length}`} />
+        </div>
+      )}
+
+      {canPost && leadStats && leadStats.total > 0 && (
+        <div className="mb-6">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 className="text-sm font-bold text-stone-900">Leads</h2>
+            <Link href="/dashboard/inquiries" className="text-xs font-medium text-emerald-700 hover:underline">
+              View all inquiries →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard label="Inquiries" value={leadStats.total} href="/dashboard/inquiries" />
+            <StatCard label="Awaiting reply" value={leadStats.pending} href="/dashboard/inquiries" />
+            <StatCard
+              label="Response rate"
+              value={leadStats.responseRatePct != null ? `${leadStats.responseRatePct}%` : "—"}
+            />
+            <StatCard
+              label="Avg. response time"
+              value={leadStats.avgResponseHours != null ? `${leadStats.avgResponseHours}h` : "—"}
+            />
+          </div>
         </div>
       )}
 
@@ -94,6 +154,36 @@ export default async function DashboardPage() {
             buyerName={session.name}
             buyerEmail={session.email}
           />
+        </div>
+      )}
+
+      {myBookings.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-sm font-bold text-stone-900">Your upcoming viewings</h2>
+          <div className="flex flex-col gap-2">
+            {myBookings.map((b) => (
+              <div
+                key={b.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white p-3 text-sm"
+              >
+                <div>
+                  <Link href={`/listing/${b.listingId}`} className="font-medium text-stone-900 hover:text-emerald-700">
+                    {b.listingTitle}
+                  </Link>
+                  <p className="text-xs text-stone-500">
+                    <LocalTime iso={b.startsAt} /> · {b.meetingType === "video_call" ? "Video call" : "In person"} ·{" "}
+                    {b.durationMinutes} min
+                  </p>
+                </div>
+                <form action={cancelMyBookingAction}>
+                  <input type="hidden" name="slotId" value={b.id} />
+                  <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
+                    Cancel
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -132,6 +222,7 @@ export default async function DashboardPage() {
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Verified</th>
                   <th className="px-4 py-3">Views</th>
+                  <th className="px-4 py-3">Inquiries</th>
                   <th className="px-4 py-3">Featured</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -183,7 +274,30 @@ export default async function DashboardPage() {
                         {l.verified ? "✓ Verified" : "Not Verified"}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{l.views}</td>
+                    <td className="px-4 py-3">
+                      {l.views}
+                      {(recentViewsByListing.get(l.id) ?? 0) > 0 && (
+                        <span className="ml-1 text-xs text-stone-400">
+                          (+{recentViewsByListing.get(l.id)} this week)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const counts = inquiryCountsByListing.get(l.id);
+                        if (!counts || counts.total === 0) return <span className="text-stone-400">—</span>;
+                        return (
+                          <Link href="/dashboard/inquiries" className="hover:underline">
+                            {counts.total}
+                            {counts.pending > 0 && (
+                              <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800">
+                                {counts.pending} new
+                              </span>
+                            )}
+                          </Link>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {l.featured ? (
                         <div className="flex items-center gap-2">
@@ -218,6 +332,12 @@ export default async function DashboardPage() {
                           className="text-xs font-medium text-emerald-700 hover:underline"
                         >
                           View/Edit
+                        </Link>
+                        <Link
+                          href={`/dashboard/listings/${l.id}/availability`}
+                          className="text-xs font-medium text-indigo-600 hover:underline"
+                        >
+                          Viewings
                         </Link>
                         <DeleteListingButton listingId={l.id} listingTitle={l.title} />
                       </div>
