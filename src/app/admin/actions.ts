@@ -807,12 +807,29 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       .where(and(eq(projectImages.projectId, projectId), inArray(projectImages.id, removeIds)));
   }
 
-  const [{ maxOrder }] = await db
-    .select({ maxOrder: sql<number>`coalesce(max(${projectImages.sortOrder}), -1)` })
+  // "Main photo" isn't its own column — the card/project-page thumbnail is
+  // just whichever image sorts first (see getProjectById/getProjectBySlug),
+  // so making an image "main" means moving it to sortOrder 0. Always
+  // recomputed from scratch (rather than nudging just the chosen image) so
+  // repeated saves can never leave two images tied on the same sortOrder —
+  // ProjectForm.tsx submits the admin's pick as mainImageId, pre-checked on
+  // whichever image is currently first.
+  const mainImageId = Number(formData.get("mainImageId"));
+  const remainingImages = await db
+    .select({ id: projectImages.id })
     .from(projectImages)
-    .where(eq(projectImages.projectId, projectId));
+    .where(eq(projectImages.projectId, projectId))
+    .orderBy(projectImages.sortOrder);
+  const chosenMain = remainingImages.find((img) => img.id === mainImageId);
+  const orderedImages = chosenMain
+    ? [chosenMain, ...remainingImages.filter((img) => img.id !== mainImageId)]
+    : remainingImages;
+  for (let i = 0; i < orderedImages.length; i++) {
+    await db.update(projectImages).set({ sortOrder: i }).where(eq(projectImages.id, orderedImages[i].id));
+  }
+
   const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
-  let order = maxOrder + 1;
+  let order = orderedImages.length;
   const newRows: { projectId: number; url: string; sortOrder: number }[] = [];
   for (const file of files.slice(0, 15)) {
     const url = await saveUploadedImage(file);

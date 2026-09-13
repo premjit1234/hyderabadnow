@@ -260,12 +260,31 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
       {project && project.images.length > 0 && (
         <div>
           <label className="mb-2 block text-sm font-medium text-stone-700">Current photos</label>
+          <p className="mb-2 text-xs text-stone-500">
+            Pick the main photo — it&rsquo;s the one shown on project cards and as the cover photo on this project&rsquo;s
+            page.
+          </p>
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
-            {project.images.map((img) => (
+            {project.images.map((img, i) => (
               <div key={img.id} className="flex flex-col items-center gap-1.5">
                 <div className="relative aspect-square w-full overflow-hidden rounded-md border border-stone-200">
                   <Image src={img.url} alt="" fill sizes="120px" className="object-cover" />
+                  {i === 0 && (
+                    <span className="absolute left-1 top-1 rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      MAIN
+                    </span>
+                  )}
                 </div>
+                <label className="flex items-center gap-1 text-xs text-stone-600">
+                  <input
+                    type="radio"
+                    name="mainImageId"
+                    value={img.id}
+                    defaultChecked={i === 0}
+                    className="h-3.5 w-3.5"
+                  />
+                  Main photo
+                </label>
                 <label className="flex items-center gap-1 text-xs text-red-600">
                   <input type="checkbox" name="removeImageId" value={img.id} className="h-3.5 w-3.5" />
                   Remove

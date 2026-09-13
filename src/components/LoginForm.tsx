@@ -59,11 +59,6 @@ export default function LoginForm({ googleError }: { googleError?: string }) {
           Sign up
         </Link>
       </p>
-      <p className="rounded-md bg-stone-50 p-3 text-xs text-stone-500">
-        Demo accounts (password <code className="font-mono">password123</code>):{" "}
-        priya.agent@hyderabadnow.in (agent), anitha.owner@hyderabadnow.in (owner),
-        rahul.buyer@hyderabadnow.in (buyer)
-      </p>
     </form>
   );
 }
