@@ -1,8 +1,20 @@
 import ListingCard from "@/components/ListingCard";
-import { searchListings, getProjectsForSelect } from "@/db/queries";
+import { searchListings, getProjectsForSelect, getListingFieldSettings } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
+import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
+
+// Non-overlapping so a floor can never match two ranges — "5-15 Floor" reads
+// as 5th up to (but not including) the 15th, where "15-25 Floor" picks up,
+// and so on. max: null means open-ended (40+).
+const FLOOR_RANGES = [
+  { key: "0-4", label: "Below 5th Floor", min: 0, max: 4 },
+  { key: "5-14", label: "5-15 Floor", min: 5, max: 14 },
+  { key: "15-24", label: "15-25 Floor", min: 15, max: 24 },
+  { key: "25-39", label: "25-40 Floor", min: 25, max: 39 },
+  { key: "40-", label: "40+ Floors", min: 40, max: null as number | null },
+] as const;
 
 export default async function BrowsePage({
   searchParams,
@@ -19,8 +31,13 @@ export default async function BrowsePage({
   const maxPrice = typeof sp.maxPrice === "string" && sp.maxPrice ? Number(sp.maxPrice) : undefined;
   const featured = sp.featured === "1";
   const newOnly = sp.new === "1";
+  const facing = typeof sp.facing === "string" ? sp.facing : undefined;
+  const floor = typeof sp.floor === "string" ? sp.floor : undefined;
+  const floorRange = FLOOR_RANGES.find((r) => r.key === floor);
+  const furnishingStatus = typeof sp.furnishingStatus === "string" ? sp.furnishingStatus : undefined;
+  const verifiedOnly = sp.verifiedOnly === "1";
 
-  const [results, projectOptions] = await Promise.all([
+  const [results, projectOptions, fieldSettings] = await Promise.all([
     searchListings({
       q,
       listingType,
@@ -31,9 +48,17 @@ export default async function BrowsePage({
       maxPrice,
       featured,
       newOnly,
+      facing,
+      minFloor: floorRange?.min,
+      maxFloor: floorRange?.max ?? undefined,
+      furnishingStatus,
+      verifiedOnly,
     }),
     getProjectsForSelect(),
+    getListingFieldSettings(),
   ]);
+
+  const hasAdditionalFilter = Boolean(facing || floorRange || furnishingStatus || verifiedOnly);
 
   const heading = q
     ? `Properties in ${q}`
@@ -152,6 +177,84 @@ export default async function BrowsePage({
             />
           </div>
         </div>
+
+        <details className="mt-4 border-t border-stone-200 pt-4" open={hasAdditionalFilter}>
+          <summary className="cursor-pointer text-sm font-semibold text-stone-700">
+            Additional filters
+          </summary>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {fieldSettings.facing.public && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  Facing
+                </label>
+                <select
+                  name="facing"
+                  defaultValue={facing ?? ""}
+                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                >
+                  <option value="">Any</option>
+                  {FACING_OPTIONS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {fieldSettings.unitFloor.public && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  Floor
+                </label>
+                <select
+                  name="floor"
+                  defaultValue={floor ?? ""}
+                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                >
+                  <option value="">Any</option>
+                  {FLOOR_RANGES.map((r) => (
+                    <option key={r.key} value={r.key}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {fieldSettings.furnishingStatus.public && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+                  Furnishing
+                </label>
+                <select
+                  name="furnishingStatus"
+                  defaultValue={furnishingStatus ?? ""}
+                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                >
+                  <option value="">Any</option>
+                  {FURNISHING_OPTIONS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input
+                  type="checkbox"
+                  name="verifiedOnly"
+                  value="1"
+                  defaultChecked={verifiedOnly}
+                  className="h-4 w-4 rounded border-stone-300"
+                />
+                Verified listings only
+              </label>
+            </div>
+          </div>
+        </details>
+
         <div className="mt-3 flex items-center gap-4">
           <button
             type="submit"

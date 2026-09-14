@@ -36,6 +36,11 @@ export type ListingFilters = {
   maxPrice?: number;
   featured?: boolean;
   newOnly?: boolean;
+  facing?: string;
+  minFloor?: number;
+  maxFloor?: number;
+  furnishingStatus?: string;
+  verifiedOnly?: boolean;
 };
 
 // NOTE: the correlation below deliberately references the outer table as raw
@@ -97,6 +102,11 @@ export async function searchListings(filters: ListingFilters) {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     conditions.push(gte(listings.createdAt, thirtyDaysAgo));
   }
+  if (filters.facing) conditions.push(eq(listings.facing, filters.facing as never));
+  if (filters.minFloor != null) conditions.push(gte(listings.unitFloor, filters.minFloor));
+  if (filters.maxFloor != null) conditions.push(lte(listings.unitFloor, filters.maxFloor));
+  if (filters.furnishingStatus) conditions.push(eq(listings.furnishingStatus, filters.furnishingStatus as never));
+  if (filters.verifiedOnly) conditions.push(eq(listings.verified, true));
   if (filters.q) {
     conditions.push(
       sql`(${listings.locality} like ${"%" + filters.q + "%"} or ${listings.title} like ${"%" + filters.q + "%"})`
