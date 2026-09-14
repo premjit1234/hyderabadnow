@@ -22,6 +22,10 @@ import {
   conversations,
   chatMessages,
   availabilitySlots,
+  areaUpdates,
+  areaUpdateImages,
+  areaUpdateComments,
+  areaUpdateVotes,
 } from "./schema";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -1485,6 +1489,180 @@ export async function getLocalityGuideBySlug(slug: string) {
   if (!guide) return null;
   const author = guide.authorId ? await db.query.users.findFirst({ where: eq(users.id, guide.authorId) }) : null;
   return { ...guide, author };
+}
+
+export type AreaUpdateComment = {
+  id: number;
+  content: string;
+  createdAt: string;
+  userName: string;
+};
+
+export type AreaUpdateWithDetails = {
+  id: number;
+  content: string;
+  createdAt: string;
+  authorId: number | null;
+  authorName: string | null;
+  images: { id: number; url: string }[];
+  comments: AreaUpdateComment[];
+  score: number;
+  // The signed-in visitor's own vote on this post: 1, -1, or 0 (no vote /
+  // not signed in) — lets the page highlight the button they already
+  // pressed without a separate round trip.
+  myVote: number;
+};
+
+// Every "extra" bit of data (images, comments, vote totals, the viewer's own
+// vote) is fetched in its own bulk query keyed by the update ids rather than
+// as a single mega-join — same approach as getBlogPostBySlug's images +
+// comments — since a locality page's update count is small enough that this
+// stays simple without needing pagination.
+export async function getAreaUpdatesForGuide(
+  localityGuideId: number,
+  currentUserId?: number
+): Promise<AreaUpdateWithDetails[]> {
+  const updates = await db
+    .select({
+      id: areaUpdates.id,
+      content: areaUpdates.content,
+      createdAt: areaUpdates.createdAt,
+      authorId: areaUpdates.authorId,
+      authorName: users.name,
+    })
+    .from(areaUpdates)
+    .leftJoin(users, eq(areaUpdates.authorId, users.id))
+    .where(eq(areaUpdates.localityGuideId, localityGuideId))
+    .orderBy(desc(areaUpdates.createdAt));
+
+  if (updates.length === 0) return [];
+
+  const ids = updates.map((u) => u.id);
+
+  const [images, comments, scores, myVotes] = await Promise.all([
+    db
+      .select({ id: areaUpdateImages.id, areaUpdateId: areaUpdateImages.areaUpdateId, url: areaUpdateImages.url })
+      .from(areaUpdateImages)
+      .where(inArray(areaUpdateImages.areaUpdateId, ids))
+      .orderBy(areaUpdateImages.sortOrder),
+    db
+      .select({
+        id: areaUpdateComments.id,
+        areaUpdateId: areaUpdateComments.areaUpdateId,
+        content: areaUpdateComments.content,
+        createdAt: areaUpdateComments.createdAt,
+        userName: users.name,
+      })
+      .from(areaUpdateComments)
+      .innerJoin(users, eq(areaUpdateComments.userId, users.id))
+      .where(inArray(areaUpdateComments.areaUpdateId, ids))
+      .orderBy(desc(areaUpdateComments.createdAt)),
+    db
+      .select({ areaUpdateId: areaUpdateVotes.areaUpdateId, score: sql<number>`coalesce(sum(${areaUpdateVotes.value}), 0)` })
+      .from(areaUpdateVotes)
+      .where(inArray(areaUpdateVotes.areaUpdateId, ids))
+      .groupBy(areaUpdateVotes.areaUpdateId),
+    currentUserId
+      ? db
+          .select({ areaUpdateId: areaUpdateVotes.areaUpdateId, value: areaUpdateVotes.value })
+          .from(areaUpdateVotes)
+          .where(and(inArray(areaUpdateVotes.areaUpdateId, ids), eq(areaUpdateVotes.userId, currentUserId)))
+      : Promise.resolve([] as { areaUpdateId: number; value: number }[]),
+  ]);
+
+  const imagesByUpdate = new Map<number, { id: number; url: string }[]>();
+  for (const img of images) {
+    const arr = imagesByUpdate.get(img.areaUpdateId) ?? [];
+    arr.push({ id: img.id, url: img.url });
+    imagesByUpdate.set(img.areaUpdateId, arr);
+  }
+  const commentsByUpdate = new Map<number, AreaUpdateComment[]>();
+  for (const c of comments) {
+    const arr = commentsByUpdate.get(c.areaUpdateId) ?? [];
+    arr.push({ id: c.id, content: c.content, createdAt: c.createdAt, userName: c.userName });
+    commentsByUpdate.set(c.areaUpdateId, arr);
+  }
+  const scoreByUpdate = new Map(scores.map((s) => [s.areaUpdateId, s.score]));
+  const myVoteByUpdate = new Map(myVotes.map((v) => [v.areaUpdateId, v.value]));
+
+  return updates.map((u) => ({
+    ...u,
+    images: imagesByUpdate.get(u.id) ?? [],
+    comments: commentsByUpdate.get(u.id) ?? [],
+    score: scoreByUpdate.get(u.id) ?? 0,
+    myVote: myVoteByUpdate.get(u.id) ?? 0,
+  }));
+}
+
+// Flat list across every locality, newest first, for the admin moderation
+// view (/admin/area-updates) — these posts go live with no pre-approval (see
+// schema.ts's areaUpdates comment), so this is the admin's only chance to
+// catch something spammy or inappropriate before it sits on a public page.
+export async function getAllAreaUpdatesForAdmin() {
+  const updates = await db
+    .select({
+      id: areaUpdates.id,
+      content: areaUpdates.content,
+      createdAt: areaUpdates.createdAt,
+      authorName: users.name,
+      localityGuideName: localityGuides.name,
+      localityGuideSlug: localityGuides.slug,
+    })
+    .from(areaUpdates)
+    .leftJoin(users, eq(areaUpdates.authorId, users.id))
+    .innerJoin(localityGuides, eq(areaUpdates.localityGuideId, localityGuides.id))
+    .orderBy(desc(areaUpdates.createdAt));
+
+  if (updates.length === 0) return [];
+
+  const ids = updates.map((u) => u.id);
+
+  const [images, comments, scores] = await Promise.all([
+    db
+      .select({ id: areaUpdateImages.id, areaUpdateId: areaUpdateImages.areaUpdateId, url: areaUpdateImages.url })
+      .from(areaUpdateImages)
+      .where(inArray(areaUpdateImages.areaUpdateId, ids))
+      .orderBy(areaUpdateImages.sortOrder),
+    db
+      .select({
+        id: areaUpdateComments.id,
+        areaUpdateId: areaUpdateComments.areaUpdateId,
+        content: areaUpdateComments.content,
+        createdAt: areaUpdateComments.createdAt,
+        userName: users.name,
+      })
+      .from(areaUpdateComments)
+      .innerJoin(users, eq(areaUpdateComments.userId, users.id))
+      .where(inArray(areaUpdateComments.areaUpdateId, ids))
+      .orderBy(desc(areaUpdateComments.createdAt)),
+    db
+      .select({ areaUpdateId: areaUpdateVotes.areaUpdateId, score: sql<number>`coalesce(sum(${areaUpdateVotes.value}), 0)` })
+      .from(areaUpdateVotes)
+      .where(inArray(areaUpdateVotes.areaUpdateId, ids))
+      .groupBy(areaUpdateVotes.areaUpdateId),
+  ]);
+
+  const imagesByUpdate = new Map<number, { id: number; url: string }[]>();
+  for (const img of images) {
+    const arr = imagesByUpdate.get(img.areaUpdateId) ?? [];
+    arr.push({ id: img.id, url: img.url });
+    imagesByUpdate.set(img.areaUpdateId, arr);
+  }
+  const commentsByUpdate = new Map<number, AreaUpdateComment[]>();
+  for (const c of comments) {
+    const arr = commentsByUpdate.get(c.areaUpdateId) ?? [];
+    arr.push({ id: c.id, content: c.content, createdAt: c.createdAt, userName: c.userName });
+    commentsByUpdate.set(c.areaUpdateId, arr);
+  }
+  const scoreByUpdate = new Map(scores.map((s) => [s.areaUpdateId, s.score]));
+
+  return updates.map((u) => ({
+    ...u,
+    images: imagesByUpdate.get(u.id) ?? [],
+    comments: commentsByUpdate.get(u.id) ?? [],
+    score: scoreByUpdate.get(u.id) ?? 0,
+    commentCount: (commentsByUpdate.get(u.id) ?? []).length,
+  }));
 }
 
 export async function getAllLocalityGuidesForAdmin() {

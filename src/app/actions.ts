@@ -18,6 +18,11 @@ import {
   conversations,
   chatMessages,
   availabilitySlots,
+  localityGuides,
+  areaUpdates,
+  areaUpdateImages,
+  areaUpdateComments,
+  areaUpdateVotes,
 } from "@/db/schema";
 import { and, eq, gt, inArray, sql, desc } from "drizzle-orm";
 import {
@@ -887,6 +892,115 @@ export async function createBlogCommentAction(_prev: ActionState, formData: Form
 
   revalidatePath(`/blog/${post.slug}`);
   return { success: "Thanks! Your comment is awaiting approval and will appear once reviewed." };
+}
+
+const areaUpdateSchema = z.object({
+  content: z.string().trim().min(5, "Tell us a bit more (at least 5 characters)").max(1000, "Keep it under 1000 characters"),
+});
+
+// Unlike blogComments above, this goes live immediately — no pending/approved
+// gate — a deliberate, lower-friction choice for this feature (see
+// schema.ts's areaUpdates comment); an admin can still remove a bad post
+// from /admin/area-updates.
+export async function createAreaUpdateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Log in to post an update." };
+  }
+
+  const localityGuideId = Number(formData.get("localityGuideId"));
+  if (!localityGuideId) return { error: "Missing area." };
+
+  const guide = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, localityGuideId) });
+  if (!guide || guide.status !== "published") {
+    return { error: "This area page isn't available right now." };
+  }
+
+  const parsed = areaUpdateSchema.safeParse({ content: formData.get("content") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check what you wrote." };
+  }
+
+  const [update] = await db
+    .insert(areaUpdates)
+    .values({ localityGuideId, authorId: session.id, content: parsed.data.content })
+    .returning();
+
+  const files = formData.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
+  const imageRows: { areaUpdateId: number; url: string; sortOrder: number }[] = [];
+  let order = 0;
+  for (const file of files.slice(0, 5)) {
+    const url = await saveUploadedImage(file);
+    if (url) imageRows.push({ areaUpdateId: update.id, url, sortOrder: order++ });
+  }
+  if (imageRows.length > 0) {
+    await db.insert(areaUpdateImages).values(imageRows);
+  }
+
+  revalidatePath(`/areas/${guide.slug}`);
+  return { success: "Posted! Thanks for keeping the neighborhood page up to date." };
+}
+
+const areaUpdateCommentSchema = z.object({
+  content: z.string().trim().min(2, "Comment is too short").max(1000, "Keep comments under 1000 characters"),
+});
+
+// Also live immediately, same reasoning as createAreaUpdateAction above.
+export async function createAreaUpdateCommentAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Log in to comment." };
+  }
+
+  const areaUpdateId = Number(formData.get("areaUpdateId"));
+  if (!areaUpdateId) return { error: "Missing post." };
+
+  const update = await db.query.areaUpdates.findFirst({ where: eq(areaUpdates.id, areaUpdateId) });
+  if (!update) return { error: "This post no longer exists." };
+
+  const parsed = areaUpdateCommentSchema.safeParse({ content: formData.get("content") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check your comment." };
+  }
+
+  await db.insert(areaUpdateComments).values({ areaUpdateId, userId: session.id, content: parsed.data.content });
+
+  const guide = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, update.localityGuideId) });
+  if (guide) revalidatePath(`/areas/${guide.slug}`);
+  return { success: "Comment posted." };
+}
+
+// Plain <form action> (not useActionState) since a vote button just needs to
+// submit and re-render — same pattern as dashboardConfirmListingAction. No
+// visible error state either: the vote buttons only ever render for a
+// signed-in visitor in the first place (see AreaUpdateVoteButtons), so the
+// session/id checks here are a safety net against a stale page or a crafted
+// request, not something a real user should ever actually hit.
+//
+// Casting the same value again removes the vote (un-voting); casting the
+// opposite value flips it in place — see areaUpdateVotes' unique index in
+// schema.ts, which is what makes "at most one row per (post, user)" safe
+// against a double-click racing itself.
+export async function voteOnAreaUpdateAction(formData: FormData) {
+  const session = await getSession();
+  const areaUpdateId = Number(formData.get("areaUpdateId"));
+  const value = Number(formData.get("value"));
+  const localitySlug = formData.get("localitySlug");
+  if (!session || !areaUpdateId || (value !== 1 && value !== -1)) return;
+
+  const existing = await db.query.areaUpdateVotes.findFirst({
+    where: and(eq(areaUpdateVotes.areaUpdateId, areaUpdateId), eq(areaUpdateVotes.userId, session.id)),
+  });
+
+  if (!existing) {
+    await db.insert(areaUpdateVotes).values({ areaUpdateId, userId: session.id, value });
+  } else if (existing.value === value) {
+    await db.delete(areaUpdateVotes).where(eq(areaUpdateVotes.id, existing.id));
+  } else {
+    await db.update(areaUpdateVotes).set({ value }).where(eq(areaUpdateVotes.id, existing.id));
+  }
+
+  if (typeof localitySlug === "string" && localitySlug) revalidatePath(`/areas/${localitySlug}`);
 }
 
 // Fired once per pathname change by <ViewTracker> (mounted only in the

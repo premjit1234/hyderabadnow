@@ -148,6 +148,13 @@
       "when": 1789405717850,
       "tag": "0020_abandoned_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1789411930893,
+      "tag": "0021_right_toad",
+      "breakpoints": true
     }
   ]
 }

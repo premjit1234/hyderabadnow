@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/locations", label: "Locations", icon: "pin" },
   { href: "/admin/blog", label: "Blog", icon: "blog" },
   { href: "/admin/locality-guides", label: "Locality guides", icon: "pin" },
+  { href: "/admin/area-updates", label: "Neighborhood updates", icon: "blog" },
   { href: "/admin/analytics", label: "Analytics", icon: "chart" },
   { href: "/admin/home-tiles", label: "Homepage tiles", icon: "image" },
   { href: "/admin/inquiries", label: "Inquiries", icon: "mail" },

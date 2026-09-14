@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const users = sqliteTable("users", {
@@ -621,6 +621,79 @@ export const blogComments = sqliteTable("blog_comments", {
     .notNull()
     .default(sql`(current_timestamp)`),
 });
+
+// ---- Neighborhood updates ----
+//
+// Lets any logged-in user post a short update — a new road, an upcoming
+// restaurant, anything worth flagging — to a specific locality guide's page
+// (see localityGuides above), separate from that page's own admin-written
+// contentHtml. Unlike blogComments above, these appear immediately with no
+// admin pre-approval (a deliberate, lower-friction choice for this feature);
+// an admin can still remove a bad one from /admin/locality-guides.
+// Comments and votes below follow the same "live immediately" policy.
+export const areaUpdates = sqliteTable("area_updates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  localityGuideId: integer("locality_guide_id")
+    .notNull()
+    .references(() => localityGuides.id, { onDelete: "cascade" }),
+  // set-null (not cascade): deleting a user's account shouldn't erase a
+  // community update other people may have already voted/commented on —
+  // same reasoning as blogPosts.authorId.
+  authorId: integer("author_id").references(() => users.id, { onDelete: "set null" }),
+  content: text("content").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const areaUpdateImages = sqliteTable("area_update_images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  areaUpdateId: integer("area_update_id")
+    .notNull()
+    .references(() => areaUpdates.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// No status/moderation column, unlike blogComments — comments on an area
+// update are live the moment they're posted (see createAreaUpdateCommentAction).
+export const areaUpdateComments = sqliteTable("area_update_comments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  areaUpdateId: integer("area_update_id")
+    .notNull()
+    .references(() => areaUpdates.id, { onDelete: "cascade" }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// One row per (post, user), enforced by the unique index below at the DB
+// level rather than only in application code — a double-click or two tabs
+// racing each other should never be able to leave two vote rows for the
+// same person on the same post. value is 1 (upvote) or -1 (downvote);
+// casting the same value again removes the row (un-voting), casting the
+// opposite value updates it in place — see voteOnAreaUpdateAction.
+export const areaUpdateVotes = sqliteTable(
+  "area_update_votes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    areaUpdateId: integer("area_update_id")
+      .notNull()
+      .references(() => areaUpdates.id, { onDelete: "cascade" }),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+  },
+  (table) => [uniqueIndex("area_update_votes_post_user_idx").on(table.areaUpdateId, table.userId)]
+);
 
 // One row per page load on the public site (see components/ViewTracker.tsx +
 // recordPageViewAction) — never recorded for /admin. Powers the admin

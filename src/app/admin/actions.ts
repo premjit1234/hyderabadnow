@@ -22,6 +22,8 @@ import {
   locations,
   amenityCatalog,
   localityGuides,
+  areaUpdates,
+  areaUpdateComments,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
@@ -1573,5 +1575,41 @@ export async function adminDeleteBlogCommentAction(formData: FormData) {
   if (comment) {
     const post = await db.query.blogPosts.findFirst({ where: eq(blogPosts.id, comment.postId) });
     if (post) revalidatePath(`/blog/${post.slug}`);
+  }
+}
+
+// Neighborhood updates (see schema.ts's areaUpdates comment) go live with no
+// pre-approval, unlike blog comments above — these two actions are the
+// admin's only way to remove something spammy or inappropriate afterward.
+export async function adminDeleteAreaUpdateAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+
+  const update = await db.query.areaUpdates.findFirst({ where: eq(areaUpdates.id, id) });
+  await db.delete(areaUpdates).where(eq(areaUpdates.id, id));
+
+  revalidatePath("/admin/area-updates");
+  if (update) {
+    const guide = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, update.localityGuideId) });
+    if (guide) revalidatePath(`/areas/${guide.slug}`);
+  }
+}
+
+export async function adminDeleteAreaUpdateCommentAction(formData: FormData) {
+  await requireAdmin();
+  const id = Number(formData.get("id"));
+  if (!id) return;
+
+  const comment = await db.query.areaUpdateComments.findFirst({ where: eq(areaUpdateComments.id, id) });
+  await db.delete(areaUpdateComments).where(eq(areaUpdateComments.id, id));
+
+  revalidatePath("/admin/area-updates");
+  if (comment) {
+    const update = await db.query.areaUpdates.findFirst({ where: eq(areaUpdates.id, comment.areaUpdateId) });
+    if (update) {
+      const guide = await db.query.localityGuides.findFirst({ where: eq(localityGuides.id, update.localityGuideId) });
+      if (guide) revalidatePath(`/areas/${guide.slug}`);
+    }
   }
 }

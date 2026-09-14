@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getLocalityGuideBySlug } from "@/db/queries";
+import { getLocalityGuideBySlug, getAreaUpdatesForGuide } from "@/db/queries";
+import { getSession } from "@/lib/auth";
 import { getAppUrl } from "@/lib/site";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { absoluteUrl, jsonLdScriptContent, buildBreadcrumbJsonLd } from "@/lib/seo";
+import { formatDate } from "@/lib/format";
+import AreaUpdatePostForm from "@/components/AreaUpdatePostForm";
+import AreaUpdateCommentForm from "@/components/AreaUpdateCommentForm";
+import AreaUpdateVoteButtons from "@/components/AreaUpdateVoteButtons";
+import AreaUpdateShareButton from "@/components/AreaUpdateShareButton";
 
 export async function generateMetadata({
   params,
@@ -38,9 +44,11 @@ export async function generateMetadata({
 
 export default async function AreaGuidePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [guide, appUrl] = await Promise.all([getLocalityGuideBySlug(slug), getAppUrl()]);
+  const [guide, appUrl, session] = await Promise.all([getLocalityGuideBySlug(slug), getAppUrl(), getSession()]);
 
   if (!guide || guide.status !== "published") notFound();
+
+  const updates = await getAreaUpdatesForGuide(guide.id, session?.id);
 
   // Sanitized again here at render time, on top of the sanitizing already
   // done when the guide was saved — same defense-in-depth as blog posts,
@@ -123,6 +131,99 @@ export default async function AreaGuidePage({ params }: { params: Promise<{ slug
         Infrastructure timelines are based on public reporting and can change — always confirm current status with
         the relevant authority (HMDA/NHAI/L&amp;TMRHL) before making a buying decision based on planned projects.
       </p>
+
+      <section className="mt-10 border-t border-stone-200 pt-8">
+        <h2 className="text-lg font-bold text-stone-900">Latest neighborhood updates</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          New roads, restaurants opening, anything worth flagging about {guide.name} — posted by people living here.
+        </p>
+
+        {session ? (
+          <div className="mt-4">
+            <AreaUpdatePostForm localityGuideId={guide.id} />
+          </div>
+        ) : (
+          <p className="mt-4 rounded-md bg-stone-50 p-3 text-sm text-stone-600">
+            <Link href="/login" className="font-medium text-indigo-600 hover:underline">
+              Log in
+            </Link>{" "}
+            to post an update.
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-col gap-6">
+          {updates.map((u) => (
+            <div key={u.id} id={`update-${u.id}`} className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-stone-900">{u.authorName ?? "A HyderabadNow user"}</p>
+                  <p className="text-xs text-stone-400">{formatDate(u.createdAt)}</p>
+                </div>
+                <AreaUpdateShareButton
+                  url={`${appUrl}/areas/${guide.slug}#update-${u.id}`}
+                  title={`Update in ${guide.name}`}
+                />
+              </div>
+
+              <p className="mt-2 whitespace-pre-line text-sm text-stone-700">{u.content}</p>
+
+              {u.images.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {u.images.map((img) => (
+                    <div key={img.id} className="relative aspect-square overflow-hidden rounded-lg bg-stone-100">
+                      <Image src={img.url} alt="" fill sizes="200px" className="object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3">
+                <AreaUpdateVoteButtons
+                  areaUpdateId={u.id}
+                  localitySlug={guide.slug}
+                  score={u.score}
+                  myVote={u.myVote}
+                  canVote={Boolean(session)}
+                />
+              </div>
+
+              <div className="mt-4 border-t border-stone-100 pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Comments {u.comments.length > 0 && `(${u.comments.length})`}
+                </p>
+
+                {session ? (
+                  <div className="mt-2">
+                    <AreaUpdateCommentForm areaUpdateId={u.id} />
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-stone-400">
+                    <Link href="/login" className="font-medium text-indigo-600 hover:underline">
+                      Log in
+                    </Link>{" "}
+                    to comment.
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-col gap-3">
+                  {u.comments.map((c) => (
+                    <div key={c.id} className="text-sm">
+                      <span className="font-semibold text-stone-800">{c.userName}</span>{" "}
+                      <span className="text-xs text-stone-400">{formatDate(c.createdAt)}</span>
+                      <p className="mt-0.5 whitespace-pre-line text-stone-700">{c.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+          {updates.length === 0 && (
+            <p className="rounded-lg border border-dashed border-stone-300 bg-stone-50 p-6 text-center text-sm text-stone-400">
+              No updates yet — be the first to share what&apos;s new in {guide.name}.
+            </p>
+          )}
+        </div>
+      </section>
     </main>
   );
 }
