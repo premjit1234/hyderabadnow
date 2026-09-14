@@ -30,6 +30,7 @@ export type ListingFilters = {
   q?: string;
   listingType?: "sale" | "rent";
   propertyType?: string;
+  projectId?: number;
   bhk?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -82,6 +83,7 @@ export async function searchListings(filters: ListingFilters) {
 
   if (filters.listingType) conditions.push(eq(listings.listingType, filters.listingType));
   if (filters.propertyType) conditions.push(eq(listings.propertyType, filters.propertyType as never));
+  if (filters.projectId) conditions.push(eq(listings.projectId, filters.projectId));
   // The filter UI (/browse's "Bedrooms (BHK)" select) offers "1+ BHK", "2+
   // BHK", etc. — an exact eq() here silently required exactly that BHK
   // count, so e.g. "1+ BHK" hid every 2/3/4 BHK listing instead of

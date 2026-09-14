@@ -1,5 +1,5 @@
 import ListingCard from "@/components/ListingCard";
-import { searchListings } from "@/db/queries";
+import { searchListings, getProjectsForSelect } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
@@ -13,22 +13,27 @@ export default async function BrowsePage({
   const q = typeof sp.q === "string" ? sp.q : undefined;
   const listingType = sp.listingType === "rent" ? "rent" : sp.listingType === "sale" ? "sale" : undefined;
   const propertyType = typeof sp.propertyType === "string" ? sp.propertyType : undefined;
+  const projectId = typeof sp.projectId === "string" && sp.projectId ? Number(sp.projectId) : undefined;
   const bhk = typeof sp.bhk === "string" && sp.bhk ? Number(sp.bhk) : undefined;
   const minPrice = typeof sp.minPrice === "string" && sp.minPrice ? Number(sp.minPrice) : undefined;
   const maxPrice = typeof sp.maxPrice === "string" && sp.maxPrice ? Number(sp.maxPrice) : undefined;
   const featured = sp.featured === "1";
   const newOnly = sp.new === "1";
 
-  const results = await searchListings({
-    q,
-    listingType,
-    propertyType,
-    bhk,
-    minPrice,
-    maxPrice,
-    featured,
-    newOnly,
-  });
+  const [results, projectOptions] = await Promise.all([
+    searchListings({
+      q,
+      listingType,
+      propertyType,
+      projectId,
+      bhk,
+      minPrice,
+      maxPrice,
+      featured,
+      newOnly,
+    }),
+    getProjectsForSelect(),
+  ]);
 
   const heading = q
     ? `Properties in ${q}`
@@ -46,7 +51,7 @@ export default async function BrowsePage({
       <p className="mt-1 text-sm text-stone-500">{results.length} listings found</p>
 
       <form method="GET" className="mt-6 rounded-lg border border-stone-200 p-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
               Locality
@@ -58,6 +63,23 @@ export default async function BrowsePage({
               placeholder="e.g. Kondapur"
               className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Project
+            </label>
+            <select
+              name="projectId"
+              defaultValue={projectId ? String(projectId) : ""}
+              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+            >
+              <option value="">Any</option>
+              {projectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
