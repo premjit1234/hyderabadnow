@@ -36,6 +36,7 @@ type EditableListing = {
   cashRatioPercent: number | null;
   amenities: string | null;
   videoUrl: string | null;
+  internalNote: string | null;
   images: { id: number; url: string }[];
 };
 
@@ -355,6 +356,20 @@ export default function OwnListingEditForm({
           defaultValue={listing.description}
           className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
         />
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-stone-700">Internal note (optional)</label>
+        <textarea
+          name="internalNote"
+          rows={3}
+          defaultValue={listing.internalNote ?? ""}
+          placeholder="e.g. gate code, tenant's contact, why the price looks off — anything worth remembering about this listing"
+          className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          For your own reference only — never shown on the public listing page, no matter what.
+        </p>
       </div>
 
       {projects.length > 0 && (

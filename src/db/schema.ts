@@ -269,6 +269,15 @@ export const listings = sqliteTable("listings", {
   // treatment as contactPhone/whatsappEnabled. Same YouTube/Vimeo-only
   // validation as projects.videoUrl / blogPosts.videoUrl (lib/video.ts).
   videoUrl: text("video_url"),
+  // Free-form scratchpad for the poster and admins — access instructions,
+  // negotiation history, why a price looks odd, anything worth remembering
+  // about this specific listing. Unlike sellerAskPrice/sellerBestPrice above
+  // (admin-configurable whether they show publicly), this one is never
+  // rendered on the public listing page at all, under any setting — so it's
+  // not wired into listingFieldSettings, just left out of every public-facing
+  // query/component entirely. Settable both by the poster (post-listing form,
+  // and their own dashboard edit) and by an admin, same as videoUrl above.
+  internalNote: text("internal_note"),
   views: integer("views").notNull().default(0),
   // Staleness tracking for the "still available?" nudge (see
   // src/lib/staleListings.ts and src/instrumentation.ts) — fake/abandoned

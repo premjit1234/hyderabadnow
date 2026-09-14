@@ -17,8 +17,9 @@ export const viewport: Viewport = {
 // The favicon is admin-editable (see /admin/settings), so it can't use the
 // static app/favicon.ico file convention — that's fixed at build time. This
 // reads the current favicon from the database on every request instead,
-// falling back to the bundled default green-H icon when no admin upload
-// has been made yet.
+// falling back to the bundled default (a cropped Charminar-and-skyline mark,
+// no wordmark — see public/favicon-default.ico) when no admin upload has
+// been made yet.
 export async function generateMetadata(): Promise<Metadata> {
   const { faviconUrl } = await getSiteSettings();
   return {

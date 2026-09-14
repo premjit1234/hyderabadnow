@@ -172,6 +172,7 @@ const listingSchema = z.object({
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  internalNote: z.string().optional(),
 });
 
 // ---- Phone verification (OTP via MSG91 WhatsApp — see lib/whatsappOtp.ts) ----
@@ -306,6 +307,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    internalNote: formData.get("internalNote") || undefined,
   });
 
   if (!parsed.success) {
@@ -350,6 +352,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
     })
     .returning();
@@ -442,6 +445,7 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    internalNote: formData.get("internalNote") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -485,6 +489,7 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      internalNote: data.internalNote?.trim() || null,
       // Same reasoning as the admin edit action: an owner actively editing
       // their listing is itself a sign it's still real and attended-to, so
       // this resets the staleness clock exactly like the "Yes, still

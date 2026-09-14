@@ -141,6 +141,13 @@
       "when": 1789368243375,
       "tag": "0019_wooden_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1789405717850,
+      "tag": "0020_abandoned_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

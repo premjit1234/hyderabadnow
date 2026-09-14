@@ -283,6 +283,19 @@ export default function AdminListingCreateForm({
       </div>
 
       <div>
+        <label className="mb-1 block text-sm font-medium text-stone-700">Internal note (optional)</label>
+        <textarea
+          name="internalNote"
+          rows={3}
+          placeholder="e.g. gate code, tenant's contact, why the price looks off — anything worth remembering about this listing"
+          className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          For the poster and admins only — never shown on the public listing page, no matter what.
+        </p>
+      </div>
+
+      <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Photos (up to 10)</label>
         <input type="file" name="images" accept="image/png,image/jpeg,image/webp,image/gif" multiple className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
       </div>

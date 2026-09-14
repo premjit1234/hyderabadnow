@@ -229,6 +229,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    internalNote: formData.get("internalNote") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -276,6 +277,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      internalNote: data.internalNote?.trim() || null,
       // An admin editing a listing is itself a sign a human looked at it —
       // reset the staleness clock the same way a manual "confirm" would
       // (see lib/staleListings.ts), so it isn't immediately flagged again.
@@ -348,6 +350,7 @@ const adminCreateListingSchema = z.object({
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  internalNote: z.string().optional(),
 });
 
 export async function adminCreateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -377,6 +380,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    internalNote: formData.get("internalNote") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
@@ -427,6 +431,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
     })
     .returning();
