@@ -4,6 +4,7 @@ import { getProjectsForPublic, getLocationNames } from "@/db/queries";
 import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
 import ProjectsViewSwitcher from "@/components/ProjectsViewSwitcher";
 import ProjectsMap from "@/components/ProjectsMap";
+import CompareForm from "@/components/CompareForm";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 const BHK_OPTIONS = [1, 2, 3, 4, 5];
@@ -178,6 +179,7 @@ export default async function ProjectsPage({
                 />
               }
               grid={
+            <CompareForm>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {allProjects.map((p) => {
                 const startingPrice = p.minSalePrice ?? p.minRentPrice;
@@ -207,6 +209,10 @@ export default async function ProjectsPage({
                           RERA
                         </span>
                       )}
+                      <label className="absolute bottom-2 left-2 z-10 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-stone-700 shadow-sm">
+                        <input type="checkbox" name="ids" value={p.id} className="h-3.5 w-3.5" />
+                        Compare
+                      </label>
                     </div>
                     <div className="flex flex-1 flex-col gap-1 p-3.5">
                       <Link
@@ -250,6 +256,7 @@ export default async function ProjectsPage({
                 );
               })}
             </div>
+            </CompareForm>
               }
             />
           )}

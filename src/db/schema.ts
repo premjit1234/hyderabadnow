@@ -136,6 +136,34 @@ export const projects = sqliteTable("projects", {
   description: text("description"),
   amenities: text("amenities"), // JSON-encoded string[] of amenity keys — see lib/amenities.ts
   brochureUrl: text("brochure_url"),
+  // Pricing/charges breakdown — all admin-set, all optional (a project can be
+  // listed with none, some, or all of these filled in). Deliberately fixed,
+  // named columns rather than a generic key-value "custom fields" table: this
+  // is the same pattern every other project field already uses (RERA number,
+  // floor area ratio, etc.), and a genuinely new charge type later is a small
+  // follow-up migration, not a separate builder. Each is real (allows paisa
+  // precision) or integer (a flat rupee figure) depending on how that charge
+  // is actually quoted in the market — see lib/projectPricing.ts, the single
+  // shared place that knows each field's label/unit and formats it, used by
+  // both the public project page and the /projects/compare comparison table.
+  basePricePerSqft: real("base_price_per_sqft"),
+  floorRiseChargePerSqftPerFloor: real("floor_rise_charge_per_sqft_per_floor"),
+  clubhouseCharges: integer("clubhouse_charges"),
+  carParkingChargePerCar: integer("car_parking_charge_per_car"),
+  otherAmenitiesCharges: integer("other_amenities_charges"),
+  infraChargesPerSqft: real("infra_charges_per_sqft"),
+  additionalPlcChargesPerSqft: real("additional_plc_charges_per_sqft"),
+  legalDocumentationCharges: integer("legal_documentation_charges"),
+  corpusCharges: integer("corpus_charges"),
+  maintenanceChargePerSqftPerMonth: real("maintenance_charge_per_sqft_per_month"),
+  // Set automatically (never a form field an admin fills in directly) whenever
+  // any of the 10 pricing fields above actually changes value — see
+  // adminCreateProjectAction/adminUpdateProjectAction. This is what lets the
+  // public page and the comparison table show "Pricing as of <date>" and warn
+  // once it's gotten old, without relying on an admin to remember to touch a
+  // separate date field (which would just as easily go stale as the prices
+  // themselves).
+  pricingUpdatedAt: text("pricing_updated_at"),
   // Admin-only, same YouTube/Vimeo-only validation as blogPosts.videoUrl — see
   // lib/video.ts's getVideoEmbedUrl.
   videoUrl: text("video_url"),

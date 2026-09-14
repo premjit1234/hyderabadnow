@@ -876,6 +876,34 @@ export async function getProjectBySlug(slug: string) {
   return { ...project, images };
 }
 
+/** Full project rows (every spec + pricing field) for the /projects/compare
+ * table — unlike getProjectsForPublic/getFeaturedProjects above, which
+ * intentionally select only what a card needs, the comparison table shows
+ * everything side by side, so this fetches whole rows. Preserves the order
+ * of `ids` (the order the admin/buyer picked them in, from the page's own
+ * query string) rather than whatever order the DB happens to return. */
+export async function getProjectsForComparison(ids: number[]) {
+  if (ids.length === 0) return [];
+  const rows = await db.query.projects.findMany({ where: inArray(projects.id, ids) });
+  if (rows.length === 0) return [];
+
+  const images = await db
+    .select({ projectId: projectImages.projectId, url: projectImages.url })
+    .from(projectImages)
+    .where(inArray(projectImages.projectId, rows.map((r) => r.id)))
+    .orderBy(projectImages.sortOrder);
+  const firstImageByProject = new Map<number, string>();
+  for (const img of images) {
+    if (!firstImageByProject.has(img.projectId)) firstImageByProject.set(img.projectId, img.url);
+  }
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((p): p is NonNullable<typeof p> => p != null)
+    .map((p) => ({ ...p, imageUrl: firstImageByProject.get(p.id) ?? null }));
+}
+
 export async function getListingsByProject(projectId: number, listingType?: "sale" | "rent") {
   const conditions = [
     eq(listings.projectId, projectId),

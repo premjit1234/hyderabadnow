@@ -127,6 +127,20 @@
       "when": 1789193508786,
       "tag": "0017_previous_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1789363440927,
+      "tag": "0018_pale_ezekiel_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1789368243375,
+      "tag": "0019_wooden_spectrum",
+      "breakpoints": true
     }
   ]
 }

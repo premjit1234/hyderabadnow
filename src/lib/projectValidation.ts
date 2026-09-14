@@ -32,6 +32,19 @@ export const projectSchema = z.object({
   floorAreaRatio: z.coerce.number().positive().optional(),
   description: z.string().optional(),
   brochureUrl: z.string().optional(),
+  // Pricing/charges — see schema.ts's projects table comment and
+  // lib/projectPricing.ts. All optional; a project can have none, some, or
+  // all filled in.
+  basePricePerSqft: z.coerce.number().positive().optional(),
+  floorRiseChargePerSqftPerFloor: z.coerce.number().positive().optional(),
+  clubhouseCharges: z.coerce.number().int().positive().optional(),
+  carParkingChargePerCar: z.coerce.number().int().positive().optional(),
+  otherAmenitiesCharges: z.coerce.number().int().positive().optional(),
+  infraChargesPerSqft: z.coerce.number().positive().optional(),
+  additionalPlcChargesPerSqft: z.coerce.number().positive().optional(),
+  legalDocumentationCharges: z.coerce.number().int().positive().optional(),
+  corpusCharges: z.coerce.number().int().positive().optional(),
+  maintenanceChargePerSqftPerMonth: z.coerce.number().positive().optional(),
   contactPhone: z.string().optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
   // Set only when an admin has manually placed/dragged the pin in

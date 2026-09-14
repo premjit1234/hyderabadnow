@@ -33,6 +33,7 @@ import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { projectSchema } from "@/lib/projectValidation";
+import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
 import { LISTING_STATUSES, editListingSchema } from "@/lib/listingValidation";
 import { geocodeLocality } from "@/lib/geocode";
 
@@ -557,6 +558,16 @@ function readProjectFields(formData: FormData) {
     floorAreaRatio: formData.get("floorAreaRatio") || undefined,
     description: formData.get("description") || undefined,
     brochureUrl: formData.get("brochureUrl") || undefined,
+    basePricePerSqft: formData.get("basePricePerSqft") || undefined,
+    floorRiseChargePerSqftPerFloor: formData.get("floorRiseChargePerSqftPerFloor") || undefined,
+    clubhouseCharges: formData.get("clubhouseCharges") || undefined,
+    carParkingChargePerCar: formData.get("carParkingChargePerCar") || undefined,
+    otherAmenitiesCharges: formData.get("otherAmenitiesCharges") || undefined,
+    infraChargesPerSqft: formData.get("infraChargesPerSqft") || undefined,
+    additionalPlcChargesPerSqft: formData.get("additionalPlcChargesPerSqft") || undefined,
+    legalDocumentationCharges: formData.get("legalDocumentationCharges") || undefined,
+    corpusCharges: formData.get("corpusCharges") || undefined,
+    maintenanceChargePerSqftPerMonth: formData.get("maintenanceChargePerSqftPerMonth") || undefined,
     contactPhone: formData.get("contactPhone") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
     latitude: formData.get("latitude") || undefined,
@@ -666,6 +677,12 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
   const manualPin = data.latitude != null && data.longitude != null;
   const geo = manualPin ? null : await geocodeLocality(data.locality, data.city);
 
+  // "Pricing as of" is never a field the admin fills in — it's stamped
+  // automatically the moment any pricing is actually entered, so it can't
+  // drift out of sync with the numbers themselves (see adminUpdateProjectAction
+  // for the same logic on an edit, and lib/projectPricing.ts's isPricingStale).
+  const hasPricingOnCreate = PRICING_FIELD_DEFS.some((f) => data[f.key] != null);
+
   const [project] = await db
     .insert(projects)
     .values({
@@ -695,6 +712,17 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
+      basePricePerSqft: data.basePricePerSqft ?? null,
+      floorRiseChargePerSqftPerFloor: data.floorRiseChargePerSqftPerFloor ?? null,
+      clubhouseCharges: data.clubhouseCharges ?? null,
+      carParkingChargePerCar: data.carParkingChargePerCar ?? null,
+      otherAmenitiesCharges: data.otherAmenitiesCharges ?? null,
+      infraChargesPerSqft: data.infraChargesPerSqft ?? null,
+      additionalPlcChargesPerSqft: data.additionalPlcChargesPerSqft ?? null,
+      legalDocumentationCharges: data.legalDocumentationCharges ?? null,
+      corpusCharges: data.corpusCharges ?? null,
+      maintenanceChargePerSqftPerMonth: data.maintenanceChargePerSqftPerMonth ?? null,
+      pricingUpdatedAt: hasPricingOnCreate ? new Date().toISOString() : null,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
       featured,
@@ -743,7 +771,24 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   // than leaving it stuck on the old numeric URL until the next deploy.
   const existingProject = await db.query.projects.findFirst({
     where: eq(projects.id, projectId),
-    columns: { slug: true, locality: true, city: true, latitude: true, longitude: true },
+    columns: {
+      slug: true,
+      locality: true,
+      city: true,
+      latitude: true,
+      longitude: true,
+      pricingUpdatedAt: true,
+      basePricePerSqft: true,
+      floorRiseChargePerSqftPerFloor: true,
+      clubhouseCharges: true,
+      carParkingChargePerCar: true,
+      otherAmenitiesCharges: true,
+      infraChargesPerSqft: true,
+      additionalPlcChargesPerSqft: true,
+      legalDocumentationCharges: true,
+      corpusCharges: true,
+      maintenanceChargePerSqftPerMonth: true,
+    },
   });
   const slug = existingProject?.slug || (await uniqueProjectSlug(slugify(data.name), projectId));
 
@@ -760,6 +805,16 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   const geo = !manualPin && localityChanged ? await geocodeLocality(data.locality, data.city) : null;
   const latitude = manualPin ? data.latitude! : localityChanged ? (geo?.latitude ?? null) : (existingProject?.latitude ?? null);
   const longitude = manualPin ? data.longitude! : localityChanged ? (geo?.longitude ?? null) : (existingProject?.longitude ?? null);
+
+  // "Pricing as of" auto-updates the moment any of the 10 pricing fields
+  // actually changes value (not just re-saved unchanged) — see the matching
+  // comment in adminCreateProjectAction. An edit that only touches unrelated
+  // fields (say, the description) must leave the existing date untouched, and
+  // clearing every pricing field out entirely resets it to null so a project
+  // with no pricing never shows a stale-looking date once pricing is re-added.
+  const hasPricingOnUpdate = PRICING_FIELD_DEFS.some((f) => data[f.key] != null);
+  const pricingChanged = PRICING_FIELD_DEFS.some((f) => (existingProject?.[f.key] ?? null) !== (data[f.key] ?? null));
+  const pricingUpdatedAt = !hasPricingOnUpdate ? null : pricingChanged ? new Date().toISOString() : (existingProject?.pricingUpdatedAt ?? null);
 
   await db
     .update(projects)
@@ -790,6 +845,17 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
+      basePricePerSqft: data.basePricePerSqft ?? null,
+      floorRiseChargePerSqftPerFloor: data.floorRiseChargePerSqftPerFloor ?? null,
+      clubhouseCharges: data.clubhouseCharges ?? null,
+      carParkingChargePerCar: data.carParkingChargePerCar ?? null,
+      otherAmenitiesCharges: data.otherAmenitiesCharges ?? null,
+      infraChargesPerSqft: data.infraChargesPerSqft ?? null,
+      additionalPlcChargesPerSqft: data.additionalPlcChargesPerSqft ?? null,
+      legalDocumentationCharges: data.legalDocumentationCharges ?? null,
+      corpusCharges: data.corpusCharges ?? null,
+      maintenanceChargePerSqftPerMonth: data.maintenanceChargePerSqftPerMonth ?? null,
+      pricingUpdatedAt,
       contactPhone: data.contactPhone?.trim() || null,
       whatsappEnabled,
       featured,

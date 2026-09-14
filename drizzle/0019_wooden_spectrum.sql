@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `pricing_updated_at` text;

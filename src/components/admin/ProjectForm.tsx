@@ -8,6 +8,7 @@ import {
   type ActionState,
 } from "@/app/admin/actions";
 import { AMENITIES } from "@/lib/amenities";
+import { formatDate } from "@/lib/format";
 import LocationPicker from "@/components/admin/LocationPicker";
 
 type EditableProject = {
@@ -37,6 +38,17 @@ type EditableProject = {
   description: string | null;
   amenities: string | null;
   brochureUrl: string | null;
+  basePricePerSqft: number | null;
+  floorRiseChargePerSqftPerFloor: number | null;
+  clubhouseCharges: number | null;
+  carParkingChargePerCar: number | null;
+  otherAmenitiesCharges: number | null;
+  infraChargesPerSqft: number | null;
+  additionalPlcChargesPerSqft: number | null;
+  legalDocumentationCharges: number | null;
+  corpusCharges: number | null;
+  maintenanceChargePerSqftPerMonth: number | null;
+  pricingUpdatedAt: string | null;
   videoUrl: string | null;
   contactPhone: string | null;
   whatsappEnabled: boolean;
@@ -187,6 +199,61 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
           <div>
             <label className={labelClass}>Floor area ratio</label>
             <input type="number" step="0.01" name="floorAreaRatio" defaultValue={project?.floorAreaRatio ?? undefined} className={inputClass} />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-stone-200 p-4">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">Pricing &amp; charges</p>
+        <p className="mb-1 text-xs text-stone-500">
+          All optional — fill in what you know. Shown as a pricing breakdown on the project&rsquo;s public page, and
+          used to compare projects on /projects/compare.
+        </p>
+        <p className="mb-3 text-xs font-medium text-stone-600">
+          {project?.pricingUpdatedAt
+            ? `Pricing last updated ${formatDate(project.pricingUpdatedAt)} — this date updates itself automatically when you change any of the fields below.`
+            : "No pricing set yet — the \"as of\" date shown to buyers is stamped automatically the first time you save one of these fields."}
+        </p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div>
+            <label className={labelClass}>Base price (₹/sqft)</label>
+            <input type="number" step="0.01" name="basePricePerSqft" defaultValue={project?.basePricePerSqft ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Floor rise charge (₹/sqft/floor)</label>
+            <input type="number" step="0.01" name="floorRiseChargePerSqftPerFloor" defaultValue={project?.floorRiseChargePerSqftPerFloor ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Infra charges (₹/sqft)</label>
+            <input type="number" step="0.01" name="infraChargesPerSqft" defaultValue={project?.infraChargesPerSqft ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Additional PLC charges (₹/sqft)</label>
+            <input type="number" step="0.01" name="additionalPlcChargesPerSqft" defaultValue={project?.additionalPlcChargesPerSqft ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Maintenance charges (₹/sqft/month)</label>
+            <input type="number" step="0.01" name="maintenanceChargePerSqftPerMonth" defaultValue={project?.maintenanceChargePerSqftPerMonth ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Car parking (₹ per car)</label>
+            <input type="number" name="carParkingChargePerCar" defaultValue={project?.carParkingChargePerCar ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Clubhouse charges (₹, flat)</label>
+            <input type="number" name="clubhouseCharges" defaultValue={project?.clubhouseCharges ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Other amenities charges (₹, flat)</label>
+            <input type="number" name="otherAmenitiesCharges" defaultValue={project?.otherAmenitiesCharges ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Legal &amp; documentation charges (₹, flat)</label>
+            <input type="number" name="legalDocumentationCharges" defaultValue={project?.legalDocumentationCharges ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Corpus charges (₹, flat)</label>
+            <input type="number" name="corpusCharges" defaultValue={project?.corpusCharges ?? undefined} className={inputClass} />
           </div>
         </div>
       </div>

@@ -7,6 +7,8 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { AMENITIES, parseAmenities } from "@/lib/amenities";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { PRICING_FIELD_DEFS, hasAnyPricing, formatPricingValue, estimateOneTimeTotal, isPricingStale } from "@/lib/projectPricing";
+import { formatRupees, formatDate } from "@/lib/format";
 import { absoluteUrl, jsonLdScriptContent } from "@/lib/seo";
 import {
   buildProjectBreadcrumbJsonLd,
@@ -233,6 +235,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
   const bhkList = project.bhkOptions ? project.bhkOptions.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const videoEmbedUrl = project.videoUrl ? getVideoEmbedUrl(project.videoUrl) : null;
+  const showPricing = hasAnyPricing(project);
+  const estimatedTotal = estimateOneTimeTotal(project);
 
   // Price bands straight from this project's own active listings — sale and
   // rent are kept separate since they're not comparable figures (an
@@ -493,6 +497,54 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
       </div>
+
+      {showPricing && (
+        <div className="mt-10 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-bold text-stone-900">Pricing breakdown</h2>
+            <Link
+              href={`/projects/compare?ids=${project.id}`}
+              className="text-sm font-medium text-emerald-700 hover:underline"
+            >
+              Compare with other projects →
+            </Link>
+          </div>
+          <p className="mt-1 text-xs text-stone-500">
+            {project.pricingUpdatedAt ? `Pricing as of ${formatDate(project.pricingUpdatedAt)}` : "Pricing as of date unknown"}
+            {isPricingStale(project.pricingUpdatedAt) && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
+                May be outdated — confirm with the developer
+              </span>
+            )}
+          </p>
+          <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+            {PRICING_FIELD_DEFS.map((f) => {
+              const value = project[f.key];
+              if (value == null) return null;
+              return (
+                <div key={f.key} className="flex items-center justify-between border-b border-stone-100 py-1.5 text-sm">
+                  <span className="text-stone-600">{f.label}</span>
+                  <span className="font-medium text-stone-900">{formatPricingValue(f.key, value)}</span>
+                </div>
+              );
+            })}
+          </div>
+          {estimatedTotal != null && (
+            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+              <p className="text-lg font-bold text-emerald-800">
+                {formatRupees(estimatedTotal)}
+                <span className="ml-1.5 text-xs font-normal text-emerald-700">estimated all-in price</span>
+              </p>
+              <p className="mt-1 text-xs text-stone-500">
+                Estimated at the smallest unit size ({project.minAreaSqft?.toLocaleString("en-IN")} sqft) with one car
+                park, using base price, infra, PLC, clubhouse, parking, other amenities, legal &amp; documentation,
+                and corpus charges. Excludes floor rise (depends on your floor) and maintenance (a recurring, not
+                one-time, cost) — actual price depends on your specific unit.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {videoEmbedUrl && (
         <div className="mt-10">
