@@ -13,6 +13,15 @@ type GalleryImage = { id: number; url: string };
 export default function ListingGallery({ images, title }: { images: GalleryImage[]; title: string }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const extraCount = Math.max(0, images.length - 5);
+  // The hero tile's `sm:aspect-auto` below only works because a sibling
+  // aspect-square thumbnail is normally there to give the auto-height grid
+  // rows something to size themselves on (the hero has no intrinsic height
+  // of its own — it's an absolutely-positioned `fill` image). With exactly
+  // one photo there are no thumbnails (images.slice(1, 5) is empty), so
+  // those rows would collapse to ~0px and squash the hero into a sliver.
+  // Bypass the grid/auto-height trick entirely in that case and just use a
+  // fixed ratio at every breakpoint, same as the mobile layout always does.
+  const hasThumbnails = images.length > 1;
 
   useEffect(() => {
     if (openIndex === null) return;
@@ -42,11 +51,13 @@ export default function ListingGallery({ images, title }: { images: GalleryImage
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-2 overflow-hidden rounded-xl shadow-sm sm:grid-cols-4 sm:grid-rows-2">
+      <div
+        className={`grid grid-cols-1 gap-2 overflow-hidden rounded-xl shadow-sm ${hasThumbnails ? "sm:grid-cols-4 sm:grid-rows-2" : ""}`}
+      >
         <button
           type="button"
           onClick={() => setOpenIndex(0)}
-          className="relative aspect-[16/10] cursor-zoom-in sm:col-span-3 sm:row-span-2 sm:aspect-auto"
+          className={`relative aspect-[16/10] cursor-zoom-in ${hasThumbnails ? "sm:col-span-3 sm:row-span-2 sm:aspect-auto" : ""}`}
         >
           <Image src={images[0].url} alt={title} fill sizes="(max-width: 768px) 100vw, 60vw" className="object-cover" priority />
         </button>

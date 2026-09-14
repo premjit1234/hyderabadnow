@@ -27,6 +27,14 @@ export async function generateMetadata(): Promise<Metadata> {
       "Buy and rent apartments, villas, and plots across Hyderabad. Listings posted directly by agents and owners.",
     icons: {
       icon: faviconUrl || "/favicon-default.ico",
+      // Only for the bundled default — an admin-uploaded favicon (see
+      // /admin/settings) is whatever single file they chose, so there's no
+      // separate high-res variant of it to point this at. Google explicitly
+      // recommends a favicon larger than 48x48 "so that it looks good on
+      // various surfaces" (search results, bookmarks, iOS home screen); the
+      // old default.ico topped out at 32x32, which is almost certainly why
+      // Search was showing a generic globe instead of our icon.
+      apple: faviconUrl ? undefined : "/apple-touch-icon.png",
     },
   };
 }
