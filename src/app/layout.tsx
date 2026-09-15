@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { getSiteSettings } from "@/db/queries";
 
@@ -48,23 +47,32 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">
-        {children}
-        {/* Google AdSense site-verification snippet. `beforeInteractive` is
-            required (not just recommended) here: Next.js only guarantees a
-            <Script> lands in the actual server-rendered <head> — which is
-            what Google's "AdSense code snippet" verification checks for —
-            when this strategy is used from the root layout. Every other
-            strategy injects the tag client-side after hydration, which
-            Google's verifier won't see. Keep this site-wide (root layout,
-            not a single page) since AdSense re-checks it on any page. */}
-        <Script
+      {/* Google AdSense site-verification snippet, rendered as a plain,
+          literal <script> tag rather than next/script. We tried
+          next/script with strategy="beforeInteractive" first, but that
+          only *registers* the script via a small inline JS payload in the
+          initial HTML and inserts the real <script src=...> element into
+          the DOM client-side, milliseconds before hydration — it is never
+          present as literal text in the server-rendered HTML response.
+          Google's AdSense verifier (unlike Googlebot's own indexer) reads
+          the raw HTML response and string-matches the exact snippet it
+          gave us, so that client-injected version never gets seen and
+          verification kept failing. A plain server-rendered <script> tag
+          has no such indirection: it's literal HTML text from the first
+          byte, so both a text-matching verifier and a JS-executing browser
+          see the exact same tag Google asked us to place. Next.js allows
+          (though generally discourages) a manual <head> in the root
+          layout for cases the generateMetadata API doesn't cover — this
+          is one of them, since the Metadata API's `verification` field
+          only emits <meta> tags, never a <script src>. */}
+      <head>
+        <script
           async
-          strategy="beforeInteractive"
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3121616318120913"
           crossOrigin="anonymous"
         />
-      </body>
+      </head>
+      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">{children}</body>
     </html>
   );
 }
