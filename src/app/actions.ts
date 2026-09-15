@@ -154,6 +154,49 @@ export async function completeProfileAction(_prev: ActionState, formData: FormDa
   redirect("/dashboard");
 }
 
+const switchAccountTypeSchema = z.object({
+  role: z.enum(["agent", "seller"]),
+  agencyName: z.string().optional(),
+});
+
+// Self-service upgrade for a "buyer" account (the default for both the
+// plain signup form and every Google sign-up — see the Google OAuth
+// callback and completeProfileAction above) to "agent" or "seller", which is
+// what actually unlocks posting listings (see canPost in dashboard/page.tsx).
+// Before this existed, the only way to change your own account type after
+// the initial signup/complete-profile step was to ask an admin to flip it
+// from /admin/users — this replaces that dead-end "contact us" message on
+// the dashboard with something the buyer can do themselves immediately.
+export async function switchAccountTypeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) {
+    return { error: "Log in first." };
+  }
+  if (session.role !== "buyer") {
+    return { error: "Your account can already post listings." };
+  }
+
+  const parsed = switchAccountTypeSchema.safeParse({
+    role: formData.get("role"),
+    agencyName: formData.get("agencyName") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const { role, agencyName } = parsed.data;
+  await db
+    .update(users)
+    .set({ role, agencyName: role === "agent" ? (agencyName ?? null) : null })
+    .where(eq(users.id, session.id));
+
+  await setSessionCookie({ id: session.id, name: session.name, email: session.email, role });
+  revalidatePath("/dashboard");
+  return {
+    success: `You're all set — your account is now ${role === "agent" ? "a real estate agent" : "a property owner"} account. You can post a listing below.`,
+  };
+}
+
 const listingSchema = z.object({
   title: z.string().min(5, "Title should be at least 5 characters"),
   description: z.string().min(20, "Add a bit more description (20+ characters)"),

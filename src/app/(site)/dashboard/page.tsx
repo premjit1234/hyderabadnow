@@ -22,6 +22,7 @@ import DeleteListingButton from "@/components/DeleteListingButton";
 import BuyFeaturedCreditsForm from "@/components/BuyFeaturedCreditsForm";
 import StatCard from "@/components/admin/StatCard";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
+import SwitchAccountTypeForm from "@/components/SwitchAccountTypeForm";
 import { computeDashboardNudges } from "@/lib/dashboardNudges";
 
 // Fallback starting price for the EMI/stamp-duty calculator when the owner
@@ -349,10 +350,13 @@ export default async function DashboardPage() {
           </div>
         )
       ) : (
-        <p className="text-stone-500">
-          You&apos;re browsing as a buyer. Want to list a property?{" "}
-          <span className="text-stone-700">Contact us to switch your account to an agent or owner.</span>
-        </p>
+        <div>
+          <p className="text-stone-500">
+            You&apos;re browsing as a buyer. Want to list a property? Switch your account type below — it takes a
+            second, no need to contact us.
+          </p>
+          <SwitchAccountTypeForm />
+        </div>
       )}
 
       {/* Same calculator shown on a listing page (src/lib/finance.ts has the
