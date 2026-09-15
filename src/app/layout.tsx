@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { getSiteSettings } from "@/db/queries";
 
@@ -47,7 +48,23 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">{children}</body>
+      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">
+        {children}
+        {/* Google AdSense site-verification snippet. `beforeInteractive` is
+            required (not just recommended) here: Next.js only guarantees a
+            <Script> lands in the actual server-rendered <head> — which is
+            what Google's "AdSense code snippet" verification checks for —
+            when this strategy is used from the root layout. Every other
+            strategy injects the tag client-side after hydration, which
+            Google's verifier won't see. Keep this site-wide (root layout,
+            not a single page) since AdSense re-checks it on any page. */}
+        <Script
+          async
+          strategy="beforeInteractive"
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3121616318120913"
+          crossOrigin="anonymous"
+        />
+      </body>
     </html>
   );
 }
