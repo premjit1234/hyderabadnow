@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAllListingsForAdmin } from "@/db/queries";
+import { getAllListingsForAdmin, getProjectsForSelect } from "@/db/queries";
 import { formatPrice } from "@/lib/format";
 import {
   adminUpdateListingStatusAction,
@@ -17,9 +17,15 @@ export default async function AdminListingsPage({
   const q = typeof sp.q === "string" ? sp.q : undefined;
   const ownerParam = typeof sp.owner === "string" ? Number(sp.owner) : undefined;
   const ownerId = ownerParam && Number.isInteger(ownerParam) ? ownerParam : undefined;
+  const projectParam = typeof sp.project === "string" ? Number(sp.project) : undefined;
+  const projectId = projectParam && Number.isInteger(projectParam) ? projectParam : undefined;
 
-  const allListings = await getAllListingsForAdmin({ ownerId, q });
+  const [allListings, allProjects] = await Promise.all([
+    getAllListingsForAdmin({ ownerId, q, projectId }),
+    getProjectsForSelect(),
+  ]);
   const ownerLabel = ownerId ? allListings[0]?.ownerName ?? `owner #${ownerId}` : null;
+  const projectLabel = projectId ? allProjects.find((p) => p.id === projectId)?.name ?? `project #${projectId}` : null;
 
   return (
     <div>
@@ -38,6 +44,18 @@ export default async function AdminListingsPage({
               placeholder="Search title or locality…"
               className="w-56 rounded-md border border-stone-200 px-3 py-1.5 text-sm"
             />
+            <select
+              name="project"
+              defaultValue={projectId ?? ""}
+              className="rounded-md border border-stone-200 px-2 py-1.5 text-sm"
+            >
+              <option value="">All projects</option>
+              {allProjects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
             <button
               type="submit"
               className="rounded-md bg-stone-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-stone-800"
@@ -57,7 +75,16 @@ export default async function AdminListingsPage({
       {ownerId && (
         <p className="mb-4 flex items-center gap-2 rounded-md bg-indigo-50 p-3 text-sm text-indigo-800">
           Showing listings owned by <strong>{ownerLabel}</strong>.
-          <Link href="/admin/listings" className="font-medium underline">
+          <Link href={projectId ? `/admin/listings?project=${projectId}` : "/admin/listings"} className="font-medium underline">
+            Clear filter
+          </Link>
+        </p>
+      )}
+
+      {projectId && (
+        <p className="mb-4 flex items-center gap-2 rounded-md bg-indigo-50 p-3 text-sm text-indigo-800">
+          Showing listings in project <strong>{projectLabel}</strong>.
+          <Link href={ownerId ? `/admin/listings?owner=${ownerId}` : "/admin/listings"} className="font-medium underline">
             Clear filter
           </Link>
         </p>
@@ -84,6 +111,7 @@ export default async function AdminListingsPage({
                   <Link href={`/listing/${l.id}`} className="font-medium text-stone-900 hover:text-indigo-700">
                     {l.title}
                   </Link>
+                  {l.projectName && <p className="text-xs text-stone-400">{l.projectName}</p>}
                 </td>
                 <td className="px-4 py-3 text-stone-600">
                   {l.ownerName ?? <span className="text-stone-400">deleted user</span>}

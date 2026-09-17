@@ -314,9 +314,10 @@ export async function getAllUsersForAdmin(q?: string) {
     .orderBy(desc(users.createdAt));
 }
 
-export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: string }) {
+export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: string; projectId?: number }) {
   const conditions = [];
   if (filters?.ownerId) conditions.push(eq(listings.ownerId, filters.ownerId));
+  if (filters?.projectId) conditions.push(eq(listings.projectId, filters.projectId));
   if (filters?.q) {
     conditions.push(
       sql`(${listings.title} like ${"%" + filters.q + "%"} or ${listings.locality} like ${"%" + filters.q + "%"})`
@@ -339,9 +340,12 @@ export async function getAllListingsForAdmin(filters?: { ownerId?: number; q?: s
       ownerId: listings.ownerId,
       ownerName: users.name,
       ownerEmail: users.email,
+      projectId: listings.projectId,
+      projectName: projects.name,
     })
     .from(listings)
     .leftJoin(users, eq(listings.ownerId, users.id))
+    .leftJoin(projects, eq(listings.projectId, projects.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(listings.createdAt));
 }
