@@ -1,0 +1,11 @@
+# Authorizes Google AdSense (client ID ca-pub-3121616318120913, see the
+# verification script in src/app/layout.tsx) to sell ad inventory on
+# hyderabadnow.in. Required by the IAB Tech Lab / Google ads.txt spec so ad
+# buyers can confirm we're an authorized seller of our own inventory — without
+# this file, Google's Sites dashboard shows "Ads.txt status: Not found" and
+# can limit how much of our inventory actually gets bid on.
+#
+# "f08c47fec0942fa0" is Google's own published TAG-ID, the same constant
+# every AdSense/Ad Manager publisher's ads.txt uses — not something specific
+# to this site. See: https://support.google.com/adsense/answer/7532444
+google.com, pub-3121616318120913, DIRECT, f08c47fec0942fa0
