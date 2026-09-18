@@ -19,6 +19,7 @@ const NAV = [
   { href: "/admin/inquiries", label: "Inquiries", icon: "mail" },
   { href: "/admin/legal-pages", label: "Legal pages", icon: "file" },
   { href: "/admin/social-links", label: "Social links", icon: "share" },
+  { href: "/admin/ad-placements", label: "Ad placements", icon: "megaphone" },
   { href: "/admin/settings", label: "Site settings", icon: "settings" },
 ] as const;
 

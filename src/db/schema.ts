@@ -515,6 +515,24 @@ export const listingFieldSettings = sqliteTable("listing_field_settings", {
     .default(sql`(current_timestamp)`),
 });
 
+// Singleton row (id=1), same shape/reasoning as listingFieldSettings above:
+// one JSON blob keyed by AD_PLACEMENTS[].key (see lib/adPlacements.ts)
+// rather than a column per placement, so adding a new ad slot later never
+// needs a migration. Each entry holds the raw HTML/script an admin pasted
+// from their ad network (e.g. Google AdSense's "Ad unit" code generator)
+// plus whether that slot is currently live. Deliberately NOT run through
+// sanitizeHtml.ts on save or render — that sanitizer strips <script> tags
+// on purpose (it's for public-facing blog content), which would silently
+// break every ad network's snippet. This is an admin-only surface, same
+// trust level as site settings/social links, not public input.
+export const adPlacementSettings = sqliteTable("ad_placement_settings", {
+  id: integer("id").primaryKey(),
+  config: text("config").notNull().default("{}"),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 // Blog posts — admin-authored articles at /blog and /blog/[slug]. Body
 // content is rich text (bold/italic/links/lists/headings), authored with the
 // admin's rich text editor and saved as sanitized HTML (see

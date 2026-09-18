@@ -30,6 +30,7 @@ import ShareListingButton from "@/components/ShareListingButton";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
+import AdSlot from "@/components/AdSlot";
 
 // Every listing previously rendered with the exact same site-wide title/
 // description from the root layout — meaning Google (and WhatsApp/social
@@ -666,6 +667,8 @@ export default async function ListingDetailPage({
               <InquiryForm listingId={listing.id} />
             </div>
           </div>
+
+          <AdSlot placementKey="listing_sidebar" className="mt-6" />
         </div>
       </div>
     </main>

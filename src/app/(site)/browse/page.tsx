@@ -1,4 +1,5 @@
 import ListingCard from "@/components/ListingCard";
+import AdSlot from "@/components/AdSlot";
 import { searchListings, getProjectsForSelect, getListingFieldSettings } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
@@ -267,6 +268,8 @@ export default async function BrowsePage({
           </a>
         </div>
       </form>
+
+      <AdSlot placementKey="browse_between_filters_results" className="mt-6" />
 
       <div className="mt-6">
         {results.length === 0 ? (

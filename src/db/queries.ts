@@ -26,9 +26,11 @@ import {
   areaUpdateImages,
   areaUpdateComments,
   areaUpdateVotes,
+  adPlacementSettings,
 } from "./schema";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
+import { resolveAdPlacementSettings, type AdPlacementSettings } from "@/lib/adPlacements";
 
 export type ListingFilters = {
   q?: string;
@@ -1202,6 +1204,20 @@ export async function getListingFieldSettings(): Promise<ListingFieldVisibility>
     return resolveFieldVisibility(stored);
   } catch {
     return resolveFieldVisibility(null);
+  }
+}
+
+// Called from every public page that can carry an ad slot (see
+// components/AdSlot.tsx) — same "tolerate a missing table/row" reasoning as
+// getSiteSettings/getListingFieldSettings above, since this can run at
+// `next build` time against a schema-less throwaway sqlite file.
+export async function getAdPlacementSettings(): Promise<AdPlacementSettings> {
+  try {
+    const row = await db.query.adPlacementSettings.findFirst({ where: eq(adPlacementSettings.id, 1) });
+    const stored = row ? (JSON.parse(row.config) as Partial<AdPlacementSettings>) : null;
+    return resolveAdPlacementSettings(stored);
+  } catch {
+    return resolveAdPlacementSettings(null);
   }
 }
 

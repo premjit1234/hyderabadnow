@@ -3,6 +3,7 @@ import SearchBar from "@/components/SearchBar";
 import ListingCard from "@/components/ListingCard";
 import ProjectCard from "@/components/ProjectCard";
 import CategoryTile from "@/components/CategoryTile";
+import AdSlot from "@/components/AdSlot";
 import { getFeaturedListings, getFeaturedProjects, getHomeCategories, getSiteSettings, getLocationNames } from "@/db/queries";
 
 export default async function Home() {
@@ -63,6 +64,10 @@ export default async function Home() {
           </div>
         )}
       </section>
+
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <AdSlot placementKey="home_below_featured_listings" />
+      </div>
 
       <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-6">
         <div className="mb-5 flex items-end justify-between">

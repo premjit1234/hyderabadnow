@@ -24,6 +24,7 @@ import {
   localityGuides,
   areaUpdates,
   areaUpdateComments,
+  adPlacementSettings,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
@@ -31,6 +32,7 @@ import { saveUploadedImage, saveUploadedFavicon } from "@/lib/uploads";
 import { AMENITIES, slugifyAmenityKey } from "@/lib/amenities";
 import { SOCIAL_PLATFORM_KEYS } from "@/lib/social";
 import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
+import { AD_PLACEMENTS } from "@/lib/adPlacements";
 import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
@@ -1234,6 +1236,46 @@ export async function adminUpdateListingFieldSettingsAction(
   revalidatePath("/", "layout");
   revalidatePath("/admin/listing-fields");
   return { success: "Field visibility updated." };
+}
+
+// ---- Admin: ad placements ----
+//
+// Deliberately no zod validation on the pasted `code_*` fields beyond
+// trimming — this is a raw HTML/script snippet from an ad network (Google
+// AdSense, etc.), not structured input, and admin-only same as every other
+// action in this file (requireAdmin() below). See db/schema.ts
+// adPlacementSettings for why this never goes through sanitizeHtml.
+
+export async function adminUpdateAdPlacementsAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const config: Record<string, { code: string; enabled: boolean }> = {};
+  for (const placement of AD_PLACEMENTS) {
+    config[placement.key] = {
+      code: String(formData.get(`code_${placement.key}`) ?? "").trim(),
+      enabled: formData.get(`enabled_${placement.key}`) === "on",
+    };
+  }
+
+  const existing = await db.query.adPlacementSettings.findFirst({ where: eq(adPlacementSettings.id, 1) });
+  const configJson = JSON.stringify(config);
+  if (existing) {
+    await db
+      .update(adPlacementSettings)
+      .set({ config: configJson, updatedAt: sql`(current_timestamp)` })
+      .where(eq(adPlacementSettings.id, 1));
+  } else {
+    await db.insert(adPlacementSettings).values({ id: 1, config: configJson });
+  }
+
+  // Every page that can carry an ad slot reads this on every request — bust
+  // everything so a saved/toggled ad goes live immediately, no redeploy.
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/ad-placements");
+  return { success: "Ad placements updated." };
 }
 
 // ---- Admin: blog ----

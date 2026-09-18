@@ -84,6 +84,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M4 20h16" strokeLinecap="round" />
     </svg>
   ),
+  megaphone: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
+      <path d="M3 10.5v3a1.5 1.5 0 0 0 1.5 1.5H6l1.2 4.8a1.2 1.2 0 0 0 1.16.9h.38a1.2 1.2 0 0 0 1.16-1.5L8.8 15.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 15h1.2L18 19V6L7.2 10H6a1.5 1.5 0 0 0-1.5 1.5v2A1.5 1.5 0 0 0 6 15Z" strokeLinejoin="round" />
+      <path d="M20.5 9.5a4 4 0 0 1 0 5" strokeLinecap="round" />
+    </svg>
+  ),
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4.5 w-4.5">
       <circle cx="12" cy="12" r="3" />
