@@ -301,7 +301,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             {project.totalUnits != null && (
               <div className="flex items-center gap-2">
                 <UnitsIcon className="h-5 w-5 shrink-0 text-stone-400" />
-                <span className="text-stone-700">{project.totalUnits.toLocaleString("en-IN")} Units</span>
+                <span className="text-stone-700">
+                  {project.totalUnits.toLocaleString("en-IN")}{" "}
+                  {project.propertyType === "plot"
+                    ? "Plots"
+                    : project.propertyType === "villa" || project.propertyType === "independent_house"
+                      ? "Villas"
+                      : "Units"}
+                </span>
               </div>
             )}
             {project.towers != null && project.maxFloors != null && (
@@ -403,7 +410,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             {project.description ||
               `${project.name} is a ${project.constructionStatus === "ready_to_move" ? "ready to move" : "under construction"} ${propertyTypeLabel(project.propertyType).toLowerCase()} project${
                 project.towers ? ` with ${project.towers} towers` : ""
-              }${project.totalUnits ? ` and ${project.totalUnits.toLocaleString("en-IN")} units` : ""}. It is located in ${project.locality}, ${project.city}.`}
+              }${
+                project.totalUnits
+                  ? ` and ${project.totalUnits.toLocaleString("en-IN")} ${
+                      project.propertyType === "plot"
+                        ? "plots"
+                        : project.propertyType === "villa" || project.propertyType === "independent_house"
+                          ? "villas"
+                          : "units"
+                    }`
+                  : ""
+              }. It is located in ${project.locality}, ${project.city}.`}
             {project.developerName && (
               <>
                 {" "}

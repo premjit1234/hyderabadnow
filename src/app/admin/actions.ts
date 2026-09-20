@@ -36,7 +36,7 @@ import { AD_PLACEMENTS } from "@/lib/adPlacements";
 import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
-import { projectSchema } from "@/lib/projectValidation";
+import { projectSchema, resolveProjectFieldsForType } from "@/lib/projectValidation";
 import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
 import { LISTING_STATUSES, editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { geocodeLocality } from "@/lib/geocode";
@@ -715,6 +715,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const typeFields = resolveProjectFieldsForType(data.propertyType, data);
   const whatsappEnabled = formData.get("whatsappEnabled") === "on";
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
@@ -751,17 +752,12 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       constructionStatus: data.constructionStatus,
       areaAcres: data.areaAcres ?? null,
       totalUnits: data.totalUnits ?? null,
-      towers: data.towers ?? null,
-      maxFloors: data.maxFloors ?? null,
-      unitsPerFloor: data.unitsPerFloor || null,
       minAreaSqft: data.minAreaSqft ?? null,
       maxAreaSqft: data.maxAreaSqft ?? null,
-      bhkOptions: data.bhkOptions || null,
       reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
-      floorAreaRatio: data.floorAreaRatio ?? null,
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
@@ -780,6 +776,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       whatsappEnabled,
       featured,
       videoUrl: data.videoUrl || null,
+      ...typeFields,
     })
     .returning();
 
@@ -810,6 +807,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const typeFields = resolveProjectFieldsForType(data.propertyType, data);
   const whatsappEnabled = formData.get("whatsappEnabled") === "on";
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
@@ -884,17 +882,12 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       constructionStatus: data.constructionStatus,
       areaAcres: data.areaAcres ?? null,
       totalUnits: data.totalUnits ?? null,
-      towers: data.towers ?? null,
-      maxFloors: data.maxFloors ?? null,
-      unitsPerFloor: data.unitsPerFloor || null,
       minAreaSqft: data.minAreaSqft ?? null,
       maxAreaSqft: data.maxAreaSqft ?? null,
-      bhkOptions: data.bhkOptions || null,
       reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
-      floorAreaRatio: data.floorAreaRatio ?? null,
       description: data.description || null,
       amenities: resolveProjectAmenities(formData),
       brochureUrl: data.brochureUrl || null,
@@ -913,6 +906,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       whatsappEnabled,
       featured,
       videoUrl: data.videoUrl || null,
+      ...typeFields,
     })
     .where(eq(projects.id, projectId));
 

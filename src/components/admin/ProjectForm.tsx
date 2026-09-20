@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   adminCreateProjectAction,
   adminUpdateProjectAction,
@@ -59,10 +59,35 @@ type EditableProject = {
 const inputClass = "w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm";
 const labelClass = "mb-1 block text-sm font-medium text-stone-700";
 
+type PropertyType = "apartment" | "villa" | "independent_house" | "plot" | "commercial";
+
+// Mirrors resolveProjectFieldsForType in lib/projectValidation.ts — kept in
+// sync by hand rather than shared, since one runs in the browser and the
+// other on the server. If a field is hidden here for a type, that same type
+// must null it out server-side too, or a value entered before switching
+// types could linger invisibly in the database.
+const isApartmentOrCommercial = (t: PropertyType) => t === "apartment" || t === "commercial";
+const isVillaLike = (t: PropertyType) => t === "villa" || t === "independent_house";
+
+// "Total units"/"Min-Max area" labels change by type since the same columns
+// mean different things for a villa community, a plotted layout, or a
+// commercial development — see schema.ts's projects table.
+function totalUnitsLabel(t: PropertyType): string {
+  if (t === "plot") return "Total Plots";
+  if (isVillaLike(t)) return "Total Villas";
+  return "Total Units";
+}
+function areaRangeLabel(t: PropertyType): [string, string] {
+  if (t === "plot") return ["Min Plot Size (sqft)", "Max Plot Size (sqft)"];
+  return ["Min area (sqft)", "Max area (sqft)"];
+}
+
 export default function ProjectForm({ project, localities }: { project?: EditableProject; localities: string[] }) {
   const action = project ? adminUpdateProjectAction : adminCreateProjectAction;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, null);
   const selectedAmenities: string[] = project?.amenities ? JSON.parse(project.amenities) : [];
+  const [propertyType, setPropertyType] = useState<PropertyType>((project?.propertyType as PropertyType) ?? "apartment");
+  const [minAreaLabel, maxAreaLabel] = areaRangeLabel(propertyType);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
@@ -105,7 +130,12 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className={labelClass}>Property type</label>
-          <select name="propertyType" defaultValue={project?.propertyType ?? "apartment"} className={inputClass}>
+          <select
+            name="propertyType"
+            value={propertyType}
+            onChange={(e) => setPropertyType(e.target.value as PropertyType)}
+            className={inputClass}
+          >
             <option value="apartment">Apartment</option>
             <option value="villa">Villa</option>
             <option value="independent_house">Independent House</option>
@@ -124,39 +154,52 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
 
       <div className="rounded-lg border border-stone-200 p-4">
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-stone-500">Scale</p>
+        <p className="mb-3 text-xs text-stone-500">
+          Fields here adapt to the Property Type selected above — only what actually applies to this project type is
+          shown, so the public project page never shows a nonsensical stat (like &quot;Towers&quot; on a plotted
+          layout).
+        </p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div>
             <label className={labelClass}>Area (acres)</label>
             <input type="number" step="0.1" name="areaAcres" defaultValue={project?.areaAcres ?? undefined} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Total units</label>
+            <label className={labelClass}>{totalUnitsLabel(propertyType)}</label>
             <input type="number" name="totalUnits" defaultValue={project?.totalUnits ?? undefined} className={inputClass} />
           </div>
+          {isApartmentOrCommercial(propertyType) && (
+            <div>
+              <label className={labelClass}>Towers</label>
+              <input type="number" name="towers" defaultValue={project?.towers ?? undefined} className={inputClass} />
+            </div>
+          )}
+          {propertyType !== "plot" && (
+            <div>
+              <label className={labelClass}>Max floors</label>
+              <input type="number" name="maxFloors" defaultValue={project?.maxFloors ?? undefined} className={inputClass} />
+            </div>
+          )}
+          {isApartmentOrCommercial(propertyType) && (
+            <div>
+              <label className={labelClass}>Units/floor (e.g. 8-10)</label>
+              <input name="unitsPerFloor" defaultValue={project?.unitsPerFloor ?? ""} className={inputClass} />
+            </div>
+          )}
           <div>
-            <label className={labelClass}>Towers</label>
-            <input type="number" name="towers" defaultValue={project?.towers ?? undefined} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Max floors</label>
-            <input type="number" name="maxFloors" defaultValue={project?.maxFloors ?? undefined} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Units/floor (e.g. 8-10)</label>
-            <input name="unitsPerFloor" defaultValue={project?.unitsPerFloor ?? ""} className={inputClass} />
-          </div>
-          <div>
-            <label className={labelClass}>Min area (sqft)</label>
+            <label className={labelClass}>{minAreaLabel}</label>
             <input type="number" name="minAreaSqft" defaultValue={project?.minAreaSqft ?? undefined} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Max area (sqft)</label>
+            <label className={labelClass}>{maxAreaLabel}</label>
             <input type="number" name="maxAreaSqft" defaultValue={project?.maxAreaSqft ?? undefined} className={inputClass} />
           </div>
-          <div>
-            <label className={labelClass}>BHK options (e.g. 2,2.5,3,4)</label>
-            <input name="bhkOptions" defaultValue={project?.bhkOptions ?? ""} className={inputClass} />
-          </div>
+          {(propertyType === "apartment" || isVillaLike(propertyType)) && (
+            <div>
+              <label className={labelClass}>BHK options (e.g. 2,2.5,3,4)</label>
+              <input name="bhkOptions" defaultValue={project?.bhkOptions ?? ""} className={inputClass} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -196,10 +239,12 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
             <label className={labelClass}>Unit density/acre</label>
             <input type="number" name="unitDensityPerAcre" defaultValue={project?.unitDensityPerAcre ?? undefined} className={inputClass} />
           </div>
-          <div>
-            <label className={labelClass}>Floor area ratio</label>
-            <input type="number" step="0.01" name="floorAreaRatio" defaultValue={project?.floorAreaRatio ?? undefined} className={inputClass} />
-          </div>
+          {propertyType !== "plot" && (
+            <div>
+              <label className={labelClass}>Floor area ratio</label>
+              <input type="number" step="0.01" name="floorAreaRatio" defaultValue={project?.floorAreaRatio ?? undefined} className={inputClass} />
+            </div>
+          )}
         </div>
       </div>
 
