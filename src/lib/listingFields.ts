@@ -62,11 +62,74 @@ export const INVENTORY_STATE_OPTIONS = [
   { value: "resale", label: "Resale" },
 ] as const;
 
+// ---- Property-type-specific field options ----
+// Added alongside the dynamic "Post a property" fields — see
+// scratch/post-listing-dynamic-fields-proposal.md for the fields these back
+// (Villa/Independent House, Plot/Land, Commercial).
+
+export const WATER_SOURCE_OPTIONS = [
+  { value: "borewell", label: "Borewell" },
+  { value: "municipal", label: "Municipal" },
+  { value: "both", label: "Both" },
+] as const;
+
+export const APPROVED_BY_OPTIONS = [
+  { value: "hmda", label: "HMDA" },
+  { value: "dtcp", label: "DTCP" },
+  { value: "gram_panchayat", label: "Gram Panchayat" },
+  { value: "ghmc", label: "GHMC" },
+  { value: "rera", label: "RERA-registered layout" },
+] as const;
+
+export const OWNERSHIP_TYPE_OPTIONS = [
+  { value: "freehold", label: "Freehold" },
+  { value: "leasehold", label: "Leasehold" },
+  { value: "power_of_attorney", label: "Power of Attorney" },
+  { value: "cooperative_society", label: "Co-operative Society" },
+] as const;
+
+export const PARKING_TYPE_OPTIONS = [
+  { value: "public", label: "Public" },
+  { value: "reserved", label: "Reserved" },
+] as const;
+
+// Commercial's "Fit-out Status" reuses the furnishingStatus column rather
+// than a new one (see schema.ts's comment on that column) — this is the
+// option list shown for Commercial listings, distinct from FURNISHING_OPTIONS
+// (shown for residential types). "fully_furnished" is the shared value
+// between the two, just labeled "Furnished" here to match commercial-listing
+// terminology.
+export const FITOUT_STATUS_OPTIONS = [
+  { value: "bare_shell", label: "Bare Shell" },
+  { value: "warm_shell", label: "Warm Shell" },
+  { value: "fully_furnished", label: "Furnished" },
+] as const;
+
+// Union of every value furnishingStatus can hold, purely so furnishingLabel
+// below can resolve a label no matter which set of options (residential or
+// commercial) a given listing's value actually came from.
+const ALL_FURNISHING_VALUE_LABELS = [
+  ...FURNISHING_OPTIONS,
+  { value: "bare_shell", label: "Bare Shell" },
+  { value: "warm_shell", label: "Warm Shell" },
+] as const;
+
+// Same union, but as a selectable option list — used by the admin/owner edit
+// forms, which (unlike the dynamic post-listing form) show one Furnishing
+// Status dropdown regardless of the listing's property type, so it needs to
+// offer every value a listing of any type could actually have.
+export const ALL_FURNISHING_OPTIONS = ALL_FURNISHING_VALUE_LABELS;
+
 function labelFor(options: readonly { value: string; label: string }[], value: string | null): string | null {
   if (!value) return null;
   return options.find((o) => o.value === value)?.label ?? value;
 }
 
 export const facingLabel = (value: string | null) => labelFor(FACING_OPTIONS, value);
-export const furnishingLabel = (value: string | null) => labelFor(FURNISHING_OPTIONS, value);
+export const furnishingLabel = (value: string | null) => labelFor(ALL_FURNISHING_VALUE_LABELS, value);
 export const inventoryStateLabel = (value: string | null) => labelFor(INVENTORY_STATE_OPTIONS, value);
+export const waterSourceLabel = (value: string | null) => labelFor(WATER_SOURCE_OPTIONS, value);
+export const approvedByLabel = (value: string | null) => labelFor(APPROVED_BY_OPTIONS, value);
+export const ownershipTypeLabel = (value: string | null) => labelFor(OWNERSHIP_TYPE_OPTIONS, value);
+export const parkingTypeLabel = (value: string | null) => labelFor(PARKING_TYPE_OPTIONS, value);
+export const fitoutStatusLabel = (value: string | null) => labelFor(FITOUT_STATUS_OPTIONS, value);

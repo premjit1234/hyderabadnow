@@ -34,7 +34,7 @@ import {
 } from "@/lib/auth";
 import { saveUploadedImage } from "@/lib/uploads";
 import { resolveListingAmenities } from "@/app/admin/actions";
-import { editListingSchema } from "@/lib/listingValidation";
+import { editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
@@ -214,13 +214,27 @@ const listingSchema = z.object({
   unitNumber: z.string().optional(),
   unitFloor: z.coerce.number().int().optional(),
   facing: z.enum(["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"]).optional(),
-  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished", "bare_shell", "warm_shell"]).optional(),
   inventoryState: z.enum(["new", "resale"]).optional(),
   sellerAskPrice: z.coerce.number().int().positive().optional(),
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
   internalNote: z.string().optional(),
+  // ---- Property-type-specific fields (see schema.ts / the dynamic
+  // "Post a property" form for which of these apply to which property type) ----
+  totalFloors: z.coerce.number().int().min(0).optional(),
+  maintenanceChargePerMonth: z.coerce.number().int().min(0).optional(),
+  plotAreaSqft: z.coerce.number().int().positive().optional(),
+  numberOfFloors: z.string().optional(),
+  waterSource: z.enum(["borewell", "municipal", "both"]).optional(),
+  plotDimensions: z.string().optional(),
+  openSides: z.coerce.number().int().min(1).max(4).optional(),
+  roadWidthFt: z.coerce.number().int().positive().optional(),
+  approvedBy: z.enum(["hmda", "dtcp", "gram_panchayat", "ghmc", "rera"]).optional(),
+  ownershipType: z.enum(["freehold", "leasehold", "power_of_attorney", "cooperative_society"]).optional(),
+  washrooms: z.coerce.number().int().min(0).max(20).optional(),
+  parkingType: z.enum(["public", "reserved"]).optional(),
 });
 
 // ---- Phone verification (OTP via MSG91 WhatsApp — see lib/whatsappOtp.ts) ----
@@ -356,6 +370,18 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
+    totalFloors: formData.get("totalFloors") || undefined,
+    maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
+    plotAreaSqft: formData.get("plotAreaSqft") || undefined,
+    numberOfFloors: formData.get("numberOfFloors") || undefined,
+    waterSource: formData.get("waterSource") || undefined,
+    plotDimensions: formData.get("plotDimensions") || undefined,
+    openSides: formData.get("openSides") || undefined,
+    roadWidthFt: formData.get("roadWidthFt") || undefined,
+    approvedBy: formData.get("approvedBy") || undefined,
+    ownershipType: formData.get("ownershipType") || undefined,
+    washrooms: formData.get("washrooms") || undefined,
+    parkingType: formData.get("parkingType") || undefined,
   });
 
   if (!parsed.success) {
@@ -363,6 +389,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   }
 
   const data = parsed.data;
+  const extendedFields = resolveExtendedListingFields(formData, data.propertyType, data);
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
   const whatsappEnabled = formData.get("whatsappEnabled") === "on";
@@ -380,7 +407,9 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       listingType: data.listingType,
       propertyType: data.propertyType,
       bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
-      bathrooms: data.bathrooms ?? null,
+      // Commercial listings use "Washrooms" (a shared-facility count) instead
+      // of residential "Bathrooms" — see resolveExtendedListingFields/washrooms.
+      bathrooms: data.propertyType === "commercial" ? null : data.bathrooms ?? null,
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
@@ -402,6 +431,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       videoUrl: data.videoUrl || null,
       internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
+      ...extendedFields,
     })
     .returning();
 
@@ -494,11 +524,24 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
+    totalFloors: formData.get("totalFloors") || undefined,
+    maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
+    plotAreaSqft: formData.get("plotAreaSqft") || undefined,
+    numberOfFloors: formData.get("numberOfFloors") || undefined,
+    waterSource: formData.get("waterSource") || undefined,
+    plotDimensions: formData.get("plotDimensions") || undefined,
+    openSides: formData.get("openSides") || undefined,
+    roadWidthFt: formData.get("roadWidthFt") || undefined,
+    approvedBy: formData.get("approvedBy") || undefined,
+    ownershipType: formData.get("ownershipType") || undefined,
+    washrooms: formData.get("washrooms") || undefined,
+    parkingType: formData.get("parkingType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const extendedFields = resolveExtendedListingFields(formData, data.propertyType, data);
   const whatsappEnabled = formData.get("whatsappEnabled") === "on";
   if (whatsappEnabled && !data.contactPhone?.trim()) {
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
@@ -516,7 +559,9 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
       listingType: data.listingType,
       propertyType: data.propertyType,
       bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
-      bathrooms: data.bathrooms ?? null,
+      // Commercial listings use "Washrooms" (a shared-facility count) instead
+      // of residential "Bathrooms" — see resolveExtendedListingFields/washrooms.
+      bathrooms: data.propertyType === "commercial" ? null : data.bathrooms ?? null,
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
@@ -545,6 +590,7 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
       lastConfirmedAt: new Date().toISOString(),
       staleNudgeSentAt: null,
       autoFlaggedStaleAt: null,
+      ...extendedFields,
     })
     .where(eq(listings.id, listingId));
 

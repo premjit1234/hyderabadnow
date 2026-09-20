@@ -38,7 +38,7 @@ import { getVideoEmbedUrl } from "@/lib/video";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { projectSchema } from "@/lib/projectValidation";
 import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
-import { LISTING_STATUSES, editListingSchema } from "@/lib/listingValidation";
+import { LISTING_STATUSES, editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { geocodeLocality } from "@/lib/geocode";
 
 export type ActionState = { error?: string; success?: string } | null;
@@ -234,11 +234,24 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
+    totalFloors: formData.get("totalFloors") || undefined,
+    maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
+    plotAreaSqft: formData.get("plotAreaSqft") || undefined,
+    numberOfFloors: formData.get("numberOfFloors") || undefined,
+    waterSource: formData.get("waterSource") || undefined,
+    plotDimensions: formData.get("plotDimensions") || undefined,
+    openSides: formData.get("openSides") || undefined,
+    roadWidthFt: formData.get("roadWidthFt") || undefined,
+    approvedBy: formData.get("approvedBy") || undefined,
+    ownershipType: formData.get("ownershipType") || undefined,
+    washrooms: formData.get("washrooms") || undefined,
+    parkingType: formData.get("parkingType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const extendedFields = resolveExtendedListingFields(formData, data.propertyType, data);
   const featured = formData.get("featured") === "on";
   const verified = formData.get("verified") === "on";
   const whatsappEnabled = formData.get("whatsappEnabled") === "on";
@@ -258,7 +271,9 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       listingType: data.listingType,
       propertyType: data.propertyType,
       bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
-      bathrooms: data.bathrooms ?? null,
+      // Commercial listings use "Washrooms" (a shared-facility count) instead
+      // of residential "Bathrooms" — see resolveExtendedListingFields/washrooms.
+      bathrooms: data.propertyType === "commercial" ? null : data.bathrooms ?? null,
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
@@ -288,6 +303,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       lastConfirmedAt: new Date().toISOString(),
       staleNudgeSentAt: null,
       autoFlaggedStaleAt: null,
+      ...extendedFields,
     })
     .where(eq(listings.id, listingId));
 
@@ -348,13 +364,25 @@ const adminCreateListingSchema = z.object({
   unitNumber: z.string().optional(),
   unitFloor: z.coerce.number().int().optional(),
   facing: z.enum(["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"]).optional(),
-  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "semi_furnished", "fully_furnished", "bare_shell", "warm_shell"]).optional(),
   inventoryState: z.enum(["new", "resale"]).optional(),
   sellerAskPrice: z.coerce.number().int().positive().optional(),
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
   internalNote: z.string().optional(),
+  totalFloors: z.coerce.number().int().min(0).optional(),
+  maintenanceChargePerMonth: z.coerce.number().int().min(0).optional(),
+  plotAreaSqft: z.coerce.number().int().positive().optional(),
+  numberOfFloors: z.string().optional(),
+  waterSource: z.enum(["borewell", "municipal", "both"]).optional(),
+  plotDimensions: z.string().optional(),
+  openSides: z.coerce.number().int().min(1).max(4).optional(),
+  roadWidthFt: z.coerce.number().int().positive().optional(),
+  approvedBy: z.enum(["hmda", "dtcp", "gram_panchayat", "ghmc", "rera"]).optional(),
+  ownershipType: z.enum(["freehold", "leasehold", "power_of_attorney", "cooperative_society"]).optional(),
+  washrooms: z.coerce.number().int().min(0).max(20).optional(),
+  parkingType: z.enum(["public", "reserved"]).optional(),
 });
 
 export async function adminCreateListingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -385,11 +413,24 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
+    totalFloors: formData.get("totalFloors") || undefined,
+    maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
+    plotAreaSqft: formData.get("plotAreaSqft") || undefined,
+    numberOfFloors: formData.get("numberOfFloors") || undefined,
+    waterSource: formData.get("waterSource") || undefined,
+    plotDimensions: formData.get("plotDimensions") || undefined,
+    openSides: formData.get("openSides") || undefined,
+    roadWidthFt: formData.get("roadWidthFt") || undefined,
+    approvedBy: formData.get("approvedBy") || undefined,
+    ownershipType: formData.get("ownershipType") || undefined,
+    washrooms: formData.get("washrooms") || undefined,
+    parkingType: formData.get("parkingType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const data = parsed.data;
+  const extendedFields = resolveExtendedListingFields(formData, data.propertyType, data);
 
   const owner = await db.query.users.findFirst({ where: eq(users.id, data.ownerId) });
   if (!owner) return { error: "Selected owner not found." };
@@ -413,7 +454,9 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       listingType: data.listingType,
       propertyType: data.propertyType,
       bhk: data.propertyType === "plot" || data.propertyType === "commercial" ? null : data.bhk ?? null,
-      bathrooms: data.bathrooms ?? null,
+      // Commercial listings use "Washrooms" (a shared-facility count) instead
+      // of residential "Bathrooms" — see resolveExtendedListingFields/washrooms.
+      bathrooms: data.propertyType === "commercial" ? null : data.bathrooms ?? null,
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
@@ -437,6 +480,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       videoUrl: data.videoUrl || null,
       internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
+      ...extendedFields,
     })
     .returning();
 

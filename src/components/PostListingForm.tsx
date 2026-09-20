@@ -5,13 +5,39 @@ import { createListingAction, type ActionState } from "@/app/actions";
 import {
   FACING_OPTIONS,
   FURNISHING_OPTIONS,
+  FITOUT_STATUS_OPTIONS,
   INVENTORY_STATE_OPTIONS,
+  WATER_SOURCE_OPTIONS,
+  APPROVED_BY_OPTIONS,
+  OWNERSHIP_TYPE_OPTIONS,
+  PARKING_TYPE_OPTIONS,
   type ListingFieldVisibility,
 } from "@/lib/listingFields";
 import { formatPrice } from "@/lib/format";
 
 type ProjectOption = { id: number; name: string; locality: string };
 type AmenityOption = { id: number; key: string; label: string };
+
+type PropertyType = "apartment" | "villa" | "independent_house" | "plot" | "commercial";
+
+// Which broad shape a property type falls into — drives which field groups
+// below render. Villa and Independent House share one shape throughout (see
+// scratch/post-listing-dynamic-fields-proposal.md); Apartment, Plot, and
+// Commercial each get their own.
+const isVillaLike = (t: PropertyType) => t === "villa" || t === "independent_house";
+
+// Label for the shared "areaSqft" column changes by type: an apartment's
+// area is just "Area", a villa's is specifically the built-up footprint
+// (distinct from the land it sits on, see plotAreaSqft below), a plot's
+// area figure *is* the plot area (there's no built-up/carpet distinction on
+// raw land), and commercial space is conventionally called out as
+// built-up/carpet area.
+function areaLabel(t: PropertyType): string {
+  if (t === "plot") return "Plot Area (sqft)";
+  if (isVillaLike(t)) return "Built-up Area (sqft)";
+  if (t === "commercial") return "Area (sqft) — built-up/carpet";
+  return "Area (sqft)";
+}
 
 export default function PostListingForm({
   projects,
@@ -29,6 +55,16 @@ export default function PostListingForm({
     null
   );
   const [priceInput, setPriceInput] = useState("");
+  const [propertyType, setPropertyType] = useState<PropertyType>("apartment");
+
+  const showBhkRow = propertyType === "apartment" || isVillaLike(propertyType);
+  const showUnitDetailsCard =
+    fieldSettings.towerName.form ||
+    fieldSettings.unitNumber.form ||
+    fieldSettings.unitFloor.form ||
+    fieldSettings.facing.form ||
+    fieldSettings.furnishingStatus.form ||
+    fieldSettings.inventoryState.form;
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -72,7 +108,8 @@ export default function PostListingForm({
           <label className="mb-1 block text-sm font-medium text-stone-700">Property type</label>
           <select
             name="propertyType"
-            defaultValue="apartment"
+            value={propertyType}
+            onChange={(e) => setPropertyType(e.target.value as PropertyType)}
             className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
           >
             <option value="apartment">Apartment</option>
@@ -103,7 +140,7 @@ export default function PostListingForm({
           )}
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">Area (sqft)</label>
+          <label className="mb-1 block text-sm font-medium text-stone-700">{areaLabel(propertyType)}</label>
           <input
             type="number"
             name="areaSqft"
@@ -115,41 +152,43 @@ export default function PostListingForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bedrooms</label>
-          <input
-            type="number"
-            name="bhk"
-            min={0}
-            max={10}
-            placeholder="3"
-            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
-          />
+      {showBhkRow && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bedrooms</label>
+            <input
+              type="number"
+              name="bhk"
+              min={0}
+              max={10}
+              placeholder="3"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bathrooms</label>
+            <input
+              type="number"
+              name="bathrooms"
+              min={0}
+              max={10}
+              placeholder="2"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">No. of Car Parking</label>
+            <input
+              type="number"
+              name="carParking"
+              min={0}
+              max={10}
+              placeholder="1"
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Bathrooms</label>
-          <input
-            type="number"
-            name="bathrooms"
-            min={0}
-            max={10}
-            placeholder="2"
-            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium text-stone-700">No. of Car Parking</label>
-          <input
-            type="number"
-            name="carParking"
-            min={0}
-            max={10}
-            placeholder="1"
-            className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
-          />
-        </div>
-      </div>
+      )}
 
       <div>
         <label className="mb-1 block text-sm font-medium text-stone-700">Locality</label>
@@ -172,14 +211,255 @@ export default function PostListingForm({
         <input name="address" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm" />
       </div>
 
-      {(fieldSettings.towerName.form ||
-        fieldSettings.unitNumber.form ||
-        fieldSettings.unitFloor.form ||
-        fieldSettings.facing.form ||
-        fieldSettings.furnishingStatus.form ||
-        fieldSettings.inventoryState.form) && (
+      {/* ---- Apartment-only details ---- */}
+      {propertyType === "apartment" && (
+        <div className="rounded-md border border-stone-200 p-4">
+          <p className="mb-3 text-sm font-semibold text-stone-900">Apartment details (optional)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Total Floors in tower</label>
+              <input
+                type="number"
+                name="totalFloors"
+                min={0}
+                placeholder="e.g. 12"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Maintenance charge (₹/month)</label>
+              <input
+                type="number"
+                name="maintenanceChargePerMonth"
+                min={0}
+                placeholder="e.g. 3500"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Villa / Independent House-only details ---- */}
+      {isVillaLike(propertyType) && (
+        <div className="rounded-md border border-stone-200 p-4">
+          <p className="mb-3 text-sm font-semibold text-stone-900">
+            {propertyType === "villa" ? "Villa" : "Independent House"} details (optional)
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Plot Area (sqft)</label>
+              <input
+                type="number"
+                name="plotAreaSqft"
+                min={1}
+                placeholder="e.g. 2400"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Number of Floors</label>
+              <input
+                name="numberOfFloors"
+                placeholder="e.g. G+2"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Water Source</label>
+              <select name="waterSource" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {WATER_SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end gap-6 pb-2">
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="boundaryWall" className="h-4 w-4" />
+                Boundary Wall
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="cornerProperty" className="h-4 w-4" />
+                Corner Property
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Plot / Land-only details ---- */}
+      {propertyType === "plot" && (
+        <div className="rounded-md border border-stone-200 p-4">
+          <p className="mb-3 text-sm font-semibold text-stone-900">Plot / Land details (optional)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">
+                Plot Dimensions (Length × Breadth, ft)
+              </label>
+              <input
+                name="plotDimensions"
+                placeholder="e.g. 40 x 60"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            {fieldSettings.facing.form && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">Facing</label>
+                <select name="facing" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                  <option value="">— Select —</option>
+                  {FACING_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Number of Open Sides</label>
+              <select name="openSides" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Road Width Facing Plot (ft)</label>
+              <input
+                type="number"
+                name="roadWidthFt"
+                min={1}
+                placeholder="e.g. 30"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Approved By</label>
+              <select name="approvedBy" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {APPROVED_BY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Ownership/Title Type</label>
+              <select name="ownershipType" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {OWNERSHIP_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end gap-6 pb-2 sm:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="boundaryWall" className="h-4 w-4" />
+                Boundary Wall
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="cornerProperty" className="h-4 w-4" />
+                Corner Plot
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="gatedCommunityLayout" className="h-4 w-4" />
+                Gated Community Layout
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Commercial-only details ---- */}
+      {propertyType === "commercial" && (
+        <div className="rounded-md border border-stone-200 p-4">
+          <p className="mb-3 text-sm font-semibold text-stone-900">Commercial details (optional)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {fieldSettings.unitFloor.form && (
+              <div>
+                <label className="mb-1 block text-sm font-medium text-stone-700">Floor</label>
+                <input
+                  type="number"
+                  name="unitFloor"
+                  placeholder="e.g. 2"
+                  className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+                />
+              </div>
+            )}
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Total Floors</label>
+              <input
+                type="number"
+                name="totalFloors"
+                min={0}
+                placeholder="e.g. 8"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Washrooms (count)</label>
+              <input
+                type="number"
+                name="washrooms"
+                min={0}
+                max={20}
+                placeholder="e.g. 2"
+                className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Parking Type</label>
+              <select name="parkingType" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {PARKING_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-stone-700">Fit-out Status</label>
+              <select name="furnishingStatus" defaultValue="" className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm">
+                <option value="">— Select —</option>
+                {FITOUT_STATUS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end gap-6 pb-2">
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="powerBackup" className="h-4 w-4" />
+                Power Backup / DG
+              </label>
+              <label className="flex items-center gap-2 text-sm text-stone-700">
+                <input type="checkbox" name="occupancyCertificate" className="h-4 w-4" />
+                Occupancy Certificate
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---- Apartment/Villa/Independent House unit & inventory details ----
+          Commercial has its own Fit-out Status select above (reusing the same
+          furnishingStatus field name), and Plot has its own Facing select
+          above — so this shared block is scoped to the two remaining types to
+          avoid rendering the same field name twice on one form. */}
+      {(propertyType === "apartment" || isVillaLike(propertyType)) && showUnitDetailsCard && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {fieldSettings.towerName.form && (
+          {propertyType === "apartment" && fieldSettings.towerName.form && (
             <div>
               <label className="mb-1 block text-sm font-medium text-stone-700">Tower Name / Number (optional)</label>
               <input
@@ -189,7 +469,7 @@ export default function PostListingForm({
               />
             </div>
           )}
-          {fieldSettings.unitNumber.form && (
+          {propertyType === "apartment" && fieldSettings.unitNumber.form && (
             <div>
               <label className="mb-1 block text-sm font-medium text-stone-700">Unit Number (optional)</label>
               <input
@@ -199,7 +479,7 @@ export default function PostListingForm({
               />
             </div>
           )}
-          {fieldSettings.unitFloor.form && (
+          {propertyType === "apartment" && fieldSettings.unitFloor.form && (
             <div>
               <label className="mb-1 block text-sm font-medium text-stone-700">Unit Floor (optional)</label>
               <input

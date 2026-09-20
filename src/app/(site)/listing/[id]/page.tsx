@@ -12,7 +12,16 @@ import {
 import { formatPrice, formatRupees, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
-import { facingLabel, furnishingLabel, inventoryStateLabel } from "@/lib/listingFields";
+import {
+  facingLabel,
+  furnishingLabel,
+  inventoryStateLabel,
+  waterSourceLabel,
+  approvedByLabel,
+  ownershipTypeLabel,
+  parkingTypeLabel,
+  fitoutStatusLabel,
+} from "@/lib/listingFields";
 import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
 import { getVideoEmbedUrl } from "@/lib/video";
 import {
@@ -403,7 +412,12 @@ export default async function ListingDetailPage({
               fieldSettings.unitNumber.public && listing.unitNumber && { label: "Unit Number", value: listing.unitNumber },
               fieldSettings.unitFloor.public && listing.unitFloor != null && { label: "Floor", value: String(listing.unitFloor) },
               fieldSettings.facing.public && listing.facing && { label: "Facing", value: facingLabel(listing.facing) },
+              // Commercial listings show this same column under "Fit-out
+              // Status" in the Property details block below instead (see
+              // fitoutStatusLabel there) — skipped here to avoid showing the
+              // same value twice under two different labels.
               fieldSettings.furnishingStatus.public &&
+                listing.propertyType !== "commercial" &&
                 listing.furnishingStatus && { label: "Furnishing", value: furnishingLabel(listing.furnishingStatus) },
               fieldSettings.inventoryState.public && { label: "Inventory State", value: inventoryStateLabel(listing.inventoryState) },
             ].filter((d): d is { label: string; value: string } => Boolean(d));
@@ -416,6 +430,80 @@ export default async function ListingDetailPage({
                 </h2>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
                   {unitDetails.map((d) => (
+                    <div key={d.label}>
+                      <dt className="text-xs text-stone-500">{d.label}</dt>
+                      <dd className="text-sm font-medium text-stone-900">{d.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            // Property-type-specific details added alongside the dynamic
+            // "Post a property" form (see lib/listingFields.ts and
+            // scratch/post-listing-dynamic-fields-proposal.md) — shown
+            // whenever a value is actually present, same "only if present"
+            // rule as the unit-details block above, but not gated by
+            // listingFieldSettings since these aren't part of that
+            // admin-configurable system.
+            const yesNo = (v: boolean | null) => (v == null ? null : v ? "Yes" : "No");
+            const typeDetails: { label: string; value: string }[] = [];
+
+            if (listing.propertyType === "apartment") {
+              if (listing.totalFloors != null) typeDetails.push({ label: "Total Floors", value: String(listing.totalFloors) });
+              if (listing.maintenanceChargePerMonth != null)
+                typeDetails.push({
+                  label: "Maintenance",
+                  value: `₹${listing.maintenanceChargePerMonth.toLocaleString("en-IN")}/month`,
+                });
+            }
+
+            if (listing.propertyType === "villa" || listing.propertyType === "independent_house") {
+              if (listing.plotAreaSqft != null)
+                typeDetails.push({ label: "Plot Area", value: `${listing.plotAreaSqft.toLocaleString("en-IN")} sqft` });
+              if (listing.numberOfFloors) typeDetails.push({ label: "Number of Floors", value: listing.numberOfFloors });
+              if (listing.waterSource) typeDetails.push({ label: "Water Source", value: waterSourceLabel(listing.waterSource)! });
+            }
+
+            if (listing.propertyType === "plot") {
+              if (listing.plotDimensions) typeDetails.push({ label: "Plot Dimensions", value: `${listing.plotDimensions} ft` });
+              if (listing.openSides != null) typeDetails.push({ label: "Open Sides", value: String(listing.openSides) });
+              if (listing.roadWidthFt != null) typeDetails.push({ label: "Road Width", value: `${listing.roadWidthFt} ft` });
+              if (listing.approvedBy) typeDetails.push({ label: "Approved By", value: approvedByLabel(listing.approvedBy)! });
+              if (listing.ownershipType)
+                typeDetails.push({ label: "Ownership/Title Type", value: ownershipTypeLabel(listing.ownershipType)! });
+              const gated = yesNo(listing.gatedCommunityLayout);
+              if (gated) typeDetails.push({ label: "Gated Community Layout", value: gated });
+            }
+
+            if (listing.propertyType === "villa" || listing.propertyType === "independent_house" || listing.propertyType === "plot") {
+              const wall = yesNo(listing.boundaryWall);
+              if (wall) typeDetails.push({ label: "Boundary Wall", value: wall });
+              const corner = yesNo(listing.cornerProperty);
+              if (corner) typeDetails.push({ label: listing.propertyType === "plot" ? "Corner Plot" : "Corner Property", value: corner });
+            }
+
+            if (listing.propertyType === "commercial") {
+              if (listing.washrooms != null) typeDetails.push({ label: "Washrooms", value: String(listing.washrooms) });
+              if (listing.parkingType) typeDetails.push({ label: "Parking Type", value: parkingTypeLabel(listing.parkingType)! });
+              if (listing.furnishingStatus)
+                typeDetails.push({ label: "Fit-out Status", value: fitoutStatusLabel(listing.furnishingStatus)! });
+              const power = yesNo(listing.powerBackup);
+              if (power) typeDetails.push({ label: "Power Backup / DG", value: power });
+              const occupancy = yesNo(listing.occupancyCertificate);
+              if (occupancy) typeDetails.push({ label: "Occupancy Certificate", value: occupancy });
+            }
+
+            if (typeDetails.length === 0) return null;
+            return (
+              <div className="mt-8">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  Property details
+                </h2>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                  {typeDetails.map((d) => (
                     <div key={d.label}>
                       <dt className="text-xs text-stone-500">{d.label}</dt>
                       <dd className="text-sm font-medium text-stone-900">{d.value}</dd>

@@ -250,7 +250,14 @@ export const listings = sqliteTable("listings", {
   facing: text("facing", {
     enum: ["north", "south", "east", "west", "north_east", "north_west", "south_east", "south_west"],
   }),
-  furnishingStatus: text("furnishing_status", { enum: ["unfurnished", "semi_furnished", "fully_furnished"] }),
+  // "bare_shell"/"warm_shell" were added alongside the property-type-specific
+  // fields below, for Commercial listings' "Fit-out Status" — see
+  // lib/listingFields.ts's FITOUT_STATUS_OPTIONS, which reuses this same
+  // column rather than adding a separate one (a bare/warm shell is the same
+  // underlying "how finished is this space" concept as furnishing status).
+  furnishingStatus: text("furnishing_status", {
+    enum: ["unfurnished", "semi_furnished", "fully_furnished", "bare_shell", "warm_shell"],
+  }),
   inventoryState: text("inventory_state", { enum: ["new", "resale"] }).notNull().default("new"),
   // Internal negotiation figures, separate from the public "price" — hidden
   // from the public listing page by default (see listingFieldSettings)
@@ -258,6 +265,40 @@ export const listings = sqliteTable("listings", {
   sellerAskPrice: integer("seller_ask_price"),
   sellerBestPrice: integer("seller_best_price"),
   cashRatioPercent: integer("cash_ratio_percent"),
+  // ---- Property-type-specific fields ----
+  // All nullable/optional so existing listings and every property type that
+  // doesn't use a given field keep working with no backfill needed. Which
+  // ones a form shows depends on the chosen propertyType — see
+  // PostListingForm.tsx and the proposal this was built from
+  // (scratch/post-listing-dynamic-fields-proposal.md). Admin's edit forms
+  // always show all of them, same policy as the unit-detail fields above.
+  //
+  // Apartment:
+  totalFloors: integer("total_floors"), // "Total Floors in tower" — paired with unitFloor
+  maintenanceChargePerMonth: integer("maintenance_charge_per_month"),
+  // Villa / Independent House (plotAreaSqft and boundaryWall/cornerProperty
+  // are shared with Plot below — same real-world concept, same column):
+  plotAreaSqft: integer("plot_area_sqft"),
+  numberOfFloors: text("number_of_floors"), // free text, e.g. "G+1", "G+2"
+  boundaryWall: integer("boundary_wall", { mode: "boolean" }),
+  cornerProperty: integer("corner_property", { mode: "boolean" }), // "Corner Plot" on a Plot listing
+  waterSource: text("water_source", { enum: ["borewell", "municipal", "both"] }),
+  // Plot / Land only:
+  plotDimensions: text("plot_dimensions"), // free text, e.g. "40x60 ft"
+  openSides: integer("open_sides"), // 1-4
+  roadWidthFt: integer("road_width_ft"),
+  approvedBy: text("approved_by", {
+    enum: ["hmda", "dtcp", "gram_panchayat", "ghmc", "rera"],
+  }),
+  ownershipType: text("ownership_type", {
+    enum: ["freehold", "leasehold", "power_of_attorney", "cooperative_society"],
+  }),
+  gatedCommunityLayout: integer("gated_community_layout", { mode: "boolean" }),
+  // Commercial only:
+  washrooms: integer("washrooms"),
+  parkingType: text("parking_type", { enum: ["public", "reserved"] }),
+  powerBackup: integer("power_backup", { mode: "boolean" }),
+  occupancyCertificate: integer("occupancy_certificate", { mode: "boolean" }),
   // JSON-encoded string[] of amenityCatalog keys — same shape/encoding as
   // projects.amenities (see lib/amenities.ts's parseAmenities). Whether this
   // shows on the public listing page / post-listing form is admin-configurable

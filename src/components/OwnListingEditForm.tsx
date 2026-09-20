@@ -3,7 +3,15 @@
 import Image from "next/image";
 import { useActionState, useState } from "react";
 import { updateOwnListingAction, type ActionState } from "@/app/actions";
-import { FACING_OPTIONS, FURNISHING_OPTIONS, INVENTORY_STATE_OPTIONS } from "@/lib/listingFields";
+import {
+  FACING_OPTIONS,
+  ALL_FURNISHING_OPTIONS,
+  INVENTORY_STATE_OPTIONS,
+  WATER_SOURCE_OPTIONS,
+  APPROVED_BY_OPTIONS,
+  OWNERSHIP_TYPE_OPTIONS,
+  PARKING_TYPE_OPTIONS,
+} from "@/lib/listingFields";
 import { parseAmenities } from "@/lib/amenities";
 import { formatPrice } from "@/lib/format";
 
@@ -38,6 +46,23 @@ type EditableListing = {
   videoUrl: string | null;
   internalNote: string | null;
   images: { id: number; url: string }[];
+  totalFloors: number | null;
+  maintenanceChargePerMonth: number | null;
+  plotAreaSqft: number | null;
+  numberOfFloors: string | null;
+  boundaryWall: boolean | null;
+  cornerProperty: boolean | null;
+  waterSource: string | null;
+  plotDimensions: string | null;
+  openSides: number | null;
+  roadWidthFt: number | null;
+  approvedBy: string | null;
+  ownershipType: string | null;
+  gatedCommunityLayout: boolean | null;
+  washrooms: number | null;
+  parkingType: string | null;
+  powerBackup: boolean | null;
+  occupancyCertificate: boolean | null;
 };
 
 type ProjectOption = { id: number; name: string; locality: string };
@@ -275,19 +300,20 @@ export default function OwnListingEditForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-stone-700">Furnishing Status</label>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Furnishing / Fit-out Status</label>
             <select
               name="furnishingStatus"
               defaultValue={listing.furnishingStatus ?? ""}
               className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
             >
               <option value="">— Select —</option>
-              {FURNISHING_OPTIONS.map((o) => (
+              {ALL_FURNISHING_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-stone-500">Bare Shell / Warm Shell apply to Commercial properties.</p>
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-stone-700">Inventory State</label>
@@ -302,6 +328,207 @@ export default function OwnListingEditForm({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-stone-200 p-4">
+        <p className="mb-1 text-sm font-semibold text-stone-900">Property-type-specific details (optional)</p>
+        <p className="mb-3 text-xs text-stone-500">
+          Only fill in the ones that apply to this listing&rsquo;s Property Type above.
+        </p>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Apartment</p>
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Total Floors in tower</label>
+            <input
+              type="number"
+              name="totalFloors"
+              min={0}
+              defaultValue={listing.totalFloors ?? undefined}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Maintenance charge (₹/month)</label>
+            <input
+              type="number"
+              name="maintenanceChargePerMonth"
+              min={0}
+              defaultValue={listing.maintenanceChargePerMonth ?? undefined}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+        </div>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+          Villa / Independent House
+        </p>
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Plot Area (sqft)</label>
+            <input
+              type="number"
+              name="plotAreaSqft"
+              min={1}
+              defaultValue={listing.plotAreaSqft ?? undefined}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Number of Floors</label>
+            <input
+              name="numberOfFloors"
+              placeholder="e.g. G+2"
+              defaultValue={listing.numberOfFloors ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Water Source</label>
+            <select
+              name="waterSource"
+              defaultValue={listing.waterSource ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {WATER_SOURCE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Plot / Land</p>
+        <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">
+              Plot Dimensions (Length × Breadth, ft)
+            </label>
+            <input
+              name="plotDimensions"
+              placeholder="e.g. 40 x 60"
+              defaultValue={listing.plotDimensions ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Number of Open Sides</label>
+            <select
+              name="openSides"
+              defaultValue={listing.openSides ? String(listing.openSides) : ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Road Width Facing Plot (ft)</label>
+            <input
+              type="number"
+              name="roadWidthFt"
+              min={1}
+              defaultValue={listing.roadWidthFt ?? undefined}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Approved By</label>
+            <select
+              name="approvedBy"
+              defaultValue={listing.approvedBy ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {APPROVED_BY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Ownership/Title Type</label>
+            <select
+              name="ownershipType"
+              defaultValue={listing.ownershipType ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {OWNERSHIP_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end gap-6 pb-2 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" name="gatedCommunityLayout" defaultChecked={listing.gatedCommunityLayout ?? false} className="h-4 w-4" />
+              Gated Community Layout
+            </label>
+          </div>
+        </div>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+          Villa / Independent House &amp; Plot
+        </p>
+        <div className="mb-4 flex items-center gap-6">
+          <label className="flex items-center gap-2 text-sm text-stone-700">
+            <input type="checkbox" name="boundaryWall" defaultChecked={listing.boundaryWall ?? false} className="h-4 w-4" />
+            Boundary Wall
+          </label>
+          <label className="flex items-center gap-2 text-sm text-stone-700">
+            <input type="checkbox" name="cornerProperty" defaultChecked={listing.cornerProperty ?? false} className="h-4 w-4" />
+            Corner Property / Corner Plot
+          </label>
+        </div>
+
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">Commercial</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Washrooms (count)</label>
+            <input
+              type="number"
+              name="washrooms"
+              min={0}
+              max={20}
+              defaultValue={listing.washrooms ?? undefined}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Parking Type</label>
+            <select
+              name="parkingType"
+              defaultValue={listing.parkingType ?? ""}
+              className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+            >
+              <option value="">— Select —</option>
+              {PARKING_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end gap-6 pb-2 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" name="powerBackup" defaultChecked={listing.powerBackup ?? false} className="h-4 w-4" />
+              Power Backup / DG Availability
+            </label>
+            <label className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" name="occupancyCertificate" defaultChecked={listing.occupancyCertificate ?? false} className="h-4 w-4" />
+              Occupancy Certificate available
+            </label>
           </div>
         </div>
       </div>
