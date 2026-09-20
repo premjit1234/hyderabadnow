@@ -47,6 +47,11 @@ export type ListingFilters = {
   maxFloor?: number;
   furnishingStatus?: string;
   verifiedOnly?: boolean;
+  // "relevance" (default, omit this field entirely) is featured-first then
+  // newest — the long-standing behavior. "newest" is a plain reverse
+  // chronological sort, ignoring featured status entirely, for someone who
+  // specifically wants to see what was just posted.
+  sort?: "newest";
 };
 
 // NOTE: the correlation below deliberately references the outer table as raw
@@ -137,7 +142,7 @@ export async function searchListings(filters: ListingFilters) {
     })
     .from(listings)
     .where(and(...conditions))
-    .orderBy(desc(listings.featured), desc(listings.createdAt));
+    .orderBy(...(filters.sort === "newest" ? [desc(listings.createdAt)] : [desc(listings.featured), desc(listings.createdAt)]));
 }
 
 export async function getListingById(id: number) {

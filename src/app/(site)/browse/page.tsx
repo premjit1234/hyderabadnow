@@ -1,6 +1,7 @@
+import Link from "next/link";
 import ListingCard from "@/components/ListingCard";
 import AdSlot from "@/components/AdSlot";
-import { searchListings, getProjectsForSelect, getListingFieldSettings } from "@/db/queries";
+import { searchListings, getProjectsForSelect, getListingFieldSettings, getFeaturedProjects } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
 
@@ -17,6 +18,23 @@ const FLOOR_RANGES = [
   { key: "40-", label: "40+ Floors", min: 40, max: null as number | null },
 ] as const;
 
+// Same non-overlapping-ranges approach as FLOOR_RANGES: every rupee amount
+// falls into exactly one bracket, no gaps. Amounts are in plain rupees since
+// that's what listings.price is stored as (1 Cr = 1,00,00,000).
+//
+// These brackets are really meant for Buy (sale) listings — Rent listings
+// are priced in monthly rupees (tens of thousands), so on a Rent search
+// "Below 1 Cr" will match virtually every result. Left as one shared
+// control rather than two separate rent/sale scales since that's what was
+// asked for; worth revisiting if rent search actually needs its own bracket
+// set later.
+const PRICE_RANGES = [
+  { key: "below-1cr", label: "Below ₹1 Cr", min: 0, max: 9999999 },
+  { key: "1-3cr", label: "₹1 - 3 Cr", min: 10000000, max: 29999999 },
+  { key: "3-4.5cr", label: "₹3 - 4.5 Cr", min: 30000000, max: 44999999 },
+  { key: "4.5cr-plus", label: "₹4.5 Cr+", min: 45000000, max: null as number | null },
+] as const;
+
 export default async function BrowsePage({
   searchParams,
 }: {
@@ -28,8 +46,8 @@ export default async function BrowsePage({
   const propertyType = typeof sp.propertyType === "string" ? sp.propertyType : undefined;
   const projectId = typeof sp.projectId === "string" && sp.projectId ? Number(sp.projectId) : undefined;
   const bhk = typeof sp.bhk === "string" && sp.bhk ? Number(sp.bhk) : undefined;
-  const minPrice = typeof sp.minPrice === "string" && sp.minPrice ? Number(sp.minPrice) : undefined;
-  const maxPrice = typeof sp.maxPrice === "string" && sp.maxPrice ? Number(sp.maxPrice) : undefined;
+  const priceRange = typeof sp.priceRange === "string" ? sp.priceRange : undefined;
+  const priceRangeOption = PRICE_RANGES.find((r) => r.key === priceRange);
   const featured = sp.featured === "1";
   const newOnly = sp.new === "1";
   const facing = typeof sp.facing === "string" ? sp.facing : undefined;
@@ -37,16 +55,17 @@ export default async function BrowsePage({
   const floorRange = FLOOR_RANGES.find((r) => r.key === floor);
   const furnishingStatus = typeof sp.furnishingStatus === "string" ? sp.furnishingStatus : undefined;
   const verifiedOnly = sp.verifiedOnly === "1";
+  const sort = sp.sort === "newest" ? "newest" : undefined;
 
-  const [results, projectOptions, fieldSettings] = await Promise.all([
+  const [results, projectOptions, fieldSettings, featuredProjects] = await Promise.all([
     searchListings({
       q,
       listingType,
       propertyType,
       projectId,
       bhk,
-      minPrice,
-      maxPrice,
+      minPrice: priceRangeOption?.min,
+      maxPrice: priceRangeOption?.max ?? undefined,
       featured,
       newOnly,
       facing,
@@ -54,9 +73,11 @@ export default async function BrowsePage({
       maxFloor: floorRange?.max ?? undefined,
       furnishingStatus,
       verifiedOnly,
+      sort,
     }),
     getProjectsForSelect(),
     getListingFieldSettings(),
+    getFeaturedProjects(8),
   ]);
 
   const hasAdditionalFilter = Boolean(facing || floorRange || furnishingStatus || verifiedOnly);
@@ -157,25 +178,33 @@ export default async function BrowsePage({
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-              Min price
+              Price range
             </label>
-            <input
-              type="number"
-              name="minPrice"
-              defaultValue={minPrice}
+            <select
+              name="priceRange"
+              defaultValue={priceRange ?? ""}
               className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-            />
+            >
+              <option value="">Any</option>
+              {PRICE_RANGES.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
-              Max price
+              Sort by
             </label>
-            <input
-              type="number"
-              name="maxPrice"
-              defaultValue={maxPrice}
+            <select
+              name="sort"
+              defaultValue={sort ?? ""}
               className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
-            />
+            >
+              <option value="">Relevance</option>
+              <option value="newest">Newest first</option>
+            </select>
           </div>
         </div>
 
@@ -255,6 +284,29 @@ export default async function BrowsePage({
             </div>
           </div>
         </details>
+
+        {featuredProjects.length > 0 && (
+          <div className="mt-4 border-t border-stone-200 pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Featured projects
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {featuredProjects.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/browse?projectId=${p.id}`}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm ${
+                    projectId === p.id
+                      ? "border-emerald-700 bg-emerald-700 text-white"
+                      : "border-stone-200 bg-white text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                  }`}
+                >
+                  {p.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-3 flex items-center gap-4">
           <button
