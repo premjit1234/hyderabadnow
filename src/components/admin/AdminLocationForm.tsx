@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { adminCreateLocationAction, adminUpdateLocationAction, type ActionState } from "@/app/admin/actions";
 
-type Location = { id: number; name: string; sortOrder: number };
+type Location = { id: number; name: string; sortOrder: number; featured?: boolean };
 
 export default function AdminLocationForm({ location }: { location?: Location }) {
   const action = location ? adminUpdateLocationAction : adminCreateLocationAction;
@@ -31,6 +31,16 @@ export default function AdminLocationForm({ location }: { location?: Location })
           />
         </label>
       </div>
+
+      <label className="flex items-center gap-1.5 whitespace-nowrap text-xs text-stone-600">
+        <input
+          type="checkbox"
+          name="featured"
+          defaultChecked={location?.featured ?? false}
+          className="h-3.5 w-3.5 rounded border-stone-300"
+        />
+        Featured (shows on /browse, up to 6)
+      </label>
 
       <div className="flex flex-col items-end gap-1">
         <button

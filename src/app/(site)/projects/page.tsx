@@ -1,10 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getProjectsForPublic, getLocationNames } from "@/db/queries";
+import { getProjectsForPublic, getLocationNames, getFeaturedProjects } from "@/db/queries";
 import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
 import ProjectsViewSwitcher from "@/components/ProjectsViewSwitcher";
 import ProjectsMap from "@/components/ProjectsMap";
 import CompareForm from "@/components/CompareForm";
+import ProjectCard from "@/components/ProjectCard";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 const BHK_OPTIONS = [1, 2, 3, 4, 5];
@@ -29,9 +30,10 @@ export default async function ProjectsPage({
 
   const hasFilters = !!(q || locality || propertyType || constructionStatus || bhk || minArea || maxArea);
 
-  const [allProjects, localities] = await Promise.all([
+  const [allProjects, localities, featuredProjects] = await Promise.all([
     getProjectsForPublic({ q, locality, propertyType, constructionStatus, bhk, minArea, maxArea, sort }),
     getLocationNames(),
+    getFeaturedProjects(6),
   ]);
 
   return (
@@ -42,6 +44,17 @@ export default async function ProjectsPage({
       <p className="mt-1 mb-6 text-stone-500">
         Gated communities and developer-built projects with active listings.
       </p>
+
+      {!hasFilters && featuredProjects.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 text-lg font-bold text-stone-900">Featured projects</h2>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {featuredProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <form
         method="GET"

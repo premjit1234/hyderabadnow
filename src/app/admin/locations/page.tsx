@@ -11,7 +11,9 @@ export default async function AdminLocationsPage() {
       <p className="mt-1 mb-6 text-sm text-stone-500">
         The localities suggested on the homepage and when someone types a listing's or project's locality. Add, edit,
         reorder, or remove any number below — this only changes what's suggested going forward, so editing or
-        removing one never changes any listing or project that already used that name.
+        removing one never changes any listing or project that already used that name. Check &quot;Featured&quot;
+        to also show a locality in the &quot;Featured localities&quot; section on the browse page (up to 6 shown,
+        ordered the same way as below).
       </p>
 
       <div className="flex flex-col gap-3">

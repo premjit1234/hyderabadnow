@@ -518,6 +518,11 @@ export const locations = sqliteTable("locations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Same idea as listings.featured/projects.featured — admin-set, surfaces
+  // the locality in the "Featured localities" section on /browse (see
+  // queries.ts's getFeaturedLocalities). Defaults to false so nothing shows
+  // there until an admin deliberately picks it.
+  featured: integer("featured", { mode: "boolean" }).notNull().default(false),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),

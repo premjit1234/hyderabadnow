@@ -1171,11 +1171,26 @@ export async function getLocationsForAdmin() {
       id: locations.id,
       name: locations.name,
       sortOrder: locations.sortOrder,
+      featured: locations.featured,
       listingCount: sql<number>`(select count(*) from listings where listings.locality = locations.name)`,
       projectCount: sql<number>`(select count(*) from projects where projects.locality = locations.name)`,
     })
     .from(locations)
     .orderBy(asc(locations.sortOrder), asc(locations.name));
+}
+
+// Browse-page counterpart to getFeaturedProjects above — same idea
+// (admin-set featured flag) but for localities, powering the "Featured
+// localities" chip row on /browse (mirrors that page's "Featured projects"
+// chip row, which links to /browse?projectId=; this links to /browse?q=
+// since that's how a locality is searched — see searchListings' `q` filter).
+export async function getFeaturedLocalities(limit = 6) {
+  return db
+    .select({ id: locations.id, name: locations.name })
+    .from(locations)
+    .where(eq(locations.featured, true))
+    .orderBy(asc(locations.sortOrder), asc(locations.name))
+    .limit(limit);
 }
 
 // ---- Amenity catalog (selectable amenities for listings — see schema.ts's

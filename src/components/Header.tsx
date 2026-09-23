@@ -68,7 +68,11 @@ export default async function Header() {
               <span className="flex h-7 w-7 items-center justify-center rounded bg-emerald-700 text-sm font-bold text-white">
                 H
               </span>
-              <span className="text-lg font-bold tracking-tight text-stone-900">
+              {/* Hidden below `sm` so the mobile header (icon-only logo) has
+                  room for the "All listings"/"Post a property" buttons plus
+                  the hamburger without overflowing on narrow phones — the
+                  full wordmark comes back once there's space for it. */}
+              <span className="hidden text-lg font-bold tracking-tight text-stone-900 sm:inline">
                 hyderabad<span className="text-emerald-700">now</span>
               </span>
             </>
@@ -156,9 +160,12 @@ export default async function Header() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 md:hidden">
+          <Link href="/browse" className="text-sm font-semibold whitespace-nowrap text-stone-700 hover:text-emerald-700">
+            All listings
+          </Link>
           <Link
             href="/post-listing"
-            className="rounded-full bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="rounded-full bg-emerald-700 px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap text-white hover:bg-emerald-800"
           >
             Post a property
           </Link>

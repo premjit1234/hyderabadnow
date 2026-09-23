@@ -1195,15 +1195,18 @@ export async function adminCreateLocationAction(_prev: ActionState, formData: Fo
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
+  const featured = formData.get("featured") === "on";
 
   try {
-    await db.insert(locations).values(parsed.data);
+    await db.insert(locations).values({ ...parsed.data, featured });
   } catch {
     return { error: `"${parsed.data.name}" is already in the list.` };
   }
   revalidatePath("/admin/locations");
   revalidatePath("/", "layout");
   revalidatePath("/post-listing");
+  revalidatePath("/browse");
+  revalidatePath("/projects");
   return { success: "Location added." };
 }
 
@@ -1219,15 +1222,18 @@ export async function adminUpdateLocationAction(_prev: ActionState, formData: Fo
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
+  const featured = formData.get("featured") === "on";
 
   try {
-    await db.update(locations).set(parsed.data).where(eq(locations.id, locationId));
+    await db.update(locations).set({ ...parsed.data, featured }).where(eq(locations.id, locationId));
   } catch {
     return { error: `"${parsed.data.name}" is already in the list.` };
   }
   revalidatePath("/admin/locations");
   revalidatePath("/", "layout");
   revalidatePath("/post-listing");
+  revalidatePath("/browse");
+  revalidatePath("/projects");
   return { success: "Location updated." };
 }
 
@@ -1239,6 +1245,8 @@ export async function adminDeleteLocationAction(formData: FormData) {
   revalidatePath("/admin/locations");
   revalidatePath("/", "layout");
   revalidatePath("/post-listing");
+  revalidatePath("/browse");
+  revalidatePath("/projects");
 }
 
 // ---- Admin: listing field visibility ----

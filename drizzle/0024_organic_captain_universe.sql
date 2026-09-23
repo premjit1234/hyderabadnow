@@ -1,0 +1,1 @@
+ALTER TABLE `locations` ADD `featured` integer DEFAULT false NOT NULL;

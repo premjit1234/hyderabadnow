@@ -1,7 +1,13 @@
 import Link from "next/link";
 import ListingCard from "@/components/ListingCard";
 import AdSlot from "@/components/AdSlot";
-import { searchListings, getProjectsForSelect, getListingFieldSettings, getFeaturedProjects } from "@/db/queries";
+import {
+  searchListings,
+  getProjectsForSelect,
+  getListingFieldSettings,
+  getFeaturedProjects,
+  getFeaturedLocalities,
+} from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
 
@@ -57,7 +63,7 @@ export default async function BrowsePage({
   const verifiedOnly = sp.verifiedOnly === "1";
   const sort = sp.sort === "newest" ? "newest" : undefined;
 
-  const [results, projectOptions, fieldSettings, featuredProjects] = await Promise.all([
+  const [results, projectOptions, fieldSettings, featuredProjects, featuredLocalities] = await Promise.all([
     searchListings({
       q,
       listingType,
@@ -78,6 +84,7 @@ export default async function BrowsePage({
     getProjectsForSelect(),
     getListingFieldSettings(),
     getFeaturedProjects(8),
+    getFeaturedLocalities(6),
   ]);
 
   const hasAdditionalFilter = Boolean(facing || floorRange || furnishingStatus || verifiedOnly);
@@ -284,6 +291,29 @@ export default async function BrowsePage({
             </div>
           </div>
         </details>
+
+        {featuredLocalities.length > 0 && (
+          <div className="mt-4 border-t border-stone-200 pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+              Featured localities
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {featuredLocalities.map((loc) => (
+                <Link
+                  key={loc.id}
+                  href={`/browse?q=${encodeURIComponent(loc.name)}`}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm ${
+                    q === loc.name
+                      ? "border-emerald-700 bg-emerald-700 text-white"
+                      : "border-stone-200 bg-white text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                  }`}
+                >
+                  {loc.name}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {featuredProjects.length > 0 && (
           <div className="mt-4 border-t border-stone-200 pt-4">
