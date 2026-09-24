@@ -396,6 +396,18 @@ export default function AdminListingCreateForm({
         <p className="mt-1 text-xs text-stone-500">Shown as an embedded video on the public listing page.</p>
       </div>
 
+      <div>
+        <label className="mb-1 block text-sm font-medium text-stone-700">360° / virtual tour link (optional)</label>
+        <input
+          name="virtualTourUrl"
+          placeholder="https://my.matterport.com/show/?m=… or a Kuula/momento360 share link"
+          className="w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm"
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          Paste the share/embed link from Matterport, Kuula, momento360, or a similar tour host.
+        </p>
+      </div>
+
       <div className="rounded-md border border-stone-200 bg-stone-50 p-4">
         <p className="text-sm font-medium text-stone-700">Contact for this listing (optional)</p>
         <div className="mt-3">

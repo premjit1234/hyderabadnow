@@ -6,6 +6,7 @@
 // schema can't live there. Same pattern as lib/projectValidation.ts.
 import { z } from "zod";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 
 export const LISTING_STATUSES = ["active", "pending", "sold", "rented", "expired"] as const;
 
@@ -38,6 +39,7 @@ export const editListingSchema = z.object({
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  virtualTourUrl: z.string().optional().refine((v) => !v || isEmbeddableTourUrl(v), "Enter a valid http(s) virtual tour URL"),
   internalNote: z.string().optional(),
   // ---- Property-type-specific fields (see schema.ts for the full rundown) ----
   totalFloors: z.coerce.number().int().min(0).optional(),

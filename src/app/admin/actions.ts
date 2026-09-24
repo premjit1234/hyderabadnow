@@ -35,6 +35,7 @@ import { LISTING_EXTRA_FIELDS } from "@/lib/listingFields";
 import { AD_PLACEMENTS } from "@/lib/adPlacements";
 import { BLOG_CATEGORIES, slugify } from "@/lib/blog";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 import { sanitizeBlogContent } from "@/lib/sanitizeHtml";
 import { projectSchema, resolveProjectFieldsForType } from "@/lib/projectValidation";
 import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
@@ -233,6 +234,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    virtualTourUrl: formData.get("virtualTourUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
     totalFloors: formData.get("totalFloors") || undefined,
     maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
@@ -308,6 +310,7 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       internalNote: data.internalNote?.trim() || null,
       // An admin editing a listing is itself a sign a human looked at it —
       // reset the staleness clock the same way a manual "confirm" would
@@ -382,6 +385,7 @@ const adminCreateListingSchema = z.object({
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  virtualTourUrl: z.string().optional().refine((v) => !v || isEmbeddableTourUrl(v), "Enter a valid http(s) virtual tour URL"),
   internalNote: z.string().optional(),
   totalFloors: z.coerce.number().int().min(0).optional(),
   maintenanceChargePerMonth: z.coerce.number().int().min(0).optional(),
@@ -424,6 +428,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    virtualTourUrl: formData.get("virtualTourUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
     totalFloors: formData.get("totalFloors") || undefined,
     maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
@@ -493,6 +498,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
       ...extendedFields,
@@ -638,6 +644,7 @@ function readProjectFields(formData: FormData) {
     maintenanceChargePerSqftPerMonth: formData.get("maintenanceChargePerSqftPerMonth") || undefined,
     contactPhone: formData.get("contactPhone") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    virtualTourUrl: formData.get("virtualTourUrl") || undefined,
     latitude: formData.get("latitude") || undefined,
     longitude: formData.get("longitude") || undefined,
     approvedBy: formData.get("approvedBy") || undefined,
@@ -801,6 +808,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       whatsappEnabled,
       featured,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       ...typeFields,
     })
     .returning();
@@ -946,6 +954,7 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       whatsappEnabled,
       featured,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       ...typeFields,
     })
     .where(eq(projects.id, projectId));

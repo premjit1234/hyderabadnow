@@ -167,6 +167,10 @@ export const projects = sqliteTable("projects", {
   // Admin-only, same YouTube/Vimeo-only validation as blogPosts.videoUrl — see
   // lib/video.ts's getVideoEmbedUrl.
   videoUrl: text("video_url"),
+  // Admin-only 360°/virtual-tour embed (Matterport, Kuula, momento360, etc.)
+  // — see lib/virtualTour.ts's isEmbeddableTourUrl for why this accepts any
+  // http(s) URL rather than a fixed provider list like videoUrl above.
+  virtualTourUrl: text("virtual_tour_url"),
   // Same shape as listings.contactPhone/whatsappEnabled — a project-level
   // contact number (e.g. the developer's sales desk) shown as a "Connect on
   // WhatsApp" button on the public project page. Deliberately separate from
@@ -335,6 +339,11 @@ export const listings = sqliteTable("listings", {
   // treatment as contactPhone/whatsappEnabled. Same YouTube/Vimeo-only
   // validation as projects.videoUrl / blogPosts.videoUrl (lib/video.ts).
   videoUrl: text("video_url"),
+  // Same settable-by-poster-or-admin treatment as videoUrl above, but for a
+  // 360°/virtual-tour embed (Matterport, Kuula, momento360, etc.) — see
+  // lib/virtualTour.ts's isEmbeddableTourUrl for its (deliberately
+  // provider-agnostic) validation.
+  virtualTourUrl: text("virtual_tour_url"),
   // Free-form scratchpad for the poster and admins — access instructions,
   // negotiation history, why a price looks odd, anything worth remembering
   // about this specific listing. Unlike sellerAskPrice/sellerBestPrice above

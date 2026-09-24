@@ -25,6 +25,7 @@ import {
 import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
 import { nearestMetroStation, distancesToHubs } from "@/lib/hyderabadGeo";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 import {
   absoluteListingUrl,
   buildListingBreadcrumbJsonLd,
@@ -405,6 +406,35 @@ export default async function ListingDetailPage({
                     title={listing.title}
                     className="h-full w-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            // Deliberately provider-agnostic (Matterport/Kuula/momento360/etc.)
+            // — see lib/virtualTour.ts's isEmbeddableTourUrl. Re-checked here
+            // (not just at save time) as defense in depth, same reasoning as
+            // sanitizeHtml re-sanitizing on every render. `sandbox` omits
+            // top-level navigation permissions so an embedded page can never
+            // hijack this tab to somewhere else, while still allowing the
+            // scripts/same-origin/popups a real 360 viewer needs to run.
+            if (!listing.virtualTourUrl || !isEmbeddableTourUrl(listing.virtualTourUrl)) return null;
+            return (
+              <div className="mt-8">
+                <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                  360&deg; Virtual Tour
+                </h2>
+                <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+                  <iframe
+                    src={listing.virtualTourUrl}
+                    title={`${listing.title} — virtual tour`}
+                    className="h-full w-full"
+                    allow="accelerometer; gyroscope; fullscreen; xr-spatial-tracking"
+                    sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                    loading="lazy"
                     allowFullScreen
                   />
                 </div>

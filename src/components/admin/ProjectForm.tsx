@@ -54,6 +54,7 @@ type EditableProject = {
   maintenanceChargePerSqftPerMonth: number | null;
   pricingUpdatedAt: string | null;
   videoUrl: string | null;
+  virtualTourUrl: string | null;
   contactPhone: string | null;
   whatsappEnabled: boolean;
   featured: boolean;
@@ -353,6 +354,20 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
         />
         <p className="mt-1 text-xs text-stone-500">
           Shown as an embedded video on the project&rsquo;s public page. YouTube or Vimeo links only.
+        </p>
+      </div>
+
+      <div>
+        <label className={labelClass}>360° / virtual tour link (optional)</label>
+        <input
+          name="virtualTourUrl"
+          defaultValue={project?.virtualTourUrl ?? ""}
+          placeholder="https://my.matterport.com/show/?m=… or a Kuula/momento360 share link"
+          className={inputClass}
+        />
+        <p className="mt-1 text-xs text-stone-500">
+          Paste the share/embed link from Matterport, Kuula, momento360, or a similar tour host — shown as an
+          embedded 360° tour on the project&rsquo;s public page.
         </p>
       </div>
 

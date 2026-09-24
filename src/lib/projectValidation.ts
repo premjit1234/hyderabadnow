@@ -5,6 +5,7 @@
 // functions — a plain const array or a zod schema can't live there.
 import { z } from "zod";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 
 export const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"] as const;
 export const CONSTRUCTION_STATUSES = ["under_construction", "ready_to_move"] as const;
@@ -47,6 +48,7 @@ export const projectSchema = z.object({
   maintenanceChargePerSqftPerMonth: z.coerce.number().positive().optional(),
   contactPhone: z.string().optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  virtualTourUrl: z.string().optional().refine((v) => !v || isEmbeddableTourUrl(v), "Enter a valid http(s) virtual tour URL"),
   // Set only when an admin has manually placed/dragged the pin in
   // LocationPicker (see ProjectForm.tsx) — absent otherwise, in which case
   // adminCreateProjectAction/adminUpdateProjectAction fall back to

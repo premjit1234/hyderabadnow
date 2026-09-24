@@ -37,6 +37,7 @@ import { saveUploadedImage } from "@/lib/uploads";
 import { resolveListingAmenities } from "@/app/admin/actions";
 import { editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
 import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
@@ -223,6 +224,7 @@ const listingSchema = z.object({
   sellerBestPrice: z.coerce.number().int().positive().optional(),
   cashRatioPercent: z.coerce.number().int().min(0).max(100).optional(),
   videoUrl: z.string().optional().refine((v) => !v || getVideoEmbedUrl(v) !== null, "Enter a valid YouTube video link"),
+  virtualTourUrl: z.string().optional().refine((v) => !v || isEmbeddableTourUrl(v), "Enter a valid http(s) virtual tour URL"),
   internalNote: z.string().optional(),
   // ---- Property-type-specific fields (see schema.ts / the dynamic
   // "Post a property" form for which of these apply to which property type) ----
@@ -372,6 +374,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    virtualTourUrl: formData.get("virtualTourUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
     totalFloors: formData.get("totalFloors") || undefined,
     maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
@@ -439,6 +442,7 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       internalNote: data.internalNote?.trim() || null,
       lastConfirmedAt: new Date().toISOString(),
       ...extendedFields,
@@ -533,6 +537,7 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
     sellerBestPrice: formData.get("sellerBestPrice") || undefined,
     cashRatioPercent: formData.get("cashRatioPercent") || undefined,
     videoUrl: formData.get("videoUrl") || undefined,
+    virtualTourUrl: formData.get("virtualTourUrl") || undefined,
     internalNote: formData.get("internalNote") || undefined,
     totalFloors: formData.get("totalFloors") || undefined,
     maintenanceChargePerMonth: formData.get("maintenanceChargePerMonth") || undefined,
@@ -602,6 +607,7 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
       cashRatioPercent: data.cashRatioPercent ?? null,
       amenities,
       videoUrl: data.videoUrl || null,
+      virtualTourUrl: data.virtualTourUrl || null,
       internalNote: data.internalNote?.trim() || null,
       // Same reasoning as the admin edit action: an owner actively editing
       // their listing is itself a sign it's still real and attended-to, so

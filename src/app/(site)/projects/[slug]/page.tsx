@@ -7,6 +7,7 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import { AMENITIES, parseAmenities } from "@/lib/amenities";
 import { getVideoEmbedUrl } from "@/lib/video";
+import { isEmbeddableTourUrl } from "@/lib/virtualTour";
 import { PRICING_FIELD_DEFS, hasAnyPricing, formatPricingValue, estimateOneTimeTotal, isPricingStale } from "@/lib/projectPricing";
 import { formatRupees, formatDate } from "@/lib/format";
 import { absoluteUrl, jsonLdScriptContent } from "@/lib/seo";
@@ -266,6 +267,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
   const bhkList = project.bhkOptions ? project.bhkOptions.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const videoEmbedUrl = project.videoUrl ? getVideoEmbedUrl(project.videoUrl) : null;
+  // Re-checked here too (not just at save time), same defense-in-depth
+  // reasoning as the listing page — see lib/virtualTour.ts.
+  const tourEmbedUrl = project.virtualTourUrl && isEmbeddableTourUrl(project.virtualTourUrl) ? project.virtualTourUrl : null;
   const showPricing = hasAnyPricing(project);
   const estimatedTotal = estimateOneTimeTotal(project);
 
@@ -663,6 +667,23 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               title={project.name}
               className="h-full w-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+
+      {tourEmbedUrl && (
+        <div className="mt-10">
+          <h2 className="mb-2 text-lg font-bold text-stone-900">360&deg; Virtual Tour</h2>
+          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+            <iframe
+              src={tourEmbedUrl}
+              title={`${project.name} — virtual tour`}
+              className="h-full w-full"
+              allow="accelerometer; gyroscope; fullscreen; xr-spatial-tracking"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              loading="lazy"
               allowFullScreen
             />
           </div>
