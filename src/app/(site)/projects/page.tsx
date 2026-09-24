@@ -5,7 +5,6 @@ import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
 import ProjectsViewSwitcher from "@/components/ProjectsViewSwitcher";
 import ProjectsMap from "@/components/ProjectsMap";
 import CompareForm from "@/components/CompareForm";
-import ProjectCard from "@/components/ProjectCard";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 const BHK_OPTIONS = [1, 2, 3, 4, 5];
@@ -45,12 +44,20 @@ export default async function ProjectsPage({
         Gated communities and developer-built projects with active listings.
       </p>
 
-      {!hasFilters && featuredProjects.length > 0 && (
-        <div className="mb-8">
-          <h2 className="mb-4 text-lg font-bold text-stone-900">Featured projects</h2>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      {featuredProjects.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-500">
+            Featured projects
+          </p>
+          <div className="flex flex-wrap gap-2">
             {featuredProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+              <Link
+                key={project.id}
+                href={projectHref(project)}
+                className="rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-sm text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+              >
+                {project.name}
+              </Link>
             ))}
           </div>
         </div>
