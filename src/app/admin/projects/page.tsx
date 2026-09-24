@@ -1,7 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { getAllProjectsForAdmin } from "@/db/queries";
-import { adminDeleteProjectAction, adminToggleFeaturedProjectAction } from "@/app/admin/actions";
+import {
+  adminDeleteProjectAction,
+  adminToggleFeaturedProjectAction,
+  adminUpdateProjectQuickFieldsAction,
+} from "@/app/admin/actions";
 import { projectHref } from "@/lib/format";
 
 export default async function AdminProjectsPage() {
@@ -51,54 +55,100 @@ export default async function AdminProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {allProjects.map((p) => (
-                <tr key={p.id} className="border-t border-stone-100">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-stone-100">
-                        {p.imageUrl && <Image src={p.imageUrl} alt="" fill sizes="60px" className="object-cover" />}
+              {allProjects.map((p) => {
+                // Locality, Construction Status, and Units live in separate
+                // <td>s but need to submit together as one save — rather than
+                // wrapping all three cells in a single <form> (invalid HTML;
+                // a <form> can't span table cells), the empty form below
+                // lives in the Locality cell and every other field/button
+                // joins it via the standard HTML `form` attribute instead of
+                // DOM nesting. See adminUpdateProjectQuickFieldsAction.
+                const quickEditFormId = `project-quick-${p.id}`;
+                return (
+                  <tr key={p.id} className="border-t border-stone-100">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-10 w-14 shrink-0 overflow-hidden rounded-md bg-stone-100">
+                          {p.imageUrl && <Image src={p.imageUrl} alt="" fill sizes="60px" className="object-cover" />}
+                        </div>
+                        <Link href={projectHref(p)} className="font-medium text-stone-900 hover:text-indigo-700">
+                          {p.name}
+                        </Link>
                       </div>
-                      <Link href={projectHref(p)} className="font-medium text-stone-900 hover:text-indigo-700">
-                        {p.name}
-                      </Link>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">{p.locality}</td>
-                  <td className="px-4 py-3 text-stone-600">
-                    {p.constructionStatus === "ready_to_move" ? "Ready to move" : "Under construction"}
-                  </td>
-                  <td className="px-4 py-3 text-stone-600">{p.totalUnits ?? "—"}</td>
-                  <td className="px-4 py-3 text-stone-600">
-                    {p.saleListings} sale · {p.rentListings} rent
-                  </td>
-                  <td className="px-4 py-3">
-                    <form action={adminToggleFeaturedProjectAction}>
-                      <input type="hidden" name="projectId" value={p.id} />
-                      <button
-                        type="submit"
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          p.featured ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-500"
-                        }`}
-                      >
-                        {p.featured ? "Featured" : "Not featured"}
-                      </button>
-                    </form>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Link href={`/admin/projects/${p.id}/edit`} className="text-xs font-medium text-indigo-600 hover:underline">
-                        Edit
-                      </Link>
-                      <form action={adminDeleteProjectAction}>
+                    </td>
+                    <td className="px-4 py-3">
+                      <form id={quickEditFormId} action={adminUpdateProjectQuickFieldsAction}>
                         <input type="hidden" name="projectId" value={p.id} />
-                        <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
-                          Delete
+                      </form>
+                      <input
+                        type="text"
+                        name="locality"
+                        form={quickEditFormId}
+                        defaultValue={p.locality}
+                        className="w-32 rounded-md border border-stone-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        name="constructionStatus"
+                        form={quickEditFormId}
+                        defaultValue={p.constructionStatus}
+                        className="rounded-md border border-stone-200 px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none"
+                      >
+                        <option value="under_construction">Under construction</option>
+                        <option value="ready_to_move">Ready to move</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <input
+                        type="number"
+                        name="totalUnits"
+                        form={quickEditFormId}
+                        defaultValue={p.totalUnits ?? ""}
+                        min={0}
+                        placeholder="—"
+                        className="w-20 rounded-md border border-stone-200 px-2 py-1 text-sm focus:border-indigo-400 focus:outline-none"
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-stone-600">
+                      {p.saleListings} sale · {p.rentListings} rent
+                    </td>
+                    <td className="px-4 py-3">
+                      <form action={adminToggleFeaturedProjectAction}>
+                        <input type="hidden" name="projectId" value={p.id} />
+                        <button
+                          type="submit"
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            p.featured ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-500"
+                          }`}
+                        >
+                          {p.featured ? "Featured" : "Not featured"}
                         </button>
                       </form>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="submit"
+                          form={quickEditFormId}
+                          className="rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-600 hover:border-indigo-600 hover:text-indigo-700"
+                        >
+                          Save
+                        </button>
+                        <Link href={`/admin/projects/${p.id}/edit`} className="text-xs font-medium text-indigo-600 hover:underline">
+                          Edit
+                        </Link>
+                        <form action={adminDeleteProjectAction}>
+                          <input type="hidden" name="projectId" value={p.id} />
+                          <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
+                            Delete
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

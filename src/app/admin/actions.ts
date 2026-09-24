@@ -719,6 +719,54 @@ export async function adminToggleFeaturedProjectAction(formData: FormData) {
   revalidatePath("/");
 }
 
+// Inline "quick edit" for the three plain-text/number/status columns on the
+// admin Projects table (Locality, Construction Status, Units) — lets an
+// admin fix one of these without opening the full /admin/projects/[id]/edit
+// form, same spirit as adminUpdateListingStatusAction's inline Status
+// dropdown on the Listings table. Deliberately narrow: it only ever touches
+// these three columns (plus latitude/longitude when locality actually
+// changed, see below) — every other field still requires the full edit
+// form, which also has room for the fields this compact row doesn't (City,
+// RERA info, pricing, etc).
+export async function adminUpdateProjectQuickFieldsAction(formData: FormData) {
+  await requireAdmin();
+  const projectId = Number(formData.get("projectId"));
+  if (!projectId) return;
+
+  const constructionStatus = formData.get("constructionStatus");
+  if (constructionStatus !== "under_construction" && constructionStatus !== "ready_to_move") return;
+
+  const locality = String(formData.get("locality") ?? "").trim();
+  if (!locality) return;
+
+  const totalUnitsRaw = formData.get("totalUnits");
+  const totalUnits = totalUnitsRaw != null && totalUnitsRaw !== "" ? Number(totalUnitsRaw) : null;
+  if (totalUnits != null && (!Number.isFinite(totalUnits) || totalUnits < 0)) return;
+
+  const existing = await db.query.projects.findFirst({
+    where: eq(projects.id, projectId),
+    columns: { locality: true, city: true, latitude: true, longitude: true },
+  });
+  if (!existing) return;
+
+  // Same "only re-geocode when the locality text actually changed" rule as
+  // the full edit form (adminUpdateProjectAction) — this compact row has no
+  // City field of its own, so a locality change here re-geocodes against
+  // the project's existing city.
+  const localityChanged = existing.locality !== locality;
+  const geo = localityChanged ? await geocodeLocality(locality, existing.city) : null;
+  const latitude = localityChanged ? (geo?.latitude ?? null) : existing.latitude;
+  const longitude = localityChanged ? (geo?.longitude ?? null) : existing.longitude;
+
+  await db
+    .update(projects)
+    .set({ locality, constructionStatus, totalUnits, latitude, longitude })
+    .where(eq(projects.id, projectId));
+
+  revalidatePath("/admin/projects");
+  revalidatePath("/projects");
+}
+
 // Slugs power the public /projects/[slug] URL and, like blog post slugs
 // (see uniqueBlogSlug above), are generated once from the name and must be
 // unique. `excludeId` lets a project keep its own slug when backfilling one
