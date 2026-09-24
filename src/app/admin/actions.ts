@@ -25,6 +25,7 @@ import {
   areaUpdates,
   areaUpdateComments,
   adPlacementSettings,
+  listViewFieldSettings,
 } from "@/db/schema";
 import { getSession } from "@/lib/auth";
 import { getLiveVisitorCount } from "@/db/queries";
@@ -41,6 +42,7 @@ import { projectSchema, resolveProjectFieldsForType } from "@/lib/projectValidat
 import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
 import { LISTING_STATUSES, editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { geocodeLocality } from "@/lib/geocode";
+import { PROPERTY_TYPES, LISTING_LIST_FIELDS, PROJECT_LIST_FIELDS, type ListViewEntity } from "@/lib/listViewFields";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -1331,6 +1333,56 @@ export async function adminUpdateListingFieldSettingsAction(
   revalidatePath("/", "layout");
   revalidatePath("/admin/listing-fields");
   return { success: "Field visibility updated." };
+}
+
+// ---- Admin: list-view column settings ----
+
+// One combined form (see AdminListViewFieldSettingsForm.tsx) posts one
+// hidden field per (entityType, propertyType) combo — `columns_listing_plot`,
+// `columns_project_apartment`, etc. — each a comma-separated, ordered list of
+// field keys. Unknown/renamed keys are dropped rather than rejected outright,
+// same tolerance as resolveListViewFieldSettings applies when reading this
+// back, so a partial/mismatched submit can never 500 the page.
+export async function adminUpdateListViewFieldSettingsAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const entities: { entity: ListViewEntity; registry: { key: string }[] }[] = [
+    { entity: "listing", registry: LISTING_LIST_FIELDS },
+    { entity: "project", registry: PROJECT_LIST_FIELDS },
+  ];
+
+  const config: Record<string, Record<string, string[]>> = { listing: {}, project: {} };
+  for (const { entity, registry } of entities) {
+    const validKeys = new Set(registry.map((f) => f.key));
+    for (const propertyType of PROPERTY_TYPES) {
+      const raw = formData.get(`columns_${entity}_${propertyType}`);
+      const keys =
+        typeof raw === "string" && raw
+          ? Array.from(new Set(raw.split(",").filter((k) => validKeys.has(k))))
+          : [];
+      config[entity][propertyType] = keys;
+    }
+  }
+
+  const existing = await db.query.listViewFieldSettings.findFirst({ where: eq(listViewFieldSettings.id, 1) });
+  const configJson = JSON.stringify(config);
+  if (existing) {
+    await db
+      .update(listViewFieldSettings)
+      .set({ config: configJson, updatedAt: sql`(current_timestamp)` })
+      .where(eq(listViewFieldSettings.id, 1));
+  } else {
+    await db.insert(listViewFieldSettings).values({ id: 1, config: configJson });
+  }
+
+  // Both /browse and /projects read this on every request their List view
+  // renders — bust everything so the new columns take effect immediately.
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/list-view-settings");
+  return { success: "List view columns updated." };
 }
 
 // ---- Admin: ad placements ----

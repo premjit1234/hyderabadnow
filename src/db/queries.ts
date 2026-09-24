@@ -28,10 +28,18 @@ import {
   areaUpdateVotes,
   adPlacementSettings,
   savedSearches,
+  listViewFieldSettings,
 } from "./schema";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
 import { resolveAdPlacementSettings, type AdPlacementSettings } from "@/lib/adPlacements";
+import {
+  buildColumnFilterConditions,
+  resolveListViewOrderBy,
+  resolveListViewFieldSettings,
+  type ListViewFieldDef,
+  type ListViewFieldSettingsConfig,
+} from "@/lib/listViewFields";
 
 export type ListingFilters = {
   q?: string;
@@ -95,7 +103,10 @@ export async function getFeaturedListings(limit = 6) {
     .limit(limit);
 }
 
-export async function searchListings(filters: ListingFilters) {
+// Shared by searchListings (below) and searchListingsForListView — pulled
+// out so the "Catalog" and "List" views of /browse can never quietly drift
+// apart on what the top filter bar's fields actually mean.
+function buildListingConditions(filters: ListingFilters) {
   const conditions = [eq(listings.status, "active")];
 
   if (filters.listingType) conditions.push(eq(listings.listingType, filters.listingType));
@@ -125,6 +136,12 @@ export async function searchListings(filters: ListingFilters) {
     );
   }
 
+  return conditions;
+}
+
+export async function searchListings(filters: ListingFilters) {
+  const conditions = buildListingConditions(filters);
+
   return db
     .select({
       id: listings.id,
@@ -144,6 +161,29 @@ export async function searchListings(filters: ListingFilters) {
     .from(listings)
     .where(and(...conditions))
     .orderBy(...(filters.sort === "newest" ? [desc(listings.createdAt)] : [desc(listings.featured), desc(listings.createdAt)]));
+}
+
+// Powers /browse's "List" view (see components/ListingsListView.tsx) —
+// unlike searchListings above, this returns *full* rows (every column, not a
+// hand-picked subset), since the admin-configurable list-view columns can be
+// any field in the registry, and additionally supports sorting/filtering by
+// whichever of those columns are currently displayed. `sp` is the page's raw
+// searchParams object; buildColumnFilterConditions/resolveListViewOrderBy
+// (lib/listViewFields.ts) read the `cf_*`/sortField/sortDir keys off it that
+// the table's own filter inputs and column-header links produce.
+export async function searchListingsForListView(
+  baseFilters: ListingFilters,
+  visibleFields: ListViewFieldDef[],
+  sp: Record<string, string | string[] | undefined>
+) {
+  const conditions = [...buildListingConditions(baseFilters), ...buildColumnFilterConditions(visibleFields, sp)];
+  const orderBy = resolveListViewOrderBy(visibleFields, sp, [desc(listings.featured), desc(listings.createdAt)]);
+
+  return db
+    .select()
+    .from(listings)
+    .where(and(...conditions))
+    .orderBy(...orderBy);
 }
 
 export async function getListingById(id: number) {
@@ -786,7 +826,9 @@ export async function getAllProjectsForAdmin() {
     .orderBy(desc(projects.createdAt));
 }
 
-export async function getProjectsForPublic(filters: ProjectFilters = {}) {
+// Shared by getProjectsForPublic (below) and searchProjectsForListView, same
+// reasoning as buildListingConditions above.
+function buildProjectConditions(filters: ProjectFilters) {
   const conditions = [];
 
   if (filters.locality) conditions.push(eq(projects.locality, filters.locality));
@@ -811,6 +853,12 @@ export async function getProjectsForPublic(filters: ProjectFilters = {}) {
       sql`(${projects.name} like ${like} or ${projects.developerName} like ${like} or ${projects.locality} like ${like})`
     );
   }
+
+  return conditions;
+}
+
+export async function getProjectsForPublic(filters: ProjectFilters = {}) {
+  const conditions = buildProjectConditions(filters);
 
   const minSalePriceSubquery = minListingPriceSubquery("sale");
   const minRentPriceSubquery = minListingPriceSubquery("rent");
@@ -845,6 +893,24 @@ export async function getProjectsForPublic(filters: ProjectFilters = {}) {
       minSalePrice: minSalePriceSubquery,
       minRentPrice: minRentPriceSubquery,
     })
+    .from(projects)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(...orderBy);
+}
+
+// Powers /projects' "List" view (see components/ProjectsListView.tsx) — same
+// full-row-select-plus-dynamic-sort/filter approach as
+// searchListingsForListView above, just against the projects table.
+export async function searchProjectsForListView(
+  baseFilters: ProjectFilters,
+  visibleFields: ListViewFieldDef[],
+  sp: Record<string, string | string[] | undefined>
+) {
+  const conditions = [...buildProjectConditions(baseFilters), ...buildColumnFilterConditions(visibleFields, sp)];
+  const orderBy = resolveListViewOrderBy(visibleFields, sp, [desc(projects.createdAt)]);
+
+  return db
+    .select()
     .from(projects)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(...orderBy);
@@ -1230,6 +1296,19 @@ export async function getListingFieldSettings(): Promise<ListingFieldVisibility>
     return resolveFieldVisibility(stored);
   } catch {
     return resolveFieldVisibility(null);
+  }
+}
+
+// Backs both /admin/list-view-settings (reading what to pre-fill the form
+// with) and /browse + /projects (reading which columns their "List" view
+// should render) — see lib/listViewFields.ts for the shape/defaults.
+export async function getListViewFieldSettings(): Promise<ListViewFieldSettingsConfig> {
+  try {
+    const row = await db.query.listViewFieldSettings.findFirst({ where: eq(listViewFieldSettings.id, 1) });
+    const stored = row ? (JSON.parse(row.config) as Parameters<typeof resolveListViewFieldSettings>[0]) : null;
+    return resolveListViewFieldSettings(stored);
+  } catch {
+    return resolveListViewFieldSettings(null);
   }
 }
 

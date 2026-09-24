@@ -1,8 +1,18 @@
 import Link from "next/link";
 import Image from "next/image";
-import { getProjectsForPublic, getLocationNames, getFeaturedProjects } from "@/db/queries";
+import { cookies } from "next/headers";
+import {
+  getProjectsForPublic,
+  searchProjectsForListView,
+  getListViewFieldSettings,
+  getLocationNames,
+  getFeaturedProjects,
+  type ProjectFilters,
+} from "@/db/queries";
 import { propertyTypeLabel, formatPrice, projectHref } from "@/lib/format";
-import ProjectsViewSwitcher from "@/components/ProjectsViewSwitcher";
+import { getEffectiveListViewFields } from "@/lib/listViewFields";
+import ProjectsViewSwitcher, { type ProjectsView } from "@/components/ProjectsViewSwitcher";
+import ProjectsListView from "@/components/ProjectsListView";
 import ProjectsMap from "@/components/ProjectsMap";
 import CompareForm from "@/components/CompareForm";
 
@@ -28,12 +38,22 @@ export default async function ProjectsPage({
   const sort = sp.sort === "name" || sp.sort === "price_asc" ? sp.sort : "newest";
 
   const hasFilters = !!(q || locality || propertyType || constructionStatus || bhk || minArea || maxArea);
+  const projectFilters: ProjectFilters = { q, locality, propertyType, constructionStatus, bhk, minArea, maxArea, sort };
 
-  const [allProjects, localities, featuredProjects] = await Promise.all([
-    getProjectsForPublic({ q, locality, propertyType, constructionStatus, bhk, minArea, maxArea, sort }),
+  const [allProjects, localities, featuredProjects, listViewFieldSettings, cookieStore] = await Promise.all([
+    getProjectsForPublic(projectFilters),
     getLocationNames(),
     getFeaturedProjects(6),
+    getListViewFieldSettings(),
+    cookies(),
   ]);
+
+  const listViewFields = getEffectiveListViewFields("project", propertyType, listViewFieldSettings);
+  const listViewRows = await searchProjectsForListView(projectFilters, listViewFields, sp);
+  const initialView: ProjectsView = (() => {
+    const stored = cookieStore.get("projectsView")?.value;
+    return stored === "list" || stored === "map" ? stored : "catalog";
+  })();
 
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-8 sm:px-6">
@@ -178,6 +198,8 @@ export default async function ProjectsPage({
             </p>
           ) : (
             <ProjectsViewSwitcher
+              initialView={initialView}
+              list={<ProjectsListView rows={listViewRows} fields={listViewFields} sp={sp} />}
               map={
                 <ProjectsMap
                   projects={allProjects.map((p) => ({
@@ -198,7 +220,7 @@ export default async function ProjectsPage({
                   }))}
                 />
               }
-              grid={
+              catalog={
             <CompareForm>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {allProjects.map((p) => {

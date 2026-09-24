@@ -1,17 +1,23 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import ListingCard from "@/components/ListingCard";
 import AdSlot from "@/components/AdSlot";
 import {
   searchListings,
+  searchListingsForListView,
   getProjectsForSelect,
   getListingFieldSettings,
+  getListViewFieldSettings,
   getFeaturedProjects,
   getFeaturedLocalities,
 } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
+import { getEffectiveListViewFields } from "@/lib/listViewFields";
 import { FLOOR_RANGES, PRICE_RANGES, parseBrowseSearchParams, browseParamsToQueryString } from "@/lib/browseFilters";
 import SaveSearchButton from "@/components/SaveSearchButton";
+import ListingsViewSwitcher, { type ListingsView } from "@/components/ListingsViewSwitcher";
+import ListingsListView from "@/components/ListingsListView";
 import { getSession } from "@/lib/auth";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
@@ -48,14 +54,21 @@ export default async function BrowsePage({
   } = parseBrowseSearchParams(sp);
   const floorRange = FLOOR_RANGES.find((r) => r.key === floor);
 
-  const [results, projectOptions, fieldSettings, featuredProjects, featuredLocalities, session] = await Promise.all([
-    searchListings(filters),
-    getProjectsForSelect(),
-    getListingFieldSettings(),
-    getFeaturedProjects(8),
-    getFeaturedLocalities(6),
-    getSession(),
-  ]);
+  const [results, projectOptions, fieldSettings, listViewFieldSettings, featuredProjects, featuredLocalities, session, cookieStore] =
+    await Promise.all([
+      searchListings(filters),
+      getProjectsForSelect(),
+      getListingFieldSettings(),
+      getListViewFieldSettings(),
+      getFeaturedProjects(8),
+      getFeaturedLocalities(6),
+      getSession(),
+      cookies(),
+    ]);
+
+  const listViewFields = getEffectiveListViewFields("listing", propertyType, listViewFieldSettings);
+  const listViewRows = await searchListingsForListView(filters, listViewFields, sp);
+  const initialView: ListingsView = cookieStore.get("listingsView")?.value === "list" ? "list" : "catalog";
 
   const hasAdditionalFilter = Boolean(facing || floorRange || furnishingStatus || verifiedOnly);
   // The exact query string a saved search re-plays later through
@@ -332,15 +345,21 @@ export default async function BrowsePage({
       <AdSlot placementKey="browse_between_filters_results" className="mt-6" />
 
       <div className="mt-6">
-        {results.length === 0 ? (
-          <p className="text-stone-500">No listings match those filters yet. Try widening your search.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            {results.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
-            ))}
-          </div>
-        )}
+        <ListingsViewSwitcher
+          initialView={initialView}
+          catalog={
+            results.length === 0 ? (
+              <p className="text-stone-500">No listings match those filters yet. Try widening your search.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                {results.map((listing) => (
+                  <ListingCard key={listing.id} listing={listing} />
+                ))}
+              </div>
+            )
+          }
+          list={<ListingsListView rows={listViewRows} fields={listViewFields} sp={sp} />}
+        />
       </div>
     </main>
   );

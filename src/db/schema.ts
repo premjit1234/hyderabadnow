@@ -613,6 +613,24 @@ export const adPlacementSettings = sqliteTable("ad_placement_settings", {
     .default(sql`(current_timestamp)`),
 });
 
+// Singleton row (id=1), same JSON-blob-keyed-by-known-keys pattern as
+// listingFieldSettings/adPlacementSettings above. Powers the admin-configurable
+// "List" view toggle on /browse and /projects (see lib/listViewFields.ts and
+// /admin/list-view-settings): the blob is `{ listing: {...}, project: {...} }`,
+// each keyed by property type ("apartment"/"villa"/"independent_house"/"plot"/
+// "commercial") to an ordered array of field keys — a Plot's useful columns
+// (Approved By, Ownership) are nothing like an Apartment's (BHK, Bathrooms),
+// so each property type gets its own configured set rather than one shared
+// list. A key/property-type combo with nothing saved yet falls back to a
+// built-in default set (see resolveListViewFieldSettings).
+export const listViewFieldSettings = sqliteTable("list_view_field_settings", {
+  id: integer("id").primaryKey(),
+  config: text("config").notNull().default("{}"),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 // Blog posts — admin-authored articles at /blog and /blog/[slug]. Body
 // content is rich text (bold/italic/links/lists/headings), authored with the
 // admin's rich text editor and saved as sanitized HTML (see
