@@ -18,8 +18,10 @@
     "db:ensure-project-slugs": "tsx src/db/ensure-project-slugs.ts",
     "db:ensure-amenity-catalog": "tsx src/db/ensure-amenity-catalog.ts",
     "db:ensure-project-coordinates": "tsx src/db/ensure-project-coordinates.ts",
+    "db:ensure-listing-coordinates": "tsx src/db/ensure-listing-coordinates.ts",
     "db:ensure-locality-guides": "tsx src/db/ensure-locality-guides.ts",
-    "db:check-stale-listings": "tsx src/db/checkStaleListings.ts"
+    "db:check-stale-listings": "tsx src/db/checkStaleListings.ts",
+    "db:check-saved-search-alerts": "tsx src/db/checkSavedSearchAlerts.ts"
   },
   "dependencies": {
     "@types/sanitize-html": "^2.16.1",

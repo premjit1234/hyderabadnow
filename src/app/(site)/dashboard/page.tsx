@@ -8,13 +8,16 @@ import {
   getInquiryCountsByListingForOwner,
   getRecentViewCountsForListings,
   getUpcomingBookingsForBuyer,
+  getSavedSearchesForUser,
 } from "@/db/queries";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
+import { browseParamsToQueryString, type BrowseSearchParams } from "@/lib/browseFilters";
 import {
   dashboardConfirmListingAction,
   featureListingWithCreditAction,
   unfeatureOwnListingAction,
   cancelMyBookingAction,
+  deleteSavedSearchAction,
 } from "@/app/actions";
 import LocalTime from "@/components/LocalTime";
 import DashboardBanner from "@/components/DashboardBanner";
@@ -49,13 +52,14 @@ export default async function DashboardPage() {
   }
 
   const canPost = session.role === "agent" || session.role === "seller" || session.role === "admin";
-  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees }, freshUser, leadStats, myBookings] =
+  const [myListings, { dashboardBannerImageUrl, dashboardBannerLinkUrl, featuredCreditPriceRupees }, freshUser, leadStats, myBookings, mySavedSearches] =
     await Promise.all([
       canPost ? getListingsByOwner(session.id) : Promise.resolve([]),
       getSiteSettings(),
       getUserById(session.id),
       canPost ? getOwnerLeadStats(session.id) : Promise.resolve(null),
       getUpcomingBookingsForBuyer(session.id),
+      getSavedSearchesForUser(session.id),
     ]);
   const featuredCredits = freshUser?.featuredCredits ?? 0;
 
@@ -184,6 +188,46 @@ export default async function DashboardPage() {
                 </form>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {mySavedSearches.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-sm font-bold text-stone-900">My saved searches</h2>
+          <div className="flex flex-col gap-2">
+            {mySavedSearches.map((s) => {
+              let params: BrowseSearchParams = {};
+              try {
+                params = JSON.parse(s.filters);
+              } catch {
+                // corrupted filters JSON — still show the row (with a
+                // fallback link) rather than crashing the whole dashboard
+              }
+              const browseHref = `/browse?${browseParamsToQueryString(params)}`;
+              return (
+                <div
+                  key={s.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-stone-200 bg-white p-3 text-sm"
+                >
+                  <div>
+                    <Link href={browseHref} className="font-medium text-stone-900 hover:text-emerald-700">
+                      {s.label}
+                    </Link>
+                    <p className="text-xs text-stone-500">
+                      Saved {formatDate(s.createdAt)}
+                      {s.lastNotifiedAt ? ` · Last alert sent ${formatDate(s.lastNotifiedAt)}` : " · No alerts sent yet"}
+                    </p>
+                  </div>
+                  <form action={deleteSavedSearchAction}>
+                    <input type="hidden" name="searchId" value={s.id} />
+                    <button type="submit" className="text-xs font-medium text-red-600 hover:underline">
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

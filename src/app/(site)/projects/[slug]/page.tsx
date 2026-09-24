@@ -21,6 +21,9 @@ import AmenityIcon from "@/components/AmenityIcon";
 import ProjectGallery from "@/components/ProjectGallery";
 import ProjectListingsTabs from "@/components/ProjectListingsTabs";
 import ProjectSaveShareButtons from "@/components/ProjectSaveShareButtons";
+import DocumentChecklist from "@/components/DocumentChecklist";
+import { nearestMetroStation, distancesToHubs } from "@/lib/hyderabadGeo";
+import { approvedByLabel } from "@/lib/listingFields";
 
 // Same treatment as the listing page's generateMetadata (see
 // src/lib/listingSeo.ts) — every project previously shared the site-wide
@@ -160,7 +163,35 @@ function EyeIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function ReraBadge({ year, reraNumber }: { year: number | null; reraNumber?: string | null }) {
+function ReraBadge({
+  year,
+  reraNumber,
+  verified,
+  verifiedAt,
+}: {
+  year: number | null;
+  reraNumber?: string | null;
+  verified?: boolean;
+  verifiedAt?: string | null;
+}) {
+  // The green filled badge only ever appears once an admin has actually
+  // looked this project up on rera.telangana.gov.in themselves and ticked
+  // "RERA Verified" (see admin/actions.ts) — never automated, so it's never
+  // shown for a project that merely has a self-declared RERA number typed
+  // into the form. That's the whole point: a bare number (the neutral badge
+  // below) is a claim; this is a claim someone actually checked.
+  if (verified) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 text-center" title={verifiedAt ? `Checked on ${formatDate(verifiedAt)}` : undefined}>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-8 w-8 text-emerald-700">
+          <path d="M12 2.5 4.5 5.5v6c0 5 3.2 8.2 7.5 10 4.3-1.8 7.5-5 7.5-10v-6L12 2.5Z" />
+          <path d="m9 12 2 2 4-4.5" stroke="white" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </svg>
+        <p className="text-[10px] font-semibold uppercase text-emerald-700">RERA Verified</p>
+      </div>
+    );
+  }
+
   const badge = (
     <div className="flex flex-col items-center gap-0.5 text-center">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-8 w-8 text-emerald-700">
@@ -179,7 +210,7 @@ function ReraBadge({ year, reraNumber }: { year: number | null; reraNumber?: str
       href="https://rera.telangana.gov.in"
       target="_blank"
       rel="noopener noreferrer"
-      title={`Verify RERA No. ${reraNumber} on the Telangana RERA portal`}
+      title={`Verify RERA No. ${reraNumber} on the Telangana RERA portal yourself`}
     >
       {badge}
     </a>
@@ -254,6 +285,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       ? buildWhatsAppLink(project.contactPhone, whatsappMessage)
       : null;
 
+  // Same haversine-based, no-drive-time approach as the listing page (see
+  // lib/hyderabadGeo.ts) — a project's own lat/long, when geocoded.
+  const nearestMetro =
+    project.latitude != null && project.longitude != null
+      ? nearestMetroStation(project.latitude, project.longitude)
+      : null;
+  const hubDistances =
+    project.latitude != null && project.longitude != null
+      ? distancesToHubs(project.latitude, project.longitude)
+      : [];
+
   return (
     <main className="mx-auto max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
       {/* Structured data for search engines — not rendered visibly. See
@@ -282,7 +324,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               <h1 className="mt-0.5 text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">{project.name}</h1>
             </div>
             <div className="flex shrink-0 gap-3">
-              <ReraBadge year={project.reraApprovalYear} reraNumber={project.reraNumber} />
+              <ReraBadge
+                year={project.reraApprovalYear}
+                reraNumber={project.reraNumber}
+                verified={project.reraVerified}
+                verifiedAt={project.reraVerifiedAt}
+              />
               <PossessionBadge year={project.possessionYear} />
             </div>
           </div>
@@ -429,7 +476,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </p>
 
-          {(project.reraNumber || project.unitsPerFloor || project.unitDensityPerAcre || project.floorAreaRatio) && (
+          {(project.reraNumber ||
+            project.approvedBy ||
+            project.unitsPerFloor ||
+            project.unitDensityPerAcre ||
+            project.floorAreaRatio) && (
             <div className="mt-4 border-t border-stone-100 pt-4">
               <h3 className="mb-2 text-sm font-bold text-stone-900">Key Stats</h3>
               <dl className="flex flex-col gap-1.5 text-sm text-stone-700">
@@ -438,14 +489,27 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                     <ShieldIcon className="h-4 w-4 text-stone-400" />
                     <dt className="font-medium">RERA No.:</dt>
                     <dd>{project.reraNumber}</dd>
-                    <a
-                      href="https://rera.telangana.gov.in"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-medium text-emerald-700 hover:underline"
-                    >
-                      Verify on Telangana RERA →
-                    </a>
+                    {project.reraVerified ? (
+                      <span className="text-xs font-medium text-emerald-700">
+                        Verified{project.reraVerifiedAt ? ` — checked on ${formatDate(project.reraVerifiedAt)}` : ""}
+                      </span>
+                    ) : (
+                      <a
+                        href="https://rera.telangana.gov.in"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-medium text-emerald-700 hover:underline"
+                      >
+                        Verify on Telangana RERA →
+                      </a>
+                    )}
+                  </div>
+                )}
+                {project.approvedBy && (
+                  <div className="flex items-center gap-1.5">
+                    <ShieldIcon className="h-4 w-4 text-stone-400" />
+                    <dt className="font-medium">Approved By:</dt>
+                    <dd>{approvedByLabel(project.approvedBy)}</dd>
                   </div>
                 )}
                 {project.unitsPerFloor && (
@@ -472,6 +536,33 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </dl>
             </div>
           )}
+
+          {(nearestMetro || hubDistances.length > 0) && (
+            <div className="mt-4 border-t border-stone-100 pt-4">
+              <h3 className="mb-2 text-sm font-bold text-stone-900">Location &amp; connectivity</h3>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                {nearestMetro && (
+                  <div>
+                    <dt className="text-xs text-stone-500">Nearest Metro station</dt>
+                    <dd className="text-sm font-medium text-stone-900">
+                      {nearestMetro.name} ({nearestMetro.distanceKm} km)
+                    </dd>
+                  </div>
+                )}
+                {hubDistances.map((hub) => (
+                  <div key={hub.name}>
+                    <dt className="text-xs text-stone-500">{hub.name}</dt>
+                    <dd className="text-sm font-medium text-stone-900">{hub.distanceKm} km</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2 text-xs text-stone-400">
+                Straight-line distance, not drive time — Hyderabad traffic varies too much for a reliable estimate.
+              </p>
+            </div>
+          )}
+
+          <DocumentChecklist propertyType={project.propertyType} />
         </div>
 
         <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">

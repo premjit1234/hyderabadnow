@@ -54,6 +54,10 @@ export const projectSchema = z.object({
   // present together (LocationPicker always submits them as a pair).
   latitude: z.coerce.number().min(-90, "Latitude must be between -90 and 90").max(90, "Latitude must be between -90 and 90").optional(),
   longitude: z.coerce.number().min(-180, "Longitude must be between -180 and 180").max(180, "Longitude must be between -180 and 180").optional(),
+  // Same enum as listings' approvedBy, but never nulled by
+  // resolveProjectFieldsForType — see schema.ts's comment on
+  // projects.approvedBy for why it applies to every project type.
+  approvedBy: z.enum(["hmda", "dtcp", "gram_panchayat", "ghmc", "rera"]).optional(),
 });
 
 // Which "Scale"/"Approval & stats" fields actually apply to which property

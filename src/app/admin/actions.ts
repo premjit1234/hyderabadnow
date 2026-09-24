@@ -261,6 +261,16 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
   const amenities = await resolveListingAmenities(formData);
+  // Only re-geocode when the locality/city text actually changed — same
+  // reasoning and pattern as adminUpdateProjectAction.
+  const existingListing = await db.query.listings.findFirst({
+    where: eq(listings.id, listingId),
+    columns: { locality: true, city: true, latitude: true, longitude: true },
+  });
+  const localityChanged = !existingListing || existingListing.locality !== data.locality || existingListing.city !== data.city;
+  const geo = localityChanged ? await geocodeLocality(data.locality, data.city) : null;
+  const latitude = localityChanged ? geo?.latitude ?? null : existingListing?.latitude ?? null;
+  const longitude = localityChanged ? geo?.longitude ?? null : existingListing?.longitude ?? null;
 
   await db
     .update(listings)
@@ -278,6 +288,8 @@ export async function adminUpdateListingAction(_prev: ActionState, formData: For
       areaSqft: data.areaSqft,
       locality: data.locality,
       city: data.city,
+      latitude,
+      longitude,
       address: data.address || null,
       status: data.status,
       featured,
@@ -444,6 +456,7 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
   const amenities = await resolveListingAmenities(formData);
+  const geo = await geocodeLocality(data.locality, "Hyderabad");
 
   const [listing] = await db
     .insert(listings)
@@ -460,6 +473,8 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
+      latitude: geo?.latitude ?? null,
+      longitude: geo?.longitude ?? null,
       address: data.address || null,
       ownerId: data.ownerId,
       projectId,
@@ -625,6 +640,7 @@ function readProjectFields(formData: FormData) {
     videoUrl: formData.get("videoUrl") || undefined,
     latitude: formData.get("latitude") || undefined,
     longitude: formData.get("longitude") || undefined,
+    approvedBy: formData.get("approvedBy") || undefined,
   };
 }
 
@@ -721,6 +737,12 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
     return { error: "Enter a contact phone number to enable the WhatsApp button." };
   }
   const featured = formData.get("featured") === "on";
+  // reraVerified starts a fresh record here — there's no prior state to
+  // compare against, so ticking it on create always stamps "now" (see
+  // adminUpdateProjectAction for the transition-aware version, and
+  // schema.ts's comment on projects.reraVerified for why this is a manual,
+  // admin-driven check rather than automated scraping).
+  const reraVerified = formData.get("reraVerified") === "on";
 
   const slug = await uniqueProjectSlug(slugify(data.name));
   // An admin who placed the pin manually in LocationPicker (ProjectForm.tsx)
@@ -756,6 +778,9 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
       maxAreaSqft: data.maxAreaSqft ?? null,
       reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
+      reraVerified,
+      reraVerifiedAt: reraVerified ? new Date().toISOString() : null,
+      approvedBy: data.approvedBy ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
       description: data.description || null,
@@ -839,6 +864,8 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       legalDocumentationCharges: true,
       corpusCharges: true,
       maintenanceChargePerSqftPerMonth: true,
+      reraVerified: true,
+      reraVerifiedAt: true,
     },
   });
   const slug = existingProject?.slug || (await uniqueProjectSlug(slugify(data.name), projectId));
@@ -867,6 +894,16 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   const pricingChanged = PRICING_FIELD_DEFS.some((f) => (existingProject?.[f.key] ?? null) !== (data[f.key] ?? null));
   const pricingUpdatedAt = !hasPricingOnUpdate ? null : pricingChanged ? new Date().toISOString() : (existingProject?.pricingUpdatedAt ?? null);
 
+  // reraVerifiedAt only moves forward when the checkbox transitions from
+  // unticked to ticked — an admin re-saving the form while it's already
+  // ticked shouldn't silently bump the displayed "checked on" date without
+  // them actually having re-checked anything. Unticking always clears it, so
+  // re-ticking later is treated as a fresh check (see schema.ts's comment on
+  // projects.reraVerified).
+  const reraVerified = formData.get("reraVerified") === "on";
+  const newlyVerified = reraVerified && !existingProject?.reraVerified;
+  const reraVerifiedAt = !reraVerified ? null : newlyVerified ? new Date().toISOString() : (existingProject?.reraVerifiedAt ?? new Date().toISOString());
+
   await db
     .update(projects)
     .set({
@@ -886,6 +923,9 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
       maxAreaSqft: data.maxAreaSqft ?? null,
       reraNumber: data.reraNumber?.trim() || null,
       reraApprovalYear: data.reraApprovalYear ?? null,
+      reraVerified,
+      reraVerifiedAt,
+      approvedBy: data.approvedBy ?? null,
       possessionYear: data.possessionYear ?? null,
       unitDensityPerAcre: data.unitDensityPerAcre ?? null,
       description: data.description || null,

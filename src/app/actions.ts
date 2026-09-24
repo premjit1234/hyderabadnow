@@ -23,6 +23,7 @@ import {
   areaUpdateImages,
   areaUpdateComments,
   areaUpdateVotes,
+  savedSearches,
 } from "@/db/schema";
 import { and, eq, gt, inArray, sql, desc } from "drizzle-orm";
 import {
@@ -44,6 +45,8 @@ import { sendBookingConfirmedEmails, sendBookingCancelledEmail } from "@/lib/boo
 import { getSiteSettings, getListingQuotaStatus, getUserById } from "@/db/queries";
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpayPaymentSignature } from "@/lib/razorpay";
 import { creditFeaturedCreditOrder } from "@/lib/featuredCredits";
+import { geocodeLocality } from "@/lib/geocode";
+import { describeBrowseFilters, type BrowseSearchParams } from "@/lib/browseFilters";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -397,6 +400,11 @@ export async function createListingAction(_prev: ActionState, formData: FormData
     return { error: "Enter a phone number to enable the WhatsApp connect button." };
   }
   const amenities = await resolveListingAmenities(formData);
+  // Same free geocoder used for projects (see lib/geocode.ts) — powers the
+  // "distance to nearest Metro station / work hub" section on the public
+  // listing page (see lib/hyderabadGeo.ts). A listing simply gets no pin if
+  // geocoding fails or the service is unreachable; nothing else depends on it.
+  const geo = await geocodeLocality(data.locality, "Hyderabad");
 
   const [listing] = await db
     .insert(listings)
@@ -413,6 +421,8 @@ export async function createListingAction(_prev: ActionState, formData: FormData
       carParking: data.carParking ?? null,
       areaSqft: data.areaSqft,
       locality: data.locality,
+      latitude: geo?.latitude ?? null,
+      longitude: geo?.longitude ?? null,
       address: data.address,
       ownerId: session.id,
       projectId,
@@ -549,6 +559,14 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
   const projectIdRaw = formData.get("projectId");
   const projectId = projectIdRaw && projectIdRaw !== "" ? Number(projectIdRaw) : null;
   const amenities = await resolveListingAmenities(formData);
+  // Only re-geocode when the locality/city text actually changed — an
+  // unrelated edit (say, updating the price) shouldn't cost a network
+  // round-trip or risk losing an existing pin to a transient geocoding
+  // failure. Mirrors adminUpdateProjectAction's exact pattern.
+  const localityChanged = existing.locality !== data.locality || existing.city !== data.city;
+  const geo = localityChanged ? await geocodeLocality(data.locality, data.city) : null;
+  const latitude = localityChanged ? geo?.latitude ?? null : existing.latitude;
+  const longitude = localityChanged ? geo?.longitude ?? null : existing.longitude;
 
   await db
     .update(listings)
@@ -566,6 +584,8 @@ export async function updateOwnListingAction(_prev: ActionState, formData: FormD
       areaSqft: data.areaSqft,
       locality: data.locality,
       city: data.city,
+      latitude,
+      longitude,
       address: data.address || null,
       status: data.status,
       contactPhone: data.contactPhone?.trim() || null,
@@ -1341,4 +1361,57 @@ export async function cancelMyBookingAction(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath(`/listing/${slot.listingId}`);
+}
+
+// Saved searches + email alerts — see schema.ts's comment on the
+// savedSearches table and lib/savedSearchAlerts.ts's periodic sweep (wired
+// up in instrumentation.ts) for how a saved search later turns into an
+// email. This action is the "Save this search" button on /browse
+// (components/SaveSearchButton.tsx) — a lightweight useActionState form
+// rather than a redirect, so the confirmation shows inline without losing
+// the buyer's place in their search results.
+const MAX_SAVED_SEARCHES_PER_USER = 20;
+
+export async function saveSearchAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const session = await getSession();
+  if (!session) return { error: "Log in to save searches." };
+
+  const queryString = String(formData.get("queryString") ?? "");
+  const params = Object.fromEntries(new URLSearchParams(queryString)) as BrowseSearchParams;
+  const labelInput = String(formData.get("label") ?? "").trim();
+  const label = labelInput || describeBrowseFilters(params);
+
+  const existingCount = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(savedSearches)
+    .where(eq(savedSearches.userId, session.id));
+  if ((existingCount[0]?.count ?? 0) >= MAX_SAVED_SEARCHES_PER_USER) {
+    return { error: `You can save up to ${MAX_SAVED_SEARCHES_PER_USER} searches — delete one first.` };
+  }
+
+  // A brand-new saved search starts "caught up" on every listing that
+  // already exists (the highest current listing id) rather than 0 — 0 would
+  // otherwise re-notify about every single active listing on the very first
+  // sweep, which is not what "alert me about new matches" means. See
+  // lib/savedSearchAlerts.ts for how this cursor advances afterwards.
+  const [{ maxId } = { maxId: 0 }] = await db.select({ maxId: sql<number>`coalesce(max(${listings.id}), 0)` }).from(listings);
+
+  await db.insert(savedSearches).values({
+    userId: session.id,
+    label,
+    filters: JSON.stringify(params),
+    lastSeenListingId: maxId,
+  });
+
+  revalidatePath("/dashboard");
+  return { success: `Saved "${label}" — we'll email you when new matching listings appear.` };
+}
+
+export async function deleteSavedSearchAction(formData: FormData) {
+  const session = await getSession();
+  const searchId = Number(formData.get("searchId"));
+  if (!session || !searchId) return;
+
+  await db.delete(savedSearches).where(and(eq(savedSearches.id, searchId), eq(savedSearches.userId, session.id)));
+  revalidatePath("/dashboard");
 }

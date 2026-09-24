@@ -178,6 +178,31 @@ export const projects = sqliteTable("projects", {
   // getFeaturedProjects). Defaults to false so nothing appears there until an
   // admin deliberately picks it, same as featured listings.
   featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+  // Trust signal, deliberately NOT automated — an admin looks the project up
+  // themselves on https://rera.telangana.gov.in (using reraNumber above to
+  // find it) and only then ticks this, same as listings.verified below. A
+  // scraper against a government portal would be fragile (it can change
+  // layout, rate-limit, or block automated requests without notice) and,
+  // worse, could silently keep showing "verified" after it broke — a manual
+  // check with a visible date is both simpler and more honest. reraVerifiedAt
+  // is what lets the public page show "RERA Verified — checked on <date>"
+  // instead of a bare, unfalsifiable checkmark; re-ticking after unticking
+  // updates it to the new check date.
+  reraVerified: integer("rera_verified", { mode: "boolean" }).notNull().default(false),
+  reraVerifiedAt: text("rera_verified_at"),
+  // Same concept/enum as listings.approvedBy — which authority approved this
+  // project's layout (HMDA/DTCP/GHMC/Gram Panchayat/RERA). Mainly relevant
+  // for Plot-type projects (a plotted development's layout approval is the
+  // single biggest thing to check before buying in Hyderabad), but — unlike
+  // listings.approvedBy, which resolveExtendedListingFields nulls for
+  // non-plot listings — deliberately left available and never nulled for
+  // every project property type: a villa/independent-house project is
+  // typically also a plotted layout under the hood, and GHMC/HMDA building
+  // approval is a real, relevant fact for apartment/commercial projects too.
+  // resolveProjectFieldsForType leaves it untouched.
+  approvedBy: text("approved_by", {
+    enum: ["hmda", "dtcp", "gram_panchayat", "ghmc", "rera"],
+  }),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
@@ -913,6 +938,42 @@ export const availabilitySlots = sqliteTable("availability_slots", {
     .notNull()
     .default(sql`(current_timestamp)`),
   updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// ---- Saved searches (/browse filter alerts) ----
+//
+// One row per "notify me" search a logged-in user has saved from /browse.
+// `filters` is the same query-string shape /browse's own searchParams
+// already parses (q, listingType, propertyType, bhk, priceRange, facing,
+// floor, furnishingStatus, verifiedOnly, sort — see that page) stored as a
+// JSON-encoded object rather than a column per filter, same reasoning as
+// listingFieldSettings.config: a new /browse filter later needs no
+// migration here, it just becomes another key a saved search may or may not
+// have. `label` is a short user-facing name for the saved search
+// (auto-generated from the filters if the user doesn't type one) shown in
+// their dashboard and in the alert email.
+//
+// The alert sweep (src/lib/savedSearchAlerts.ts, run on a timer from
+// src/instrumentation.ts alongside the stale-listing check) re-runs each
+// saved search's filters through the same searchListings() query used by
+// /browse itself, so "what would notify you" and "what /browse actually
+// shows you" can never drift apart. lastSeenListingId is the highest
+// listings.id already matched and emailed for this search — since listing
+// ids are assigned in increasing creation order, "any matching row with a
+// higher id" is exactly "new since last check", with no separate
+// last-checked timestamp to keep in sync.
+export const savedSearches = sqliteTable("saved_searches", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  filters: text("filters").notNull().default("{}"),
+  lastSeenListingId: integer("last_seen_listing_id").notNull().default(0),
+  lastNotifiedAt: text("last_notified_at"),
+  createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });

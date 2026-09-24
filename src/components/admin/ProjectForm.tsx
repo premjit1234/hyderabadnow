@@ -9,6 +9,7 @@ import {
 } from "@/app/admin/actions";
 import { AMENITIES } from "@/lib/amenities";
 import { formatDate } from "@/lib/format";
+import { APPROVED_BY_OPTIONS } from "@/lib/listingFields";
 import LocationPicker from "@/components/admin/LocationPicker";
 
 type EditableProject = {
@@ -32,6 +33,9 @@ type EditableProject = {
   bhkOptions: string | null;
   reraNumber: string | null;
   reraApprovalYear: number | null;
+  reraVerified: boolean;
+  reraVerifiedAt: string | null;
+  approvedBy: string | null;
   possessionYear: number | null;
   unitDensityPerAcre: number | null;
   floorAreaRatio: number | null;
@@ -231,9 +235,35 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
             <label className={labelClass}>RERA approval year</label>
             <input type="number" name="reraApprovalYear" defaultValue={project?.reraApprovalYear ?? undefined} className={inputClass} />
           </div>
+          <div className="col-span-2 flex items-end">
+            <label className="flex items-center gap-2 text-sm text-stone-700">
+              <input type="checkbox" name="reraVerified" defaultChecked={project?.reraVerified} className="h-4 w-4" />
+              RERA Verified — I have personally checked this project against rera.telangana.gov.in
+            </label>
+          </div>
+          {project?.reraVerified && project.reraVerifiedAt && (
+            <p className="col-span-2 -mt-2 text-xs text-stone-500">
+              Currently shown as checked on {formatDate(project.reraVerifiedAt)}. Leave this ticked to keep that date, or
+              untick and re-tick after re-checking to update it.
+            </p>
+          )}
           <div>
             <label className={labelClass}>Possession year</label>
             <input type="number" name="possessionYear" defaultValue={project?.possessionYear ?? undefined} className={inputClass} />
+          </div>
+          <div>
+            <label className={labelClass}>Approved by</label>
+            <select name="approvedBy" defaultValue={project?.approvedBy ?? ""} className={inputClass}>
+              <option value="">Not specified</option>
+              {APPROVED_BY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-stone-500">
+              Layout/building-plan approving authority — mainly relevant for plotted developments.
+            </p>
           </div>
           <div>
             <label className={labelClass}>Unit density/acre</label>

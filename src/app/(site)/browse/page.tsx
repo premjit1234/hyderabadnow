@@ -10,36 +10,19 @@ import {
 } from "@/db/queries";
 import { propertyTypeLabel } from "@/lib/format";
 import { FACING_OPTIONS, FURNISHING_OPTIONS } from "@/lib/listingFields";
+import { FLOOR_RANGES, PRICE_RANGES, parseBrowseSearchParams, browseParamsToQueryString } from "@/lib/browseFilters";
+import SaveSearchButton from "@/components/SaveSearchButton";
+import { getSession } from "@/lib/auth";
 
 const PROPERTY_TYPES = ["apartment", "villa", "independent_house", "plot", "commercial"];
 
-// Non-overlapping so a floor can never match two ranges — "5-15 Floor" reads
-// as 5th up to (but not including) the 15th, where "15-25 Floor" picks up,
-// and so on. max: null means open-ended (40+).
-const FLOOR_RANGES = [
-  { key: "0-4", label: "Below 5th Floor", min: 0, max: 4 },
-  { key: "5-14", label: "5-15 Floor", min: 5, max: 14 },
-  { key: "15-24", label: "15-25 Floor", min: 15, max: 24 },
-  { key: "25-39", label: "25-40 Floor", min: 25, max: 39 },
-  { key: "40-", label: "40+ Floors", min: 40, max: null as number | null },
-] as const;
-
-// Same non-overlapping-ranges approach as FLOOR_RANGES: every rupee amount
-// falls into exactly one bracket, no gaps. Amounts are in plain rupees since
-// that's what listings.price is stored as (1 Cr = 1,00,00,000).
-//
-// These brackets are really meant for Buy (sale) listings — Rent listings
-// are priced in monthly rupees (tens of thousands), so on a Rent search
-// "Below 1 Cr" will match virtually every result. Left as one shared
+// These price brackets are really meant for Buy (sale) listings — Rent
+// listings are priced in monthly rupees (tens of thousands), so on a Rent
+// search "Below 1 Cr" will match virtually every result. Left as one shared
 // control rather than two separate rent/sale scales since that's what was
 // asked for; worth revisiting if rent search actually needs its own bracket
-// set later.
-const PRICE_RANGES = [
-  { key: "below-1cr", label: "Below ₹1 Cr", min: 0, max: 9999999 },
-  { key: "1-3cr", label: "₹1 - 3 Cr", min: 10000000, max: 29999999 },
-  { key: "3-4.5cr", label: "₹3 - 4.5 Cr", min: 30000000, max: 44999999 },
-  { key: "4.5cr-plus", label: "₹4.5 Cr+", min: 45000000, max: null as number | null },
-] as const;
+// set later. (FLOOR_RANGES/PRICE_RANGES themselves now live in
+// lib/browseFilters.ts, shared with the saved-search alert sweep.)
 
 export default async function BrowsePage({
   searchParams,
@@ -47,47 +30,39 @@ export default async function BrowsePage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
-  const q = typeof sp.q === "string" ? sp.q : undefined;
-  const listingType = sp.listingType === "rent" ? "rent" : sp.listingType === "sale" ? "sale" : undefined;
-  const propertyType = typeof sp.propertyType === "string" ? sp.propertyType : undefined;
-  const projectId = typeof sp.projectId === "string" && sp.projectId ? Number(sp.projectId) : undefined;
-  const bhk = typeof sp.bhk === "string" && sp.bhk ? Number(sp.bhk) : undefined;
-  const priceRange = typeof sp.priceRange === "string" ? sp.priceRange : undefined;
-  const priceRangeOption = PRICE_RANGES.find((r) => r.key === priceRange);
-  const featured = sp.featured === "1";
-  const newOnly = sp.new === "1";
-  const facing = typeof sp.facing === "string" ? sp.facing : undefined;
-  const floor = typeof sp.floor === "string" ? sp.floor : undefined;
+  const {
+    q,
+    listingType,
+    propertyType,
+    projectId,
+    bhk,
+    priceRange,
+    featured,
+    newOnly,
+    facing,
+    floor,
+    furnishingStatus,
+    verifiedOnly,
+    sort,
+    filters,
+  } = parseBrowseSearchParams(sp);
   const floorRange = FLOOR_RANGES.find((r) => r.key === floor);
-  const furnishingStatus = typeof sp.furnishingStatus === "string" ? sp.furnishingStatus : undefined;
-  const verifiedOnly = sp.verifiedOnly === "1";
-  const sort = sp.sort === "newest" ? "newest" : undefined;
 
-  const [results, projectOptions, fieldSettings, featuredProjects, featuredLocalities] = await Promise.all([
-    searchListings({
-      q,
-      listingType,
-      propertyType,
-      projectId,
-      bhk,
-      minPrice: priceRangeOption?.min,
-      maxPrice: priceRangeOption?.max ?? undefined,
-      featured,
-      newOnly,
-      facing,
-      minFloor: floorRange?.min,
-      maxFloor: floorRange?.max ?? undefined,
-      furnishingStatus,
-      verifiedOnly,
-      sort,
-    }),
+  const [results, projectOptions, fieldSettings, featuredProjects, featuredLocalities, session] = await Promise.all([
+    searchListings(filters),
     getProjectsForSelect(),
     getListingFieldSettings(),
     getFeaturedProjects(8),
     getFeaturedLocalities(6),
+    getSession(),
   ]);
 
   const hasAdditionalFilter = Boolean(facing || floorRange || furnishingStatus || verifiedOnly);
+  // The exact query string a saved search re-plays later through
+  // parseBrowseSearchParams — built from the same searchParams the page
+  // itself just rendered from, so "save this search" always captures
+  // precisely what's on screen right now.
+  const currentQueryString = browseParamsToQueryString(sp);
 
   const heading = q
     ? `Properties in ${q}`
@@ -102,7 +77,10 @@ export default async function BrowsePage({
       <h1 className="text-2xl font-bold text-stone-900">
         {heading}
       </h1>
-      <p className="mt-1 text-sm text-stone-500">{results.length} listings found</p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-stone-500">{results.length} listings found</p>
+        <SaveSearchButton userId={session?.id ?? null} queryString={currentQueryString} />
+      </div>
 
       <form method="GET" className="mt-6 rounded-lg border border-stone-200 p-4">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">

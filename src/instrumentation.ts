@@ -22,6 +22,9 @@
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
 const INITIAL_DELAY_MS = 60 * 1000; // let the server finish booting first
 
+const SAVED_SEARCH_CHECK_INTERVAL_MS = 30 * 60 * 1000; // every 30 minutes
+const SAVED_SEARCH_INITIAL_DELAY_MS = 90 * 1000; // stagger from the stale-listing sweep's own initial delay
+
 export function register() {
   // Also rules out any Node-only code running during Edge-targeted builds
   // or middleware — this job only makes sense in the actual long-lived
@@ -47,4 +50,28 @@ export function register() {
   };
 
   setTimeout(runAndReschedule, INITIAL_DELAY_MS);
+
+  // Saved-search alerts (lib/savedSearchAlerts.ts) — same single-process
+  // timer approach as the stale-listing sweep above, on its own independent
+  // schedule/offset so one job's runtime never delays the other. A shorter
+  // interval than the 6-hour stale-listing sweep since "a new listing
+  // appeared" is much more time-sensitive to a buyer than "nudge a listing
+  // owner" is.
+  const runSavedSearchAlertsAndReschedule = () => {
+    import("@/lib/savedSearchAlerts")
+      .then(({ runSavedSearchAlertSweep }) => runSavedSearchAlertSweep())
+      .then(({ checked, notified }) => {
+        if (notified) {
+          console.log(`[saved-search-alerts] checked ${checked} saved search(es), emailed ${notified}.`);
+        }
+      })
+      .catch((err) => {
+        console.error("[saved-search-alerts] sweep failed:", err);
+      })
+      .finally(() => {
+        setTimeout(runSavedSearchAlertsAndReschedule, SAVED_SEARCH_CHECK_INTERVAL_MS);
+      });
+  };
+
+  setTimeout(runSavedSearchAlertsAndReschedule, SAVED_SEARCH_INITIAL_DELAY_MS);
 }

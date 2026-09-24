@@ -90,4 +90,11 @@ node_modules/.bin/tsx src/db/ensure-project-coordinates.ts
 # becomes a permanent no-op.
 node_modules/.bin/tsx src/db/ensure-locality-guides.ts
 
+# Idempotent — a no-op once every listing already has map coordinates.
+# Covers listings created before the "distance to nearest Metro / work hub"
+# section existed; geocodes each one's locality via the same free,
+# rate-limited service as ensure-project-coordinates.ts above, so this can
+# add time to startup on a server with many un-geocoded listings.
+node_modules/.bin/tsx src/db/ensure-listing-coordinates.ts
+
 exec "$@"

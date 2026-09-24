@@ -27,6 +27,7 @@ import {
   areaUpdateComments,
   areaUpdateVotes,
   adPlacementSettings,
+  savedSearches,
 } from "./schema";
 import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { resolveFieldVisibility, type ListingFieldVisibility } from "@/lib/listingFields";
@@ -166,17 +167,21 @@ export async function getListingById(id: number) {
 }
 
 // Locality-level price/sqft benchmark for the "how does this compare?"
-// indicator on a listing page (see ListingPriceComparison usage in
+// indicator on a listing page (see the price-comparison block in
 // listing/[id]/page.tsx) — averages price-per-sqft across other *active*
-// listings of the same listingType (sale vs rent) in the same locality, so
-// a rental never gets compared against sale prices or vice versa. Excludes
-// the listing itself (excludeListingId) so a locality with only one listing
-// never "compares" a listing to its own price. Requires at least 2
-// comparables (enforced by the caller checking sampleSize) since a single
-// other listing isn't a meaningful "average".
+// listings of the same listingType (sale vs rent) AND propertyType in the
+// same locality, so a rental never gets compared against sale prices, and
+// (just as important in a market with wildly different ₹/sqft economics
+// between an apartment, a villa, and a plot) an apartment is never
+// compared against plot or villa prices just because they share a
+// locality. Excludes the listing itself (excludeListingId) so a locality
+// with only one listing never "compares" a listing to its own price.
+// Requires at least 2 comparables (enforced by the caller checking
+// sampleSize) since a single other listing isn't a meaningful "average".
 export async function getLocalityPricePerSqft(
   locality: string,
   listingType: "sale" | "rent",
+  propertyType: string,
   excludeListingId: number
 ): Promise<{ avgPricePerSqft: number | null; sampleSize: number }> {
   const [row] = await db
@@ -190,6 +195,7 @@ export async function getLocalityPricePerSqft(
         eq(listings.status, "active"),
         eq(listings.locality, locality),
         eq(listings.listingType, listingType),
+        eq(listings.propertyType, propertyType as never),
         sql`${listings.areaSqft} > 0`,
         sql`${listings.id} != ${excludeListingId}`
       )
@@ -1733,4 +1739,11 @@ export async function getPublishedLocalityGuidesForSitemap() {
   } catch {
     return [];
   }
+}
+
+/** A user's saved /browse searches for their dashboard's "My saved
+ * searches" list — see schema.ts's comment on the savedSearches table and
+ * lib/savedSearchAlerts.ts for how these get turned into emailed alerts. */
+export async function getSavedSearchesForUser(userId: number) {
+  return db.select().from(savedSearches).where(eq(savedSearches.userId, userId)).orderBy(desc(savedSearches.createdAt));
 }

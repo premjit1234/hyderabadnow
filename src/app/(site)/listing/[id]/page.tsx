@@ -23,6 +23,7 @@ import {
   fitoutStatusLabel,
 } from "@/lib/listingFields";
 import { AMENITIES, parseAmenities, iconForAmenity } from "@/lib/amenities";
+import { nearestMetroStation, distancesToHubs } from "@/lib/hyderabadGeo";
 import { getVideoEmbedUrl } from "@/lib/video";
 import {
   absoluteListingUrl,
@@ -38,6 +39,7 @@ import ScheduleViewingSection from "@/components/ScheduleViewingSection";
 import ShareListingButton from "@/components/ShareListingButton";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
+import DocumentChecklist from "@/components/DocumentChecklist";
 import ListingFinancialTools from "@/components/ListingFinancialTools";
 import AdSlot from "@/components/AdSlot";
 
@@ -205,13 +207,27 @@ export default async function ListingDetailPage({
   // anything — a single other listing (or none) isn't an "average".
   const localityStats =
     listing.areaSqft != null
-      ? await getLocalityPricePerSqft(listing.locality, listing.listingType as "sale" | "rent", listing.id)
+      ? await getLocalityPricePerSqft(
+          listing.locality,
+          listing.listingType as "sale" | "rent",
+          listing.propertyType,
+          listing.id
+        )
       : { avgPricePerSqft: null, sampleSize: 0 };
   const pricePerSqft = listing.areaSqft ? listing.price / listing.areaSqft : null;
   const showPriceComparison = pricePerSqft != null && localityStats.avgPricePerSqft != null && localityStats.sampleSize >= 2;
   const percentVsAvg = showPriceComparison
     ? Math.round(((pricePerSqft! - localityStats.avgPricePerSqft!) / localityStats.avgPricePerSqft!) * 100)
     : null;
+
+  // Falls back to the parent project's pin when the listing itself has none
+  // (e.g. an older, not-yet-backfilled listing that belongs to a project
+  // which does have coordinates) — see lib/hyderabadGeo.ts and
+  // src/db/ensure-listing-coordinates.ts.
+  const geoLat = listing.latitude ?? listing.project?.latitude ?? null;
+  const geoLng = listing.longitude ?? listing.project?.longitude ?? null;
+  const nearestMetro = geoLat != null && geoLng != null ? nearestMetroStation(geoLat, geoLng) : null;
+  const hubDistances = geoLat != null && geoLng != null ? distancesToHubs(geoLat, geoLng) : [];
 
   const images = listing.images.length > 0 ? listing.images : [];
 
@@ -280,7 +296,9 @@ export default async function ListingDetailPage({
               {percentVsAvg === 0
                 ? "right at"
                 : `${Math.abs(percentVsAvg!)}% ${percentVsAvg! > 0 ? "above" : "below"}`}{" "}
-              the {listing.locality} avg ({formatRupees(localityStats.avgPricePerSqft!)}/sqft)
+              the {listing.locality} {propertyTypeLabel(listing.propertyType)} avg (
+              {formatRupees(localityStats.avgPricePerSqft!)}/sqft, based on {localityStats.sampleSize} active
+              listing{localityStats.sampleSize === 1 ? "" : "s"})
             </p>
           )}
           <div className="flex flex-wrap justify-end gap-2">
@@ -406,6 +424,33 @@ export default async function ListingDetailPage({
             </div>
           )}
 
+          {(nearestMetro || hubDistances.length > 0) && (
+            <div className="mt-8">
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">
+                Location &amp; connectivity
+              </h2>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                {nearestMetro && (
+                  <div>
+                    <dt className="text-xs text-stone-500">Nearest Metro station</dt>
+                    <dd className="text-sm font-medium text-stone-900">
+                      {nearestMetro.name} ({nearestMetro.distanceKm} km)
+                    </dd>
+                  </div>
+                )}
+                {hubDistances.map((hub) => (
+                  <div key={hub.name}>
+                    <dt className="text-xs text-stone-500">{hub.name}</dt>
+                    <dd className="text-sm font-medium text-stone-900">{hub.distanceKm} km</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2 text-xs text-stone-400">
+                Straight-line distance, not drive time — Hyderabad traffic varies too much for a reliable estimate.
+              </p>
+            </div>
+          )}
+
           {(() => {
             const unitDetails = [
               fieldSettings.towerName.public && listing.towerName && { label: "Tower", value: listing.towerName },
@@ -513,6 +558,8 @@ export default async function ListingDetailPage({
               </div>
             );
           })()}
+
+          <DocumentChecklist propertyType={listing.propertyType} />
 
           {(() => {
             const pricingDetails = [
