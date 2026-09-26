@@ -322,6 +322,20 @@ export async function getHomeCategories(): Promise<HomeCategory[]> {
   );
 }
 
+// Backs the homepage hero's trust-stat row (see (site)/page.tsx) with real
+// counts instead of hardcoded copy — cheap enough (two count(*) queries) to
+// run on every homepage request without a cache.
+export async function getHomeStats(): Promise<{ activeListings: number; projectCount: number }> {
+  const [[listingRow], [projectRow]] = await Promise.all([
+    db.select({ n: sql<number>`count(*)` }).from(listings).where(eq(listings.status, "active")),
+    db.select({ n: sql<number>`count(*)` }).from(projects),
+  ]);
+  return {
+    activeListings: listingRow?.n ?? 0,
+    projectCount: projectRow?.n ?? 0,
+  };
+}
+
 // ---- Admin: homepage tiles ----
 
 export async function getHomeTilesForAdmin() {

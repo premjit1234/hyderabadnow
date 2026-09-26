@@ -35,7 +35,7 @@ export default function ProjectCard({ project }: { project: ProjectCardData }) {
   return (
     <Link
       href={projectHref(project)}
-      className="group flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white transition hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft transition duration-300 hover:-translate-y-1 hover:border-stone-300 hover:shadow-lift"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
         {project.imageUrl ? (
@@ -49,17 +49,17 @@ export default function ProjectCard({ project }: { project: ProjectCardData }) {
         ) : (
           <div className="flex h-full items-center justify-center text-stone-400">No photo</div>
         )}
-        <span className="absolute left-2 top-2 rounded bg-stone-900/80 px-2 py-0.5 text-xs font-semibold text-white">
+        <span className="absolute left-2 top-2 rounded-full bg-stone-900/80 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
           {project.constructionStatus === "ready_to_move" ? "Ready to move" : "Under construction"}
         </span>
         {project.reraApprovalYear && (
-          <span className="absolute right-2 top-2 rounded bg-emerald-700/90 px-2 py-0.5 text-xs font-semibold text-white">
+          <span className="absolute right-2 top-2 rounded-full bg-emerald-700/90 px-2.5 py-0.5 text-xs font-semibold text-white shadow-soft">
             RERA
           </span>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3.5">
-        <p className="line-clamp-1 text-base font-bold text-stone-900">{project.name}</p>
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        <p className="line-clamp-1 text-base font-bold tracking-tight text-stone-900">{project.name}</p>
         <p className="text-sm text-stone-500">
           {project.locality}, {project.city}
         </p>

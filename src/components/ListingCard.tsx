@@ -22,7 +22,7 @@ export default function ListingCard({ listing }: { listing: ListingCardData }) {
   return (
     <Link
       href={`/listing/${listing.id}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white transition hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft transition duration-300 hover:-translate-y-1 hover:border-stone-300 hover:shadow-lift"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
         {listing.imageUrl ? (
@@ -38,23 +38,27 @@ export default function ListingCard({ listing }: { listing: ListingCardData }) {
         )}
         <div className="absolute left-2 top-2 flex flex-col items-start gap-1">
           {listing.featured && (
-            <span className="rounded bg-amber-600 px-2 py-0.5 text-xs font-semibold text-white">Featured</span>
+            <span className="rounded-full bg-amber-600 px-2.5 py-0.5 text-xs font-semibold text-white shadow-soft">
+              Featured
+            </span>
           )}
           {listing.verified && (
-            <span className="rounded bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">✓ Verified</span>
+            <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white shadow-soft">
+              ✓ Verified
+            </span>
           )}
         </div>
-        <span className="absolute right-2 top-2 rounded bg-stone-900/80 px-2 py-0.5 text-xs font-semibold text-white">
+        <span className="absolute right-2 top-2 rounded-full bg-stone-900/80 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
           {listing.listingType === "sale" ? "For Sale" : "For Rent"}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3.5">
-        <p className="text-lg font-bold text-stone-900">
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        <p className="text-lg font-bold tracking-tight text-stone-900">
           {formatPrice(listing.price, listing.listingType)}
         </p>
         <p className="line-clamp-1 text-sm font-medium text-stone-800">{listing.title}</p>
         <p className="text-sm text-stone-500">{listing.locality}, Hyderabad</p>
-        <div className="mt-1 flex items-center gap-3 text-xs text-stone-500">
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
           {listing.bhk ? <span>{listing.bhk} BHK</span> : null}
           {listing.bathrooms ? <span>{listing.bathrooms} Bathrooms</span> : null}
           {listing.carParking ? <span>{listing.carParking} Car Parking</span> : null}

@@ -1,6 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { getSiteSettings } from "@/db/queries";
+
+// A single modern, geometric-but-warm typeface for the whole site. Exposed
+// as the CSS variable --font-manrope (see globals.css, which wires it in as
+// the Tailwind `font-sans` stack) rather than applied directly here, so
+// every existing `font-sans` className site-wide picks it up automatically
+// — no per-component className changes needed for the typography lift.
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 // The whole site is built as a single light theme — every component uses
 // explicit light Tailwind colors (bg-white, text-stone-900, etc.), none of
@@ -46,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
 // own distinct shell (admin/layout.tsx) instead of the consumer-site chrome.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className={`h-full antialiased ${manrope.variable}`}>
       {/* Google AdSense site-verification snippet, rendered as a plain,
           literal <script> tag rather than next/script. We tried
           next/script with strategy="beforeInteractive" first, but that

@@ -31,7 +31,7 @@ export default function SearchBar({ localities }: { localities: string[] }) {
       <form
         action="/browse"
         method="GET"
-        className="mt-2 flex w-full flex-col gap-2 rounded-lg bg-white p-2 shadow-xl sm:flex-row sm:rounded-full"
+        className="mt-2 flex w-full flex-col gap-2 rounded-2xl bg-white p-2 shadow-hero sm:flex-row sm:rounded-full"
       >
         <input type="hidden" name="listingType" value={listingType} />
         <input
@@ -48,7 +48,7 @@ export default function SearchBar({ localities }: { localities: string[] }) {
         </datalist>
         <button
           type="submit"
-          className="rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+          className="rounded-full bg-emerald-700 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 active:scale-[0.98]"
         >
           Search
         </button>
