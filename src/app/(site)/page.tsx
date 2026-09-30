@@ -38,7 +38,7 @@ export default async function Home() {
     <main className="flex-1">
       <section className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 sm:pt-8">
         <div
-          className="relative isolate flex min-h-[600px] flex-col overflow-hidden rounded-3xl bg-indigo-950 bg-cover bg-center shadow-hero sm:min-h-[640px]"
+          className="relative isolate flex min-h-[560px] flex-col overflow-hidden rounded-3xl bg-indigo-950 bg-cover bg-center shadow-hero sm:min-h-0 sm:aspect-[16/7]"
           style={{ backgroundImage: `url(${heroImageUrl || "/hero-bg.jpg"})` }}
         >
           {/* Left-to-right scrim so hero copy stays legible while the
