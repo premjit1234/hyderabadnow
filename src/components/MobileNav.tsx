@@ -50,7 +50,7 @@ export default function MobileNav({
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
-                className="border-b border-stone-100 py-3 last:border-b-0 hover:text-emerald-700"
+                className="border-b border-stone-100 py-3 last:border-b-0 hover:text-indigo-600"
               >
                 {item.label}
               </Link>
@@ -58,21 +58,21 @@ export default function MobileNav({
             <div className="flex flex-col border-t border-stone-200 pt-2">
               {session ? (
                 <>
-                  <Link href="/dashboard" onClick={() => setOpen(false)} className="py-3 hover:text-emerald-700">
+                  <Link href="/dashboard" onClick={() => setOpen(false)} className="py-3 hover:text-indigo-600">
                     {session.name.split(" ")[0]}&apos;s account
                   </Link>
                   <form action={logoutAction}>
-                    <button type="submit" className="w-full py-3 text-left hover:text-emerald-700">
+                    <button type="submit" className="w-full py-3 text-left hover:text-indigo-600">
                       Log out
                     </button>
                   </form>
                 </>
               ) : (
                 <>
-                  <Link href="/login" onClick={() => setOpen(false)} className="py-3 hover:text-emerald-700">
+                  <Link href="/login" onClick={() => setOpen(false)} className="py-3 hover:text-indigo-600">
                     Log in
                   </Link>
-                  <Link href="/signup" onClick={() => setOpen(false)} className="py-3 hover:text-emerald-700">
+                  <Link href="/signup" onClick={() => setOpen(false)} className="py-3 hover:text-indigo-600">
                     Sign up
                   </Link>
                 </>

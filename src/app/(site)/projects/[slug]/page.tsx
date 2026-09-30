@@ -195,7 +195,7 @@ function ReraBadge({
 
   const badge = (
     <div className="flex flex-col items-center gap-0.5 text-center">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-8 w-8 text-emerald-700">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-8 w-8 text-indigo-600">
         <path d="M12 3.5 5 6v5.5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9V6l-7-2.5Z" strokeLinejoin="round" />
         <path d="m9.5 12 1.8 1.8 3.2-3.6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -309,7 +309,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScriptContent(projectBreadcrumbJsonLd) }}
       />
-      <Link href="/projects" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-emerald-700">
+      <Link href="/projects" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-indigo-600">
         ← Back to projects
       </Link>
 
@@ -388,7 +388,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
           <a
             href="#active-listings"
-            className="mt-4 block rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-600 underline-offset-2 transition hover:bg-stone-100 hover:text-emerald-700 hover:underline"
+            className="mt-4 block rounded-lg bg-stone-50 px-3 py-2.5 text-sm text-stone-600 underline-offset-2 transition hover:bg-stone-100 hover:text-indigo-600 hover:underline"
           >
             {saleListings.length + rentListings.length} active listing
             {saleListings.length + rentListings.length === 1 ? "" : "s"} in this project — {saleListings.length} for
@@ -396,21 +396,21 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </a>
 
           {(salePriceRange || rentPriceRange) && (
-            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
+            <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
               {salePriceRange && (
-                <p className="text-lg font-bold text-emerald-800">
+                <p className="text-lg font-bold text-indigo-800">
                   {salePriceRange.min === salePriceRange.max
                     ? formatPrice(salePriceRange.min, "sale")
                     : `${formatPrice(salePriceRange.min, "sale")} – ${formatPrice(salePriceRange.max, "sale")}`}
-                  <span className="ml-1.5 text-xs font-normal text-emerald-700">for sale</span>
+                  <span className="ml-1.5 text-xs font-normal text-indigo-700">for sale</span>
                 </p>
               )}
               {rentPriceRange && (
-                <p className={salePriceRange ? "mt-1 text-sm font-semibold text-emerald-800" : "text-lg font-bold text-emerald-800"}>
+                <p className={salePriceRange ? "mt-1 text-sm font-semibold text-indigo-800" : "text-lg font-bold text-indigo-800"}>
                   {rentPriceRange.min === rentPriceRange.max
                     ? formatPrice(rentPriceRange.min, "rent")
                     : `${formatPrice(rentPriceRange.min, "rent")} – ${formatPrice(rentPriceRange.max, "rent")}`}
-                  <span className="ml-1.5 text-xs font-normal text-emerald-700">for rent</span>
+                  <span className="ml-1.5 text-xs font-normal text-indigo-700">for rent</span>
                 </p>
               )}
             </div>
@@ -421,7 +421,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               {project.contactPhone && (
                 <a
                   href={`tel:${project.contactPhone}`}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-stone-200 px-3 py-2 text-sm font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-stone-200 px-3 py-2 text-sm font-medium text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
                 >
                   <PhoneIcon className="h-4 w-4 shrink-0" />
                   Call
@@ -475,7 +475,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             {project.developerName && (
               <>
                 {" "}
-                It is being developed by <span className="font-semibold text-emerald-700">{project.developerName}</span>.
+                It is being developed by <span className="font-semibold text-indigo-600">{project.developerName}</span>.
               </>
             )}
           </p>
@@ -502,7 +502,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                         href="https://rera.telangana.gov.in"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-xs font-medium text-emerald-700 hover:underline"
+                        className="text-xs font-medium text-indigo-600 hover:underline"
                       >
                         Verify on Telangana RERA →
                       </a>
@@ -577,7 +577,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <div className="grid max-h-52 grid-cols-2 gap-x-4 gap-y-3 overflow-y-auto pr-2 sm:grid-cols-3">
               {projectAmenities.map((a) => (
                 <div key={a.key} className="flex items-center gap-2 text-sm text-stone-700">
-                  <AmenityIcon icon={a.icon} className="h-5 w-5 shrink-0 text-emerald-700" />
+                  <AmenityIcon icon={a.icon} className="h-5 w-5 shrink-0 text-indigo-600" />
                   {a.label}
                 </div>
               ))}
@@ -590,7 +590,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   href={project.brochureUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-md border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                  className="rounded-md border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
                 >
                   Brochure
                 </a>
@@ -600,7 +600,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   href={project.developerUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-md border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                  className="rounded-md border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
                 >
                   Developer
                 </a>
@@ -616,7 +616,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             <h2 className="text-lg font-bold text-stone-900">Pricing breakdown</h2>
             <Link
               href={`/projects/compare?ids=${project.id}`}
-              className="text-sm font-medium text-emerald-700 hover:underline"
+              className="text-sm font-medium text-indigo-600 hover:underline"
             >
               Compare with other projects →
             </Link>
@@ -642,10 +642,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             })}
           </div>
           {estimatedTotal != null && (
-            <div className="mt-4 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3">
-              <p className="text-lg font-bold text-emerald-800">
+            <div className="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 px-4 py-3">
+              <p className="text-lg font-bold text-indigo-800">
                 {formatRupees(estimatedTotal)}
-                <span className="ml-1.5 text-xs font-normal text-emerald-700">estimated all-in price</span>
+                <span className="ml-1.5 text-xs font-normal text-indigo-700">estimated all-in price</span>
               </p>
               <p className="mt-1 text-xs text-stone-500">
                 Estimated at the smallest unit size ({project.minAreaSqft?.toLocaleString("en-IN")} sqft) with one car

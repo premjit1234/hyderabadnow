@@ -57,7 +57,7 @@ export default function ShareListingButton({ url, title }: { url: string; title:
       type="button"
       onClick={handleShare}
       data-testid="share-listing-button"
-      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-stone-200 py-2 text-sm font-medium text-stone-600 hover:border-emerald-600 hover:text-emerald-700"
+      className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-stone-200 py-2 text-sm font-medium text-stone-600 hover:border-indigo-500 hover:text-indigo-600"
     >
       <ShareIcon className="h-4 w-4" />
       {copied ? "Link copied!" : "Share this listing"}

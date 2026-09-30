@@ -37,9 +37,9 @@ export default async function Home() {
   return (
     <main className="flex-1">
       <section
-        className="relative overflow-hidden bg-stone-900 bg-cover bg-center pb-28 pt-20 sm:pb-32 sm:pt-28"
+        className="relative overflow-hidden bg-indigo-950 bg-cover bg-center pb-28 pt-20 sm:pb-32 sm:pt-28"
         style={{
-          backgroundImage: `linear-gradient(rgba(12,10,9,0.45), rgba(12,10,9,0.72)), url(${heroImageUrl || "/hero-bg.jpg"})`,
+          backgroundImage: `linear-gradient(rgba(49,29,127,0.55), rgba(30,27,75,0.82)), url(${heroImageUrl || "/hero-bg.jpg"})`,
         }}
       >
         {/* Soft color blobs for depth — pure CSS, no imagery, so they never
@@ -47,22 +47,22 @@ export default async function Home() {
             heavily blurred) so they read as ambient light, not decoration. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-emerald-500/25 blur-[100px]"
+          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-violet-500/25 blur-[100px]"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-16 top-1/3 h-80 w-80 rounded-full bg-indigo-500/20 blur-[100px]"
+          className="pointer-events-none absolute -right-16 top-1/3 h-80 w-80 rounded-full bg-indigo-400/20 blur-[100px]"
         />
 
         <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
           <h1 className="animate-fade-up text-4xl font-extrabold tracking-tight text-white sm:text-6xl">
             Find your next home in{" "}
-            <span className="bg-gradient-to-r from-emerald-300 to-emerald-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
               Hyderabad
             </span>
           </h1>
           <p
-            className="animate-fade-up mt-4 text-base text-stone-200 sm:text-lg"
+            className="animate-fade-up mt-4 text-base text-indigo-100 sm:text-lg"
             style={{ animationDelay: "80ms" }}
           >
             Listings posted directly by agents and owners — no middlemen.
@@ -70,12 +70,12 @@ export default async function Home() {
 
           {trustStats.length > 0 && (
             <ul
-              className="animate-fade-up mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-stone-300"
+              className="animate-fade-up mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-indigo-200"
               style={{ animationDelay: "140ms" }}
             >
               {trustStats.map((stat) => (
                 <li key={stat} className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-emerald-400">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-violet-300">
                     <path
                       fillRule="evenodd"
                       d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
@@ -108,12 +108,12 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">Handpicked</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Handpicked</p>
             <h2 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Featured listings</h2>
           </div>
           <Link
             href="/browse"
-            className="group inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-soft transition hover:border-emerald-600 hover:text-emerald-700"
+            className="group inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-soft transition hover:border-indigo-500 hover:text-indigo-600"
           >
             View all
             <span aria-hidden className="transition group-hover:translate-x-0.5">
@@ -139,12 +139,12 @@ export default async function Home() {
       <section className="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
         <div className="mb-6 flex items-end justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-700">Communities</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600">Communities</p>
             <h2 className="mt-1 text-2xl font-bold tracking-tight text-stone-900">Featured projects</h2>
           </div>
           <Link
             href="/projects"
-            className="group inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-soft transition hover:border-emerald-600 hover:text-emerald-700"
+            className="group inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-soft transition hover:border-violet-500 hover:text-violet-600"
           >
             View all
             <span aria-hidden className="transition group-hover:translate-x-0.5">
@@ -172,7 +172,7 @@ export default async function Home() {
                 <Link
                   key={locality}
                   href={`/browse?q=${encodeURIComponent(locality)}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-4 py-1.5 text-sm text-stone-700 shadow-soft transition hover:-translate-y-0.5 hover:border-emerald-600 hover:text-emerald-700 hover:shadow-lift"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-4 py-1.5 text-sm text-stone-700 shadow-soft transition hover:-translate-y-0.5 hover:border-indigo-500 hover:text-indigo-600 hover:shadow-lift"
                 >
                   <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0 text-stone-400">
                     <path
@@ -190,16 +190,16 @@ export default async function Home() {
       )}
 
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-        <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-stone-900 via-stone-900 to-emerald-950 px-6 py-14 text-center shadow-hero sm:px-12">
+        <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-800 px-6 py-14 text-center shadow-hero sm:px-12">
           <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
             Are you an agent or property owner?
           </h2>
-          <p className="mx-auto mt-3 max-w-xl text-stone-300">
+          <p className="mx-auto mt-3 max-w-xl text-indigo-200">
             Post your listing directly — no middlemen, reach buyers and tenants across Hyderabad.
           </p>
           <Link
             href="/post-listing"
-            className="mt-7 inline-block rounded-full bg-emerald-500 px-7 py-3 text-sm font-semibold text-stone-950 shadow-lift transition hover:-translate-y-0.5 hover:bg-emerald-400"
+            className="mt-7 inline-block rounded-full bg-white px-7 py-3 text-sm font-semibold text-indigo-700 shadow-lift transition hover:-translate-y-0.5 hover:bg-indigo-50"
           >
             Post a property
           </Link>

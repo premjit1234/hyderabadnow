@@ -20,19 +20,19 @@ export default async function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-auto border-t border-stone-800 bg-stone-900 text-stone-300">
+    <footer className="mt-auto border-t border-indigo-900 bg-indigo-950 text-indigo-200">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded bg-emerald-600 text-sm font-bold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-sm font-bold text-white">
                 H
               </span>
               <span className="text-lg font-bold tracking-tight text-white">
-                hyderabad<span className="text-emerald-400">now</span>
+                hyderabad<span className="text-violet-300">now</span>
               </span>
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-stone-400">
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-indigo-300">
               Property listings for Hyderabad, posted directly by agents and owners — no middlemen, no hidden
               brokerage.
             </p>
@@ -45,7 +45,7 @@ export default async function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={link.label}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-stone-700 text-stone-400 transition hover:border-emerald-500 hover:text-emerald-400"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-800 text-indigo-300 transition hover:border-violet-400 hover:text-violet-300"
                   >
                     <SocialIcon platform={link.platform} className="h-4 w-4" />
                   </a>
@@ -59,7 +59,7 @@ export default async function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm">
               {EXPLORE_LINKS.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-stone-400 transition hover:text-emerald-400">
+                  <Link href={link.href} className="text-indigo-300 transition hover:text-violet-300">
                     {link.label}
                   </Link>
                 </li>
@@ -73,7 +73,7 @@ export default async function Footer() {
               <ul className="mt-4 space-y-2.5 text-sm">
                 {legalPages.map((page) => (
                   <li key={page.slug}>
-                    <Link href={`/${page.slug}`} className="text-stone-400 transition hover:text-emerald-400">
+                    <Link href={`/${page.slug}`} className="text-indigo-300 transition hover:text-violet-300">
                       {page.title}
                     </Link>
                   </li>
@@ -83,7 +83,7 @@ export default async function Footer() {
           )}
         </div>
 
-        <div className="mt-10 flex flex-col items-center gap-3 border-t border-stone-800 pt-6 text-xs text-stone-500 sm:flex-row sm:justify-between">
+        <div className="mt-10 flex flex-col items-center gap-3 border-t border-indigo-900 pt-6 text-xs text-indigo-400 sm:flex-row sm:justify-between">
           <p>© {year} HyderabadNow. All rights reserved.</p>
           <p>Made for Hyderabad&apos;s homebuyers and tenants.</p>
         </div>

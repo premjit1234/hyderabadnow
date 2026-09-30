@@ -104,7 +104,7 @@ export default function ProjectSaveShareButtons({ projectId, projectName }: { pr
       <button
         type="button"
         onClick={share}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-stone-200 px-3 py-2 text-sm font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-stone-200 px-3 py-2 text-sm font-medium text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
       >
         <ShareIcon className="h-4 w-4 shrink-0" />
         {copied ? "Link copied!" : "Share"}

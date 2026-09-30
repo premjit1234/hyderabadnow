@@ -46,7 +46,7 @@ export default async function Header() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={link.label}
-                className="text-stone-400 transition hover:text-emerald-700"
+                className="text-stone-400 transition hover:text-indigo-600"
               >
                 <SocialIcon platform={link.platform} className="h-3.5 w-3.5" />
               </a>
@@ -65,7 +65,7 @@ export default async function Header() {
             </span>
           ) : (
             <>
-              <span className="flex h-7 w-7 items-center justify-center rounded bg-emerald-700 text-sm font-bold text-white">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-bold text-white">
                 H
               </span>
               {/* Hidden below `sm` so the mobile header (icon-only logo) has
@@ -73,54 +73,54 @@ export default async function Header() {
                   the hamburger without overflowing on narrow phones — the
                   full wordmark comes back once there's space for it. */}
               <span className="hidden text-lg font-bold tracking-tight text-stone-900 sm:inline">
-                hyderabad<span className="text-emerald-700">now</span>
+                hyderabad<span className="text-indigo-600">now</span>
               </span>
             </>
           )}
         </Link>
 
         <nav className="hidden items-center gap-6 text-[15px] font-medium text-stone-700 md:flex">
-          <Link href="/browse?listingType=sale" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/browse?listingType=sale" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Buy
           </Link>
-          <Link href="/browse?listingType=rent" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/browse?listingType=rent" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Rent
           </Link>
-          <Link href="/post-listing" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/post-listing" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Sell
           </Link>
-          <Link href="/browse" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/browse" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             All listings
           </Link>
-          <Link href="/projects" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/projects" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Projects
           </Link>
-          <Link href="/areas" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/areas" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Neighborhood
           </Link>
-          <Link href="/blog" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+          <Link href="/blog" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
             Blog
           </Link>
           {canPost && (
-            <Link href="/dashboard" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+            <Link href="/dashboard" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
               My listings
             </Link>
           )}
           {session && (
             <Link
               href="/messages"
-              className="flex items-center gap-1.5 border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800"
+              className="flex items-center gap-1.5 border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700"
             >
               Messages
               {unreadMessages > 0 && (
-                <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-xs font-semibold text-white">
+                <span className="rounded-full bg-indigo-600 px-1.5 py-0.5 text-xs font-semibold text-white">
                   {unreadMessages}
                 </span>
               )}
             </Link>
           )}
           {session?.role === "admin" && (
-            <Link href="/admin" className="border-b-2 border-transparent py-1 hover:border-emerald-700 hover:text-emerald-800">
+            <Link href="/admin" className="border-b-2 border-transparent py-1 hover:border-indigo-600 hover:text-indigo-700">
               Admin
             </Link>
           )}
@@ -129,13 +129,13 @@ export default async function Header() {
         <div className="ml-auto hidden items-center gap-4 md:flex">
           <Link
             href="/post-listing"
-            className="rounded-full bg-emerald-700 px-4 py-2 text-[15px] font-semibold text-white hover:bg-emerald-800"
+            className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-[15px] font-semibold text-white shadow-soft transition hover:from-indigo-700 hover:to-violet-700"
           >
             Post a property
           </Link>
           {session ? (
             <div className="flex items-center gap-4 text-[15px]">
-              <Link href="/dashboard" className="hidden font-medium text-stone-700 hover:text-emerald-700 sm:inline">
+              <Link href="/dashboard" className="hidden font-medium text-stone-700 hover:text-indigo-600 sm:inline">
                 {session.name.split(" ")[0]}
               </Link>
               <form action={logoutAction}>
@@ -151,7 +151,7 @@ export default async function Header() {
               </Link>
               <Link
                 href="/signup"
-                className="rounded-full bg-stone-900 px-4 py-2 text-[15px] font-semibold text-white hover:bg-stone-800"
+                className="rounded-full bg-indigo-950 px-4 py-2 text-[15px] font-semibold text-white hover:bg-indigo-900"
               >
                 Sign up
               </Link>
@@ -160,12 +160,12 @@ export default async function Header() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 md:hidden">
-          <Link href="/browse" className="text-sm font-semibold whitespace-nowrap text-stone-700 hover:text-emerald-700">
+          <Link href="/browse" className="text-sm font-semibold whitespace-nowrap text-stone-700 hover:text-indigo-600">
             All listings
           </Link>
           <Link
             href="/post-listing"
-            className="rounded-full bg-emerald-700 px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap text-white hover:bg-emerald-800"
+            className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-1.5 text-sm font-semibold whitespace-nowrap text-white shadow-soft transition hover:from-indigo-700 hover:to-violet-700"
           >
             Post a property
           </Link>

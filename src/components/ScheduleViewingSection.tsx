@@ -42,7 +42,7 @@ export default function ScheduleViewingSection({ slots }: { slots: Slot[] }) {
           type="button"
           onClick={() => setSelectedSlotId(s.id)}
           className={`flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm transition ${
-            selectedSlotId === s.id ? "border-emerald-600 bg-emerald-50" : "border-stone-200 hover:border-emerald-300"
+            selectedSlotId === s.id ? "border-indigo-500 bg-indigo-50" : "border-stone-200 hover:border-indigo-300"
           }`}
         >
           <span className="font-medium text-stone-800">
@@ -55,7 +55,7 @@ export default function ScheduleViewingSection({ slots }: { slots: Slot[] }) {
       ))}
 
       {selectedSlotId != null && (
-        <form action={formAction} className="mt-1 flex flex-col gap-2 rounded-md border border-emerald-200 bg-emerald-50/50 p-3">
+        <form action={formAction} className="mt-1 flex flex-col gap-2 rounded-md border border-indigo-200 bg-indigo-50/50 p-3">
           <input type="hidden" name="slotId" value={selectedSlotId} />
           <textarea
             name="note"
@@ -67,7 +67,7 @@ export default function ScheduleViewingSection({ slots }: { slots: Slot[] }) {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-emerald-700 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+            className="rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white transition hover:from-indigo-700 hover:to-violet-700 disabled:opacity-60"
           >
             {pending ? "Booking..." : "Confirm booking"}
           </button>

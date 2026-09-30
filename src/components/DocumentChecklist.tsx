@@ -18,7 +18,7 @@ export default function DocumentChecklist({ propertyType }: { propertyType: stri
       <ul className="mt-3 flex flex-col gap-2 text-sm text-stone-700">
         {items.map((item) => (
           <li key={item} className="flex items-start gap-2">
-            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
             {item}
           </li>
         ))}

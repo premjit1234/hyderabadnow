@@ -95,7 +95,7 @@ export default async function BrowsePage({
         <SaveSearchButton userId={session?.id ?? null} queryString={currentQueryString} />
       </div>
 
-      <form method="GET" className="mt-6 rounded-lg border border-stone-200 p-4">
+      <form method="GET" className="mt-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-soft">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -106,7 +106,7 @@ export default async function BrowsePage({
               name="q"
               defaultValue={q}
               placeholder="e.g. Kondapur"
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             />
           </div>
           <div>
@@ -116,7 +116,7 @@ export default async function BrowsePage({
             <select
               name="projectId"
               defaultValue={projectId ? String(projectId) : ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Any</option>
               {projectOptions.map((p) => (
@@ -133,7 +133,7 @@ export default async function BrowsePage({
             <select
               name="listingType"
               defaultValue={listingType ?? ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Any</option>
               <option value="sale">Buy</option>
@@ -147,7 +147,7 @@ export default async function BrowsePage({
             <select
               name="propertyType"
               defaultValue={propertyType ?? ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Any</option>
               {PROPERTY_TYPES.map((t) => (
@@ -164,7 +164,7 @@ export default async function BrowsePage({
             <select
               name="bhk"
               defaultValue={bhk ? String(bhk) : ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Any</option>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -181,7 +181,7 @@ export default async function BrowsePage({
             <select
               name="priceRange"
               defaultValue={priceRange ?? ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Any</option>
               {PRICE_RANGES.map((r) => (
@@ -198,7 +198,7 @@ export default async function BrowsePage({
             <select
               name="sort"
               defaultValue={sort ?? ""}
-              className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+              className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
             >
               <option value="">Relevance</option>
               <option value="newest">Newest first</option>
@@ -219,7 +219,7 @@ export default async function BrowsePage({
                 <select
                   name="facing"
                   defaultValue={facing ?? ""}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                  className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
                 >
                   <option value="">Any</option>
                   {FACING_OPTIONS.map((f) => (
@@ -238,7 +238,7 @@ export default async function BrowsePage({
                 <select
                   name="floor"
                   defaultValue={floor ?? ""}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                  className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
                 >
                   <option value="">Any</option>
                   {FLOOR_RANGES.map((r) => (
@@ -257,7 +257,7 @@ export default async function BrowsePage({
                 <select
                   name="furnishingStatus"
                   defaultValue={furnishingStatus ?? ""}
-                  className="w-full rounded-md border border-stone-200 px-2.5 py-2 text-sm"
+                  className="w-full rounded-lg border border-stone-200 px-2.5 py-2 text-sm"
                 >
                   <option value="">Any</option>
                   {FURNISHING_OPTIONS.map((f) => (
@@ -293,10 +293,10 @@ export default async function BrowsePage({
                 <Link
                   key={loc.id}
                   href={`/browse?q=${encodeURIComponent(loc.name)}`}
-                  className={`rounded-full border px-3.5 py-1.5 text-sm ${
+                  className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
                     q === loc.name
-                      ? "border-emerald-700 bg-emerald-700 text-white"
-                      : "border-stone-200 bg-white text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                      ? "border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
+                      : "border-stone-200 bg-white text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
                   }`}
                 >
                   {loc.name}
@@ -316,10 +316,10 @@ export default async function BrowsePage({
                 <Link
                   key={p.id}
                   href={`/browse?projectId=${p.id}`}
-                  className={`rounded-full border px-3.5 py-1.5 text-sm ${
+                  className={`rounded-full border px-3.5 py-1.5 text-sm transition ${
                     projectId === p.id
-                      ? "border-emerald-700 bg-emerald-700 text-white"
-                      : "border-stone-200 bg-white text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                      ? "border-transparent bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
+                      : "border-stone-200 bg-white text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
                   }`}
                 >
                   {p.name}
@@ -332,7 +332,7 @@ export default async function BrowsePage({
         <div className="mt-3 flex items-center gap-4">
           <button
             type="submit"
-            className="rounded-md bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+            className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:from-indigo-700 hover:to-violet-700"
           >
             Apply filters
           </button>

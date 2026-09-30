@@ -260,7 +260,7 @@ export default async function ListingDetailPage({
       />
       <Link
         href="/browse"
-        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-emerald-700"
+        className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-stone-500 hover:text-indigo-600"
       >
         ← Back to listings
       </Link>
@@ -284,7 +284,7 @@ export default async function ListingDetailPage({
           )}
         </div>
         <div className="flex flex-col items-end gap-2">
-          <p className="text-2xl font-extrabold text-emerald-700 sm:text-3xl">
+          <p className="text-2xl font-extrabold text-indigo-700 sm:text-3xl">
             {formatPrice(listing.price, listing.listingType as "sale" | "rent")}
           </p>
           {showPriceComparison && (
@@ -316,7 +316,7 @@ export default async function ListingDetailPage({
             >
               {listing.verified ? "✓ Verified" : "Not Verified"}
             </span>
-            <span className="rounded-full bg-stone-900 px-2.5 py-1 text-xs font-semibold text-white">
+            <span className="rounded-full bg-indigo-950 px-2.5 py-1 text-xs font-semibold text-white">
               {listing.listingType === "sale" ? "For Sale" : "For Rent"}
             </span>
           </div>
@@ -330,7 +330,7 @@ export default async function ListingDetailPage({
           <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-stone-50 p-4 sm:grid-cols-3">
             {listing.bhk != null && (
               <div className="flex items-center gap-2.5">
-                <BedIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <BedIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Bedrooms</p>
                   <p className="text-sm font-semibold text-stone-900">{listing.bhk} BHK</p>
@@ -339,7 +339,7 @@ export default async function ListingDetailPage({
             )}
             {listing.bathrooms != null && (
               <div className="flex items-center gap-2.5">
-                <BathIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <BathIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Bathrooms</p>
                   <p className="text-sm font-semibold text-stone-900">{listing.bathrooms}</p>
@@ -348,7 +348,7 @@ export default async function ListingDetailPage({
             )}
             {listing.carParking != null && (
               <div className="flex items-center gap-2.5">
-                <ParkingIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <ParkingIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Car Parking</p>
                   <p className="text-sm font-semibold text-stone-900">{listing.carParking}</p>
@@ -357,7 +357,7 @@ export default async function ListingDetailPage({
             )}
             {listing.areaSqft != null && (
               <div className="flex items-center gap-2.5">
-                <AreaIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+                <AreaIcon className="h-5 w-5 shrink-0 text-indigo-600" />
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Area</p>
                   <p className="text-sm font-semibold text-stone-900">
@@ -367,7 +367,7 @@ export default async function ListingDetailPage({
               </div>
             )}
             <div className="flex items-center gap-2.5">
-              <BuildingIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+              <BuildingIcon className="h-5 w-5 shrink-0 text-indigo-600" />
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-stone-500">Type</p>
                 <p className="text-sm font-semibold text-stone-900">
@@ -376,7 +376,7 @@ export default async function ListingDetailPage({
               </div>
             </div>
             <div className="flex items-center gap-2.5">
-              <TagIcon className="h-5 w-5 shrink-0 text-emerald-700" />
+              <TagIcon className="h-5 w-5 shrink-0 text-indigo-600" />
               <div>
                 <p className="text-[11px] uppercase tracking-wide text-stone-500">Listing</p>
                 <p className="text-sm font-semibold text-stone-900">
@@ -644,7 +644,7 @@ export default async function ListingDetailPage({
                   <div className="flex flex-wrap gap-x-5 gap-y-2">
                     {listingAmenities.map((a) => (
                       <span key={a.key} className="flex items-center gap-1.5 text-sm font-medium text-stone-700">
-                        <AmenityIcon icon={iconForAmenity(a.key)} className="h-4 w-4 text-emerald-700" />
+                        <AmenityIcon icon={iconForAmenity(a.key)} className="h-4 w-4 text-indigo-600" />
                         {a.label}
                       </span>
                     ))}
@@ -683,7 +683,7 @@ export default async function ListingDetailPage({
                     </div>
                     <Link
                       href={projectHref(project)}
-                      className="whitespace-nowrap rounded-md bg-stone-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-stone-800"
+                      className="whitespace-nowrap rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-3.5 py-2 text-sm font-semibold text-white shadow-soft transition hover:from-indigo-700 hover:to-violet-700"
                     >
                       View project details →
                     </Link>
@@ -702,7 +702,7 @@ export default async function ListingDetailPage({
                     <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-stone-200 pt-4">
                       {projectAmenities.slice(0, 6).map((a) => (
                         <span key={a.key} className="flex items-center gap-1.5 text-xs font-medium text-stone-600">
-                          <AmenityIcon icon={a.icon} className="h-4 w-4 text-emerald-700" />
+                          <AmenityIcon icon={a.icon} className="h-4 w-4 text-indigo-600" />
                           {a.label}
                         </span>
                       ))}
@@ -727,7 +727,7 @@ export default async function ListingDetailPage({
         <div className="lg:col-span-1">
           <div className="sticky top-20 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-base font-bold text-white">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-base font-bold text-white">
                 {(listing.owner?.name ?? "O").charAt(0).toUpperCase()}
               </span>
               <div>
@@ -742,7 +742,7 @@ export default async function ListingDetailPage({
             </div>
             {listing.owner?.phone && (
               <p className="mt-3 flex items-center gap-1.5 text-sm font-medium text-stone-700">
-                <PhoneIcon className="h-4 w-4 text-emerald-700" />
+                <PhoneIcon className="h-4 w-4 text-indigo-600" />
                 {listing.owner.phone}
                 {listing.owner.phoneVerified && (
                   <span
@@ -762,9 +762,9 @@ export default async function ListingDetailPage({
                 </p>
                 <a
                   href={`tel:${listing.contactPhone}`}
-                  className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-emerald-700"
+                  className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-indigo-600"
                 >
-                  <PhoneIcon className="h-4 w-4 text-emerald-700" />
+                  <PhoneIcon className="h-4 w-4 text-indigo-600" />
                   {listing.contactPhone}
                 </a>
                 {whatsappLink && (
@@ -812,7 +812,7 @@ export default async function ListingDetailPage({
               <div className="mt-4 border-t border-stone-200 pt-4">
                 <p className="mb-1 text-sm font-semibold text-stone-900">Schedule a viewing</p>
                 <p className="text-xs text-stone-400">
-                  <Link href="/login" className="font-medium text-emerald-700 hover:underline">
+                  <Link href="/login" className="font-medium text-indigo-600 hover:underline">
                     Log in
                   </Link>{" "}
                   to book a viewing slot.
@@ -824,7 +824,7 @@ export default async function ListingDetailPage({
               <p className="mb-3 text-sm font-semibold text-stone-900">Send a message</p>
               {!session && (
                 <p className="mb-2 text-xs text-stone-400">
-                  <Link href="/login" className="font-medium text-emerald-700 hover:underline">
+                  <Link href="/login" className="font-medium text-indigo-600 hover:underline">
                     Log in
                   </Link>{" "}
                   to chat directly with the lister, or send a one-off message below without an account.

@@ -16,7 +16,7 @@ export default function SaveSearchButton({ userId, queryString }: { userId: numb
 
   if (userId == null) {
     return (
-      <Link href="/login" className="text-xs font-medium text-emerald-700 hover:underline">
+      <Link href="/login" className="text-xs font-medium text-indigo-600 hover:underline">
         Log in to save this search
       </Link>
     );
@@ -31,7 +31,7 @@ export default function SaveSearchButton({ userId, queryString }: { userId: numb
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+        className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
       >
         Save this search
       </button>
@@ -49,7 +49,7 @@ export default function SaveSearchButton({ userId, queryString }: { userId: numb
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+        className="rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-indigo-700 hover:to-violet-700 disabled:opacity-60"
       >
         {pending ? "Saving…" : "Save"}
       </button>

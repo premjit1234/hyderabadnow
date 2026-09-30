@@ -52,7 +52,7 @@ export default function ProjectGallery({
               type="button"
               onClick={() => setActiveIndex(i)}
               className={`relative h-16 w-24 shrink-0 overflow-hidden rounded-md border-2 ${
-                i === activeIndex ? "border-emerald-600" : "border-transparent"
+                i === activeIndex ? "border-indigo-500" : "border-transparent"
               }`}
             >
               <Image src={img.url} alt="" fill sizes="96px" className="object-cover" />

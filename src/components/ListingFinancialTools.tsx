@@ -93,14 +93,14 @@ export default function ListingFinancialTools({ price }: { price: number }) {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-emerald-50 p-4 sm:grid-cols-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 rounded-lg bg-indigo-50 p-4 sm:grid-cols-3">
             <div>
               <p className="text-xs font-medium text-stone-500">Loan amount</p>
               <p className="text-lg font-bold text-stone-900">{formatRupees(emi.loanAmount)}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-stone-500">Monthly EMI</p>
-              <p className="text-lg font-bold text-emerald-700">{formatRupees(emi.emi)}</p>
+              <p className="text-lg font-bold text-indigo-700">{formatRupees(emi.emi)}</p>
             </div>
             <div>
               <p className="text-xs font-medium text-stone-500">Total interest</p>
@@ -128,7 +128,7 @@ export default function ListingFinancialTools({ price }: { price: number }) {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-emerald-50 p-4 sm:grid-cols-4">
+          <div className="mt-4 grid grid-cols-2 gap-3 rounded-lg bg-indigo-50 p-4 sm:grid-cols-4">
             <div>
               <p className="text-xs font-medium text-stone-500">Stamp duty</p>
               <p className="text-base font-bold text-stone-900">{formatRupees(stampDuty.stampDuty)}</p>
@@ -145,7 +145,7 @@ export default function ListingFinancialTools({ price }: { price: number }) {
             </div>
             <div>
               <p className="text-xs font-medium text-stone-500">Total payable</p>
-              <p className="text-base font-bold text-emerald-700">{formatRupees(stampDuty.total)}</p>
+              <p className="text-base font-bold text-indigo-700">{formatRupees(stampDuty.total)}</p>
             </div>
           </div>
           <p className="mt-2 text-xs text-stone-500">
@@ -156,7 +156,7 @@ export default function ListingFinancialTools({ price }: { price: number }) {
               href="https://registration.telangana.gov.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-emerald-700 hover:underline"
+              className="text-indigo-600 hover:underline"
             >
               IGRS Telangana portal
             </a>{" "}

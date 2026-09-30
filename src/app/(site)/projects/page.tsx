@@ -74,7 +74,7 @@ export default async function ProjectsPage({
               <Link
                 key={project.id}
                 href={projectHref(project)}
-                className="rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-sm text-stone-700 hover:border-emerald-600 hover:text-emerald-700"
+                className="rounded-full border border-stone-200 bg-white px-3.5 py-1.5 text-sm text-stone-700 hover:border-indigo-500 hover:text-indigo-600"
               >
                 {project.name}
               </Link>
@@ -85,7 +85,7 @@ export default async function ProjectsPage({
 
       <form
         method="GET"
-        className="mb-6 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white p-3"
+        className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-white p-3 shadow-soft"
       >
         <input
           type="text"
@@ -174,7 +174,7 @@ export default async function ProjectsPage({
         </details>
         <button
           type="submit"
-          className="rounded-full bg-emerald-700 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
+          className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2 text-sm font-semibold text-white shadow-soft transition hover:from-indigo-700 hover:to-violet-700"
         >
           Apply
         </button>
@@ -229,7 +229,7 @@ export default async function ProjectsPage({
                 return (
                   <div
                     key={p.id}
-                    className="group relative flex flex-col overflow-hidden rounded-lg border border-stone-200 bg-white transition hover:shadow-md"
+                    className="group relative flex flex-col overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-soft transition duration-300 hover:-translate-y-1 hover:border-stone-300 hover:shadow-lift"
                   >
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-100">
                       {p.imageUrl ? (
@@ -243,11 +243,11 @@ export default async function ProjectsPage({
                       ) : (
                         <div className="flex h-full items-center justify-center text-stone-400">No photo</div>
                       )}
-                      <span className="absolute left-2 top-2 rounded bg-stone-900/80 px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="absolute left-2 top-2 rounded-full bg-indigo-950/80 px-2.5 py-0.5 text-xs font-semibold text-white backdrop-blur-sm">
                         {p.constructionStatus === "ready_to_move" ? "Ready to move" : "Under construction"}
                       </span>
                       {p.reraApprovalYear && (
-                        <span className="absolute right-2 top-2 rounded bg-emerald-700/90 px-2 py-0.5 text-xs font-semibold text-white">
+                        <span className="absolute right-2 top-2 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white shadow-soft">
                           RERA
                         </span>
                       )}
@@ -267,7 +267,7 @@ export default async function ProjectsPage({
                       <p className="text-sm text-stone-500">
                         <Link
                           href={`/projects?locality=${encodeURIComponent(p.locality)}`}
-                          className="relative z-10 hover:text-emerald-700 hover:underline"
+                          className="relative z-10 hover:text-indigo-600 hover:underline"
                         >
                           {p.locality}
                         </Link>

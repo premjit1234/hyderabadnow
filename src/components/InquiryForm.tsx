@@ -55,7 +55,7 @@ export default function InquiryForm({ listingId }: { listingId: number }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-emerald-700 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+        className="rounded-md bg-gradient-to-r from-indigo-600 to-violet-600 py-2.5 text-sm font-semibold text-white transition hover:from-indigo-700 hover:to-violet-700 disabled:opacity-60"
       >
         {pending ? "Sending..." : "Contact lister"}
       </button>
