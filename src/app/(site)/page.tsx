@@ -36,65 +36,89 @@ export default async function Home() {
 
   return (
     <main className="flex-1">
-      <section
-        className="relative overflow-hidden bg-indigo-950 bg-cover bg-center pb-28 pt-20 sm:pb-32 sm:pt-28"
-        style={{
-          backgroundImage: `linear-gradient(rgba(49,29,127,0.55), rgba(30,27,75,0.82)), url(${heroImageUrl || "/hero-bg.jpg"})`,
-        }}
-      >
-        {/* Soft color blobs for depth — pure CSS, no imagery, so they never
-            add a request or a loading flash. Kept subtle (low opacity,
-            heavily blurred) so they read as ambient light, not decoration. */}
+      <section className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 sm:pt-8">
         <div
-          aria-hidden
-          className="pointer-events-none absolute -left-24 -top-24 h-96 w-96 rounded-full bg-violet-500/25 blur-[100px]"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-16 top-1/3 h-80 w-80 rounded-full bg-indigo-400/20 blur-[100px]"
-        />
+          className="relative isolate flex min-h-[600px] flex-col overflow-hidden rounded-3xl bg-indigo-950 bg-cover bg-center shadow-hero sm:min-h-[640px]"
+          style={{ backgroundImage: `url(${heroImageUrl || "/hero-bg.jpg"})` }}
+        >
+          {/* Left-to-right scrim so hero copy stays legible while the
+              admin's own photo still shows through clearly on the right —
+              this is the one thing standing between the raw photo and the
+              text, so the hero photo can be swapped from /admin/settings
+              without ever needing a design touch-up here. */}
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-950/95 via-indigo-950/60 to-indigo-950/10" />
+          {/* A second scrim anchored to the bottom so the floating search
+              bar and its Buy/Rent toggle stay readable even over a bright
+              part of the photo, regardless of the left-right one above. */}
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-indigo-950/70 to-transparent" />
 
-        <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <h1 className="animate-fade-up text-4xl font-extrabold tracking-tight text-white sm:text-6xl">
-            Find your next home in{" "}
-            <span className="bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
-              Hyderabad
-            </span>
-          </h1>
-          <p
-            className="animate-fade-up mt-4 text-base text-indigo-100 sm:text-lg"
-            style={{ animationDelay: "80ms" }}
-          >
-            Listings posted directly by agents and owners — no middlemen.
-          </p>
+          <div className="relative flex flex-1 flex-col justify-between gap-8 p-5 sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <span className="animate-fade-up inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 shadow-soft backdrop-blur-sm">
+                Dream · Search · Own
+              </span>
+              <span
+                className="animate-fade-up inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-stone-700 shadow-soft backdrop-blur-sm"
+                style={{ animationDelay: "60ms" }}
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0 text-emerald-600">
+                  <path
+                    fillRule="evenodd"
+                    d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Verified listings · Direct from owners
+              </span>
+            </div>
 
-          {trustStats.length > 0 && (
-            <ul
-              className="animate-fade-up mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-indigo-200"
-              style={{ animationDelay: "140ms" }}
-            >
-              {trustStats.map((stat) => (
-                <li key={stat} className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-violet-300">
-                    <path
-                      fillRule="evenodd"
-                      d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  {stat}
-                </li>
-              ))}
-            </ul>
-          )}
+            <div className="max-w-xl">
+              <h1
+                className="animate-fade-up text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl"
+                style={{ animationDelay: "120ms" }}
+              >
+                Discover Spaces That Feel Like{" "}
+                <span className="bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent">
+                  Home
+                </span>
+              </h1>
+              <p
+                className="animate-fade-up mt-3 max-w-md text-sm text-indigo-100 sm:text-base"
+                style={{ animationDelay: "180ms" }}
+              >
+                Find handpicked properties for rent or sale in Hyderabad, posted directly by agents and owners —
+                no middlemen.
+              </p>
 
-          <div className="animate-fade-up mt-8 text-left" style={{ animationDelay: "200ms" }}>
-            <SearchBar localities={localities} />
+              {trustStats.length > 0 && (
+                <ul
+                  className="animate-fade-up mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm font-medium text-indigo-200"
+                  style={{ animationDelay: "220ms" }}
+                >
+                  {trustStats.map((stat) => (
+                    <li key={stat} className="flex items-center gap-1.5">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-violet-300">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0l-3.5-3.5a1 1 0 1 1 1.4-1.4l2.8 2.8 6.8-6.8a1 1 0 0 1 1.4 0Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      {stat}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="animate-fade-up" style={{ animationDelay: "280ms" }}>
+              <SearchBar localities={localities} />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto -mt-14 max-w-6xl px-4 sm:-mt-20 sm:px-6">
+      <section className="mx-auto mt-8 max-w-6xl px-4 sm:mt-10 sm:px-6">
         <div className="rounded-2xl bg-white p-4 shadow-hero sm:p-6">
           <h2 className="mb-4 text-lg font-bold text-stone-900">Browse homes in Hyderabad</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
