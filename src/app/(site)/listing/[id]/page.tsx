@@ -9,7 +9,7 @@ import {
   getLocalityPricePerSqft,
   getUpcomingOpenSlotsForListing,
 } from "@/db/queries";
-import { formatPrice, formatRupees, propertyTypeLabel, projectHref } from "@/lib/format";
+import { formatArea, formatPrice, formatPricePerArea, propertyTypeLabel, projectHref } from "@/lib/format";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getAppUrl } from "@/lib/site";
 import {
@@ -293,12 +293,13 @@ export default async function ListingDetailPage({
                 percentVsAvg! > 0 ? "text-red-600" : percentVsAvg! < 0 ? "text-emerald-700" : "text-stone-500"
               }`}
             >
-              {formatRupees(pricePerSqft!)}/sqft —{" "}
+              {formatPricePerArea(pricePerSqft!, listing.propertyType)} —{" "}
               {percentVsAvg === 0
                 ? "right at"
                 : `${Math.abs(percentVsAvg!)}% ${percentVsAvg! > 0 ? "above" : "below"}`}{" "}
               the {listing.locality} {propertyTypeLabel(listing.propertyType)} avg (
-              {formatRupees(localityStats.avgPricePerSqft!)}/sqft, based on {localityStats.sampleSize} active
+              {formatPricePerArea(localityStats.avgPricePerSqft!, listing.propertyType)}, based on{" "}
+              {localityStats.sampleSize} active
               listing{localityStats.sampleSize === 1 ? "" : "s"})
             </p>
           )}
@@ -360,7 +361,7 @@ export default async function ListingDetailPage({
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-stone-500">Area</p>
                   <p className="text-sm font-semibold text-stone-900">
-                    {listing.areaSqft.toLocaleString("en-IN")} sqft
+                    {formatArea(listing.areaSqft, listing.propertyType)}
                   </p>
                 </div>
               </div>

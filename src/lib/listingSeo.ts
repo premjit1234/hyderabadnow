@@ -5,7 +5,7 @@
 // the listing. Generic cross-content-type helpers (absoluteUrl,
 // jsonLdScriptContent, breadcrumb building) live in ./seo — see projectSeo.ts
 // and blogSeo.ts for the same pattern applied to projects and blog posts.
-import { propertyTypeLabel, formatPrice } from "./format";
+import { propertyTypeLabel, formatPrice, formatArea } from "./format";
 import { absoluteUrl, buildBreadcrumbJsonLd, jsonLdScriptContent } from "./seo";
 
 // Re-exported under their original names so nothing importing from this
@@ -54,7 +54,7 @@ export function buildListingSeoDescription(
   const facts = [
     listing.bhk ? `${listing.bhk} BHK` : null,
     propertyTypeLabel(listing.propertyType),
-    listing.areaSqft ? `${listing.areaSqft.toLocaleString("en-IN")} sqft` : null,
+    listing.areaSqft ? formatArea(listing.areaSqft, listing.propertyType) : null,
   ]
     .filter(Boolean)
     .join(", ");

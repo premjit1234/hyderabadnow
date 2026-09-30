@@ -44,3 +44,32 @@ export function propertyTypeLabel(type: string) {
   };
   return map[type] || type;
 }
+
+/** 1 square yard = 9 square feet. */
+export const SQFT_PER_SQYD = 9;
+
+/** listings.areaSqft (and projects.min/maxAreaSqft) are always stored and
+ * entered in square feet, for every property type — this only changes what
+ * a visitor sees. Hyderabad/Telangana real estate convention quotes Plot/Land
+ * area in square yards rather than square feet, unlike every other property
+ * type, so a "plot" listing's area is converted for display only; the DB
+ * value, the post-listing/admin forms, and every other property type are
+ * unaffected. */
+export function formatArea(areaSqft: number, propertyType: string) {
+  if (propertyType === "plot") {
+    return `${Math.round(areaSqft / SQFT_PER_SQYD).toLocaleString("en-IN")} sq yd`;
+  }
+  return `${areaSqft.toLocaleString("en-IN")} sqft`;
+}
+
+/** Same square-feet-to-square-yard display conversion as formatArea, but for
+ * a per-area rupee figure (e.g. the "how does this compare" price-per-area
+ * line on a listing page). `pricePerSqft` is always price / areaSqft
+ * (unchanged, still computed in square feet everywhere) — only the figure
+ * shown to a visitor for a Plot listing is rescaled and relabeled. */
+export function formatPricePerArea(pricePerSqft: number, propertyType: string) {
+  if (propertyType === "plot") {
+    return `${formatRupees(pricePerSqft * SQFT_PER_SQYD)}/sq yd`;
+  }
+  return `${formatRupees(pricePerSqft)}/sqft`;
+}

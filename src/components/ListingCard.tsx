@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { formatPrice, propertyTypeLabel } from "@/lib/format";
+import { formatArea, formatPrice, propertyTypeLabel } from "@/lib/format";
 
 export type ListingCardData = {
   id: number;
@@ -62,7 +62,7 @@ export default function ListingCard({ listing }: { listing: ListingCardData }) {
           {listing.bhk ? <span>{listing.bhk} BHK</span> : null}
           {listing.bathrooms ? <span>{listing.bathrooms} Bathrooms</span> : null}
           {listing.carParking ? <span>{listing.carParking} Car Parking</span> : null}
-          {listing.areaSqft ? <span>{listing.areaSqft.toLocaleString("en-IN")} sqft</span> : null}
+          {listing.areaSqft ? <span>{formatArea(listing.areaSqft, listing.propertyType)}</span> : null}
           <span>{propertyTypeLabel(listing.propertyType)}</span>
         </div>
       </div>
