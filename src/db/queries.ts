@@ -1078,6 +1078,9 @@ export async function getSiteSettings(): Promise<{
   dashboardBannerLinkUrl: string | null;
   featuredCreditPriceRupees: number;
   defaultMonthlyListingLimit: number;
+  gaMeasurementId: string | null;
+  metaPixelId: string | null;
+  googleAdsConversionId: string | null;
 }> {
   try {
     const row = await db.query.siteSettings.findFirst({ where: eq(siteSettings.id, 1) });
@@ -1089,6 +1092,9 @@ export async function getSiteSettings(): Promise<{
       dashboardBannerLinkUrl: row?.dashboardBannerLinkUrl ?? null,
       featuredCreditPriceRupees: row?.featuredCreditPriceRupees ?? DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
       defaultMonthlyListingLimit: row?.defaultMonthlyListingLimit ?? DEFAULT_MONTHLY_LISTING_LIMIT,
+      gaMeasurementId: row?.gaMeasurementId ?? null,
+      metaPixelId: row?.metaPixelId ?? null,
+      googleAdsConversionId: row?.googleAdsConversionId ?? null,
     };
   } catch {
     return {
@@ -1099,6 +1105,9 @@ export async function getSiteSettings(): Promise<{
       dashboardBannerLinkUrl: null,
       featuredCreditPriceRupees: DEFAULT_FEATURED_CREDIT_PRICE_RUPEES,
       defaultMonthlyListingLimit: DEFAULT_MONTHLY_LISTING_LIMIT,
+      gaMeasurementId: null,
+      metaPixelId: null,
+      googleAdsConversionId: null,
     };
   }
 }

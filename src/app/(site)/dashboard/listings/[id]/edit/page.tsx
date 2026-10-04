@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getListingById, getProjectsForSelect, getLocationNames, getAmenityCatalog } from "@/db/queries";
 import { getSession } from "@/lib/auth";
+import { getAppUrl } from "@/lib/site";
+import { buildListingSocialCaption } from "@/lib/socialCaption";
 import OwnListingEditForm from "@/components/OwnListingEditForm";
+import PromoteShareLinks from "@/components/admin/PromoteShareLinks";
 
 // Owner-facing counterpart to admin/listings/[id]/edit/page.tsx — reached
 // from the dashboard's "View/Edit" link. Same data-fetching shape as the
@@ -33,11 +36,15 @@ export default async function DashboardEditListingPage({
 
   const sp = await searchParams;
   const saved = sp.saved === "1";
-  const [projects, localities, amenityCatalog] = await Promise.all([
+  const [projects, localities, amenityCatalog, appUrl] = await Promise.all([
     getProjectsForSelect(),
     getLocationNames(),
     getAmenityCatalog(),
+    getAppUrl(),
   ]);
+
+  const listingUrl = `${appUrl}/listing/${listing.id}`;
+  const caption = buildListingSocialCaption(listing, listingUrl);
 
   return (
     <main className="mx-auto max-w-2xl flex-1 px-4 py-10 sm:px-6">
@@ -49,6 +56,15 @@ export default async function DashboardEditListingPage({
       <p className="mt-1 mb-6 text-sm text-stone-500">{listing.title}</p>
       {saved && (
         <p className="mb-5 rounded-md bg-emerald-50 p-3 text-sm text-emerald-800">Changes saved.</p>
+      )}
+
+      {/* Only worth promoting while it's actually live for someone to find —
+          see PromoteShareLinks.tsx for what this does and why it's plain
+          share links rather than real API calls. */}
+      {listing.status === "active" && (
+        <div className="mb-6">
+          <PromoteShareLinks url={listingUrl} caption={caption} />
+        </div>
       )}
 
       <OwnListingEditForm listing={listing} projects={projects} localities={localities} amenityCatalog={amenityCatalog} />

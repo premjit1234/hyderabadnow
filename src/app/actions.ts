@@ -38,6 +38,7 @@ import { resolveListingAmenities } from "@/app/admin/actions";
 import { editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { getVideoEmbedUrl } from "@/lib/video";
 import { isEmbeddableTourUrl } from "@/lib/virtualTour";
+import { pingIndexNow } from "@/lib/indexnow";
 import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
 import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
@@ -467,6 +468,14 @@ export async function createListingAction(_prev: ActionState, formData: FormData
   // for consistent bookkeeping on the admin Users page; it's never actually
   // checked against a limit for an admin account.
   await db.insert(listingPostLog).values({ userId: session.id, listingId: listing.id });
+
+  // New listings default to status "active" (see schema.ts) — live and
+  // sitemap-eligible the instant they're posted, so this is the right
+  // moment to let IndexNow-participating search engines know right away
+  // rather than waiting for their own crawl schedule to find it via
+  // sitemap.ts. Never awaited — see lib/indexnow.ts's fire-and-forget
+  // contract — so this adds no latency to the redirect below.
+  pingIndexNow([`/listing/${listing.id}`]);
 
   redirect(`/listing/${listing.id}`);
 }

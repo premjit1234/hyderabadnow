@@ -38,6 +38,7 @@ import InquiryForm from "@/components/InquiryForm";
 import ChatMessageForm from "@/components/ChatMessageForm";
 import ScheduleViewingSection from "@/components/ScheduleViewingSection";
 import ShareListingButton from "@/components/ShareListingButton";
+import TrackedContactLink from "@/components/TrackedContactLink";
 import ListingGallery from "@/components/ListingGallery";
 import AmenityIcon from "@/components/AmenityIcon";
 import DocumentChecklist from "@/components/DocumentChecklist";
@@ -81,6 +82,17 @@ export async function generateMetadata({
       description,
       url,
       images: firstImage ? [{ url: firstImage }] : undefined,
+    },
+    // Without an explicit card type, X/Twitter falls back to a small
+    // thumbnail-style preview even when an openGraph image is present —
+    // "summary_large_image" is what makes a shared listing link show the
+    // actual photo prominently, which matters a lot more for a listing than
+    // for most pages (photo quality is a big part of what gets a click).
+    twitter: {
+      card: firstImage ? "summary_large_image" : "summary",
+      title,
+      description,
+      images: firstImage ? [firstImage] : undefined,
     },
     robots: listing.status === "active" ? undefined : { index: false, follow: true },
   };
@@ -760,23 +772,25 @@ export default async function ListingDetailPage({
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
                   Contact about this listing
                 </p>
-                <a
+                <TrackedContactLink
                   href={`tel:${listing.contactPhone}`}
+                  event="phone_click"
                   className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-stone-700 hover:text-indigo-600"
                 >
                   <PhoneIcon className="h-4 w-4 text-indigo-600" />
                   {listing.contactPhone}
-                </a>
+                </TrackedContactLink>
                 {whatsappLink && (
-                  <a
+                  <TrackedContactLink
                     href={whatsappLink}
+                    event="whatsapp_click"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-3 flex items-center justify-center gap-2 rounded-md bg-[#25D366] py-2.5 text-sm font-semibold text-white hover:bg-[#20bd5a]"
                   >
                     <WhatsAppIcon className="h-4 w-4" />
                     Connect on WhatsApp
-                  </a>
+                  </TrackedContactLink>
                 )}
                 <ShareListingButton url={listingUrl} title={listing.title} />
               </div>

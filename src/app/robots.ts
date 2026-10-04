@@ -27,7 +27,12 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       // rule wins over the disallow for that one path (longest-match-wins is
       // how Google resolves overlapping robots.txt rules) while every other
       // /api/ route (auth, payments, listings/confirm, etc.) stays blocked.
-      allow: ["/", "/api/uploads/"],
+      // /api/indexnow-key is the same kind of exception as /api/uploads/
+      // just above it: IndexNow's own verifier fetches this exact path to
+      // confirm domain ownership before trusting a ping (see
+      // lib/indexnow.ts), so it needs to stay reachable despite the
+      // blanket /api/ disallow below.
+      allow: ["/", "/api/uploads/", "/api/indexnow-key"],
       disallow: ["/admin", "/dashboard", "/login", "/signup", "/complete-profile", "/api/"],
     },
     sitemap: `${appUrl}/sitemap.xml`,

@@ -11,6 +11,9 @@ export default function SiteSettingsForm({
   dashboardBannerLinkUrl,
   featuredCreditPriceRupees,
   defaultMonthlyListingLimit,
+  gaMeasurementId,
+  metaPixelId,
+  googleAdsConversionId,
 }: {
   logoUrl: string | null;
   faviconUrl: string | null;
@@ -19,6 +22,9 @@ export default function SiteSettingsForm({
   dashboardBannerLinkUrl: string | null;
   featuredCreditPriceRupees: number;
   defaultMonthlyListingLimit: number;
+  gaMeasurementId: string | null;
+  metaPixelId: string | null;
+  googleAdsConversionId: string | null;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     adminUpdateSiteSettingsAction,
@@ -205,6 +211,59 @@ export default function SiteSettingsForm({
             defaultValue={defaultMonthlyListingLimit}
             className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
           />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="text-sm font-bold text-stone-900">Marketing &amp; analytics</h2>
+        <p className="mt-1 text-sm text-stone-500">
+          Paste an ID from each provider&rsquo;s own dashboard to turn it on site-wide — nothing extra loads until you
+          do, and leaving a field blank keeps it off. Takes effect immediately, no redeploy needed.
+        </p>
+
+        <div className="mt-4 flex flex-col gap-4">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">
+              Google Analytics 4 measurement ID
+            </label>
+            <input
+              name="gaMeasurementId"
+              defaultValue={gaMeasurementId ?? ""}
+              placeholder="G-XXXXXXXXXX"
+              className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-stone-400">
+              From a GA4 property at analytics.google.com (Admin → Data Streams → your web stream).
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Meta (Facebook/Instagram) Pixel ID</label>
+            <input
+              name="metaPixelId"
+              defaultValue={metaPixelId ?? ""}
+              placeholder="123456789012345"
+              className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-stone-400">
+              From Events Manager at business.facebook.com — lets Facebook/Instagram ads measure what happens after
+              someone clicks through.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Google Ads conversion ID</label>
+            <input
+              name="googleAdsConversionId"
+              defaultValue={googleAdsConversionId ?? ""}
+              placeholder="AW-XXXXXXXXX"
+              className="w-full rounded-md border border-stone-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-xs text-stone-400">
+              From a Google Ads account at ads.google.com (Tools → Conversions). Needed only if you run Search/Display
+              ads and want leads (inquiries, WhatsApp clicks, calls) counted as conversions.
+            </p>
+          </div>
         </div>
       </div>
 

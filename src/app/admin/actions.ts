@@ -43,6 +43,7 @@ import { PRICING_FIELD_DEFS } from "@/lib/projectPricing";
 import { LISTING_STATUSES, editListingSchema, resolveExtendedListingFields } from "@/lib/listingValidation";
 import { geocodeLocality } from "@/lib/geocode";
 import { PROPERTY_TYPES, LISTING_LIST_FIELDS, PROJECT_LIST_FIELDS, type ListViewEntity } from "@/lib/listViewFields";
+import { pingIndexNow } from "@/lib/indexnow";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -519,6 +520,10 @@ export async function adminCreateListingAction(_prev: ActionState, formData: For
   }
 
   revalidatePath("/admin/listings");
+  // Defaults to status "active" (schema.ts) — live right away, so this is
+  // the right moment to let IndexNow-participating search engines know
+  // (see lib/indexnow.ts). Fire-and-forget, adds no latency here.
+  pingIndexNow([`/listing/${listing.id}`]);
   redirect(`/admin/listings/${listing.id}/edit?saved=1`);
 }
 
@@ -877,6 +882,7 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
   revalidatePath("/admin/projects");
   revalidatePath("/projects");
   revalidatePath("/");
+  pingIndexNow([`/projects/${project.slug}`]);
   redirect(`/admin/projects/${project.id}/edit?saved=1`);
 }
 
@@ -1136,6 +1142,20 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
     return { error: "Default monthly listing limit must be a whole number, 0 or more." };
   }
 
+  // All three are free-text IDs pasted from each provider's own dashboard —
+  // trimmed and stored as-is (no format validation beyond "not empty"),
+  // since the exact shape varies (GA4: "G-XXXXXXXXXX", Meta Pixel: a plain
+  // numeric string, Google Ads: "AW-XXXXXXXXX" or "AW-XXXXXXXXX/aBcDeFgH").
+  // Blank clears it back to "not configured", same convention as the
+  // dashboard banner link above.
+  const gaMeasurementIdRaw = formData.get("gaMeasurementId");
+  const gaMeasurementId = typeof gaMeasurementIdRaw === "string" && gaMeasurementIdRaw.trim() ? gaMeasurementIdRaw.trim() : null;
+  const metaPixelIdRaw = formData.get("metaPixelId");
+  const metaPixelId = typeof metaPixelIdRaw === "string" && metaPixelIdRaw.trim() ? metaPixelIdRaw.trim() : null;
+  const googleAdsConversionIdRaw = formData.get("googleAdsConversionId");
+  const googleAdsConversionId =
+    typeof googleAdsConversionIdRaw === "string" && googleAdsConversionIdRaw.trim() ? googleAdsConversionIdRaw.trim() : null;
+
   if (existing) {
     await db
       .update(siteSettings)
@@ -1147,6 +1167,9 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
         dashboardBannerLinkUrl,
         featuredCreditPriceRupees: featuredCreditPriceRaw,
         defaultMonthlyListingLimit: defaultMonthlyListingLimitRaw,
+        gaMeasurementId,
+        metaPixelId,
+        googleAdsConversionId,
         updatedAt: sql`(current_timestamp)`,
       })
       .where(eq(siteSettings.id, 1));
@@ -1160,6 +1183,9 @@ export async function adminUpdateSiteSettingsAction(_prev: ActionState, formData
       dashboardBannerLinkUrl,
       featuredCreditPriceRupees: featuredCreditPriceRaw,
       defaultMonthlyListingLimit: defaultMonthlyListingLimitRaw,
+      gaMeasurementId,
+      metaPixelId,
+      googleAdsConversionId,
     });
   }
 
@@ -1556,6 +1582,7 @@ export async function adminCreateBlogPostAction(_prev: ActionState, formData: Fo
 
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
+  if (post.status === "published") pingIndexNow([`/blog/${post.slug}`]);
   redirect(`/admin/blog/${post.id}/edit?saved=1`);
 }
 
@@ -1620,6 +1647,11 @@ export async function adminUpdateBlogPostAction(_prev: ActionState, formData: Fo
   revalidatePath("/blog");
   revalidatePath(`/blog/${existing.slug}`);
   if (slug !== existing.slug) revalidatePath(`/blog/${slug}`);
+  // Covers both "just published for the first time" and "edited an
+  // already-published post" — IndexNow is for new-or-changed content, and a
+  // substantive edit to a live post is exactly the kind of change worth
+  // re-signaling (see lib/indexnow.ts).
+  if (data.status === "published") pingIndexNow([`/blog/${slug}`]);
   redirect(`/admin/blog/${postId}/edit?saved=1`);
 }
 

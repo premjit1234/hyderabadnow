@@ -443,6 +443,14 @@ export const siteSettings = sqliteTable("site_settings", {
   // Applies to every agent/owner account that doesn't have its own
   // override; admins are never subject to this at all.
   defaultMonthlyListingLimit: integer("default_monthly_listing_limit").notNull().default(20),
+  // Marketing/analytics IDs — all optional and all it takes to turn each
+  // one on is pasting the ID here (see SiteSettingsForm.tsx's "Marketing &
+  // analytics" card and the scripts conditionally rendered in
+  // app/layout.tsx); no redeploy, env var, or code change needed. Left
+  // unset, nothing extra loads on the site at all.
+  gaMeasurementId: text("ga_measurement_id"), // GA4 "G-XXXXXXXXXX" from Google Analytics
+  metaPixelId: text("meta_pixel_id"), // Meta (Facebook/Instagram) Pixel ID, numeric
+  googleAdsConversionId: text("google_ads_conversion_id"), // Google Ads "AW-XXXXXXXXX[/label]" conversion tag
   updatedAt: text("updated_at")
     .notNull()
     .default(sql`(current_timestamp)`),

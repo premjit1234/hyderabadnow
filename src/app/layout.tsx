@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { getSiteSettings } from "@/db/queries";
@@ -56,7 +57,13 @@ export async function generateMetadata(): Promise<Metadata> {
 // site's Header/Footer chrome lives in src/app/(site)/layout.tsx, so /admin
 // (a sibling of the (site) route group, not nested in it) renders with its
 // own distinct shell (admin/layout.tsx) instead of the consumer-site chrome.
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // All three optional and admin-set from /admin/settings (see
+  // SiteSettingsForm.tsx's "Marketing & analytics" card) — each script below
+  // only renders once its own ID is actually configured, so a fresh install
+  // with none of this set loads nothing extra at all.
+  const { gaMeasurementId, metaPixelId, googleAdsConversionId } = await getSiteSettings();
+
   return (
     <html lang="en" className={`h-full antialiased ${manrope.variable}`}>
       {/* Google AdSense site-verification snippet, rendered as a plain,
@@ -84,7 +91,73 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           crossOrigin="anonymous"
         />
       </head>
-      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">{children}</body>
+      <body className="flex min-h-full flex-col bg-white text-stone-900 font-sans">
+        {children}
+
+        {/* GA4 + (optionally) the Google Ads conversion tag — both share
+            the same gtag.js loader and queue, so a single config call
+            covers GA4 reporting and, when googleAdsConversionId is also
+            set, lets `trackEvent()` (lib/analytics.ts) fire Ads conversions
+            too. strategy="afterInteractive" per Next's own guidance for
+            analytics scripts: loads early but never blocks first paint. */}
+        {gaMeasurementId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                window.gtag = gtag;
+                gtag('js', new Date());
+                gtag('config', '${gaMeasurementId}');
+                ${googleAdsConversionId ? `gtag('config', '${googleAdsConversionId}');` : ""}
+              `}
+            </Script>
+          </>
+        )}
+
+        {/* Google Ads conversion tag on its own, for the (less common) case
+            where ads conversion tracking is wanted without GA4 configured. */}
+        {!gaMeasurementId && googleAdsConversionId && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${googleAdsConversionId}`}
+              strategy="afterInteractive"
+            />
+            <Script id="google-ads-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                window.gtag = gtag;
+                gtag('js', new Date());
+                gtag('config', '${googleAdsConversionId}');
+              `}
+            </Script>
+          </>
+        )}
+
+        {/* Meta Pixel — standard base code, loaded only once a Pixel ID is
+            configured. */}
+        {metaPixelId && (
+          <Script id="meta-pixel-init" strategy="afterInteractive">
+            {`
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${metaPixelId}');
+              fbq('track', 'PageView');
+            `}
+          </Script>
+        )}
+      </body>
     </html>
   );
 }

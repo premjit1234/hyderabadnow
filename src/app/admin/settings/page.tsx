@@ -10,6 +10,9 @@ export default async function AdminSiteSettingsPage() {
     dashboardBannerLinkUrl,
     featuredCreditPriceRupees,
     defaultMonthlyListingLimit,
+    gaMeasurementId,
+    metaPixelId,
+    googleAdsConversionId,
   } = await getSiteSettings();
 
   return (
@@ -26,6 +29,9 @@ export default async function AdminSiteSettingsPage() {
         dashboardBannerLinkUrl={dashboardBannerLinkUrl}
         featuredCreditPriceRupees={featuredCreditPriceRupees}
         defaultMonthlyListingLimit={defaultMonthlyListingLimit}
+        gaMeasurementId={gaMeasurementId}
+        metaPixelId={metaPixelId}
+        googleAdsConversionId={googleAdsConversionId}
       />
     </div>
   );

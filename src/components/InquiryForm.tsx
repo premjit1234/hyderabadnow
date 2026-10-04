@@ -1,13 +1,28 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { createInquiryAction, type ActionState } from "@/app/actions";
+import { trackEvent } from "@/lib/analytics";
 
 export default function InquiryForm({ listingId }: { listingId: number }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     createInquiryAction,
     null
   );
+
+  // A submitted inquiry is the clearest "this visit turned into a lead"
+  // signal this page has — report it once, the moment the server action
+  // confirms success, so Google Ads/Meta can eventually attribute it back
+  // to whichever ad or search query brought this visitor here (see
+  // lib/analytics.ts). The ref guards against re-firing on an unrelated
+  // re-render while state.success stays true.
+  const reported = useRef(false);
+  useEffect(() => {
+    if (state?.success && !reported.current) {
+      reported.current = true;
+      trackEvent("generate_lead", { listingId });
+    }
+  }, [state?.success, listingId]);
 
   if (state?.success) {
     return (
