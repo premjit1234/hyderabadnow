@@ -23,6 +23,7 @@
     "db:ensure-project-coordinates": "tsx src/db/ensure-project-coordinates.ts",
     "db:ensure-listing-coordinates": "tsx src/db/ensure-listing-coordinates.ts",
     "db:ensure-locality-guides": "tsx src/db/ensure-locality-guides.ts",
+    "db:seed-more-locality-guides": "tsx src/db/seed-more-locality-guides.ts",
     "db:check-stale-listings": "tsx src/db/checkStaleListings.ts",
     "db:check-saved-search-alerts": "tsx src/db/checkSavedSearchAlerts.ts"
   },
