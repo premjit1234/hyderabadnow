@@ -12,6 +12,7 @@ import {
   homeTiles,
   projects,
   projectImages,
+  projectVideos,
   siteSettings,
   legalPages,
   socialLinks,
@@ -879,11 +880,35 @@ export async function adminCreateProjectAction(_prev: ActionState, formData: For
     await db.insert(projectImages).values(rows);
   }
 
+  await insertNewProjectVideos(project.id, formData);
+
   revalidatePath("/admin/projects");
   revalidatePath("/projects");
   revalidatePath("/");
   pingIndexNow([`/projects/${project.slug}`]);
   redirect(`/admin/projects/${project.id}/edit?saved=1`);
+}
+
+// Shared by both create and update: ProjectForm.tsx submits a handful of
+// blank "newVideoUrls" text inputs alongside the existing video rows (see
+// removeVideoId handling in adminUpdateProjectAction) — this reads whichever
+// of them were actually filled in, validates each as a real YouTube/Vimeo
+// link (same validator as the legacy single videoUrl field), and appends
+// them after whatever videos already exist so sortOrder stays a clean
+// append-only sequence.
+async function insertNewProjectVideos(projectId: number, formData: FormData) {
+  const urls = formData
+    .getAll("newVideoUrls")
+    .map((v) => (typeof v === "string" ? v.trim() : ""))
+    .filter((v) => v.length > 0 && getVideoEmbedUrl(v) !== null);
+  if (urls.length === 0) return;
+
+  const existing = await db
+    .select({ sortOrder: projectVideos.sortOrder })
+    .from(projectVideos)
+    .where(eq(projectVideos.projectId, projectId));
+  let order = existing.length > 0 ? Math.max(...existing.map((v) => v.sortOrder)) + 1 : 0;
+  await db.insert(projectVideos).values(urls.map((url) => ({ projectId, url, sortOrder: order++ })));
 }
 
 export async function adminUpdateProjectAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -1056,6 +1081,17 @@ export async function adminUpdateProjectAction(_prev: ActionState, formData: For
   if (newRows.length > 0) {
     await db.insert(projectImages).values(newRows);
   }
+
+  const removeVideoIds = formData
+    .getAll("removeVideoId")
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n));
+  if (removeVideoIds.length > 0) {
+    await db
+      .delete(projectVideos)
+      .where(and(eq(projectVideos.projectId, projectId), inArray(projectVideos.id, removeVideoIds)));
+  }
+  await insertNewProjectVideos(projectId, formData);
 
   revalidatePath("/admin/projects");
   revalidatePath(`/admin/projects/${projectId}/edit`);

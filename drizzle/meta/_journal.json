@@ -204,6 +204,20 @@
       "when": 1791141378137,
       "tag": "0028_special_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1795672747242,
+      "tag": "0029_furry_wrecking_crew",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1795674778593,
+      "tag": "0030_dusty_darkstar",
+      "breakpoints": true
     }
   ]
 }

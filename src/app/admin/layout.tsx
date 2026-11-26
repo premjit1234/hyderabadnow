@@ -8,6 +8,7 @@ const NAV = [
   { href: "/admin", label: "Overview", icon: "grid" },
   { href: "/admin/users", label: "Users", icon: "users" },
   { href: "/admin/projects", label: "Projects", icon: "layers" },
+  { href: "/admin/pages", label: "Pages", icon: "globe" },
   { href: "/admin/listings", label: "Listings", icon: "building" },
   { href: "/admin/listing-fields", label: "Listing fields", icon: "sliders" },
   { href: "/admin/list-view-settings", label: "List view settings", icon: "sliders" },

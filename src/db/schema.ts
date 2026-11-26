@@ -221,6 +221,245 @@ export const projectImages = sqliteTable("project_images", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+// Multiple YouTube/Vimeo links per project — a "showcase page" (walkthrough,
+// drone flyover, a specific villa's interior tour, a customer testimonial,
+// etc.) commonly has several distinct videos, unlike projects.videoUrl above
+// which only ever held one. Same table-per-gallery pattern as projectImages:
+// a project row keeps its single legacy videoUrl column (so bulk CSV
+// imports — see lib/bulkProjects.ts — keep working unchanged), while this
+// table is what the admin single-project form (ProjectForm.tsx) actually
+// manages going forward; the public project page merges both sources (see
+// projects/[slug]/page.tsx) so a video set either way still shows up.
+export const projectVideos = sqliteTable("project_videos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // Validated with the same getVideoEmbedUrl() as projects.videoUrl (see
+  // lib/video.ts) before being stored — YouTube/Vimeo only.
+  url: text("url").notNull(),
+  // Optional short caption shown under the embed (e.g. "Drone flyover",
+  // "Clubhouse walkthrough") — purely cosmetic, blank is fine.
+  title: text("title"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// A project-level counterpart to `inquiries` (which is listing-only — see
+// its own comment). Kept as a fully separate table rather than widening
+// `inquiries` with a nullable projectId: this codebase's established
+// pattern for listing/project parity is parallel tables (projectImages vs.
+// listingImages, projects.contactPhone vs. listings.contactPhone, etc.),
+// and projects have no ownerId the way listings do — a project inquiry
+// belongs to the admin team that curates /admin/projects, not to an
+// individual agent/owner, so it's surfaced on /admin/inquiries (see
+// getAllProjectInquiriesForAdmin) rather than a per-user dashboard inbox.
+export const projectInquiries = sqliteTable("project_inquiries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  projectId: integer("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  message: text("message").notNull(),
+  respondedAt: text("responded_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// A "Microsite Page" is a standalone, long-form marketing page for one
+// development — e.g. hyderabadnow.in/lumbinivana — modeled on the kind of
+// single-page site a developer commissions for its own flagship project
+// (hero, master plan, floor plans by facing, specifications, location,
+// gallery, videos, enquiry form). Deliberately NOT linked to `projects`
+// above: a project can have both a /projects/[slug] listing-style page (core
+// facts, pricing, active units for sale/rent) AND, independently, one of
+// these richer root-level pages — the two aren't kept in sync and don't
+// share rows, since a microsite is commissioned/curated work (written once,
+// rarely as a byproduct of routine listing upkeep) rather than a mechanical
+// view of the same project record. `slug` is root-level (no "/pages/" or
+// "/projects/" prefix) and validated against lib/reservedSlugs.ts so it can
+// never collide with a real top-level route like /blog or /admin.
+export const micrositePages = sqliteTable("microsite_pages", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  // Short hero headline (e.g. "Crafted for Elevated Living") — purely
+  // marketing copy, falls back to the project name if left blank.
+  tagline: text("tagline"),
+  developerName: text("developer_name"),
+  developerUrl: text("developer_url"),
+  locality: text("locality").notNull(),
+  city: text("city").notNull().default("Hyderabad"),
+  latitude: real("latitude"),
+  longitude: real("longitude"),
+  propertyType: text("property_type", {
+    enum: ["apartment", "villa", "independent_house", "plot", "commercial"],
+  })
+    .notNull()
+    .default("villa"),
+  constructionStatus: text("construction_status", {
+    enum: ["under_construction", "ready_to_move"],
+  })
+    .notNull()
+    .default("under_construction"),
+  // Same "Overview" stat fields as projects.* (areaAcres/totalUnits/min-max
+  // area) — duplicated here rather than referencing projects, per this
+  // table's whole premise of being independent.
+  areaAcres: real("area_acres"),
+  totalUnits: integer("total_units"),
+  minAreaSqft: integer("min_area_sqft"),
+  maxAreaSqft: integer("max_area_sqft"),
+  bhkOptions: text("bhk_options"),
+  reraNumber: text("rera_number"),
+  reraVerified: integer("rera_verified", { mode: "boolean" }).notNull().default(false),
+  reraVerifiedAt: text("rera_verified_at"),
+  possessionYear: integer("possession_year"),
+  description: text("description"),
+  amenities: text("amenities"), // JSON-encoded string[] of lib/amenities.ts keys, same catalog as projects
+  brochureUrl: text("brochure_url"),
+  // One large image each for the "Master Plan" and "Location" sections —
+  // distinct from the gallery below (micrositePageImages), which is many
+  // photos rather than one specific diagram.
+  masterPlanImageUrl: text("master_plan_image_url"),
+  locationMapImageUrl: text("location_map_image_url"),
+  // Optional intro paragraph shown above the fixed specification categories
+  // — see lib/specificationCategories.ts and micrositePageSpecifications.
+  specificationsIntro: text("specifications_intro"),
+  contactPhone: text("contact_phone"),
+  whatsappEnabled: integer("whatsapp_enabled", { mode: "boolean" }).notNull().default(false),
+  // Surfaces this page in the "Explore our other addresses" cross-link cards
+  // shown near the bottom of every other published microsite page — the
+  // lightweight stand-in for Subishi Sierra's manually-curated "sister
+  // project" cards, done by a flag instead of a many-to-many table.
+  featured: integer("featured", { mode: "boolean" }).notNull().default(false),
+  // A page can be built up over several admin sessions before it's ready —
+  // unpublished pages 404 on the public site (see [micrositeSlug]/page.tsx)
+  // the same way a blog post's draft state would, so a half-finished page
+  // is never accidentally linkable.
+  published: integer("published", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const micrositePageImages = sqliteTable("microsite_page_images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// Same shape/validation (lib/video.ts's getVideoEmbedUrl) as projectVideos —
+// shown as a video gallery near the bottom of the page, just above the
+// enquiry form, per how this feature was specifically requested.
+export const micrositePageVideos = sqliteTable("microsite_page_videos", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  title: text("title"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+// One villa/unit configuration (e.g. "East Facing Villa — 267 Sq Yd") —
+// mirrors the reference site's Floor Plans section, which groups stats +
+// several plan images (ground/first/second floor) + a walkthrough link per
+// facing/configuration. Managed as its own small form in the admin page
+// editor (see MicrositeFloorPlanForm.tsx) rather than folded into the main
+// page form, since each one owns its own image set below.
+export const micrositePageFloorPlans = sqliteTable("microsite_page_floor_plans", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  label: text("label").notNull(), // e.g. "East Facing Villa"
+  plotAreaSqyd: real("plot_area_sqyd"),
+  builtUpAreaSqft: integer("built_up_area_sqft"),
+  bedrooms: text("bedrooms"), // free text, e.g. "4 BHK" — configs vary too much for a fixed enum
+  // Same any-http(s)-URL validation as projects.virtualTourUrl (see
+  // lib/virtualTour.ts) — rendered as an "Enter Virtual Walkthrough" link
+  // rather than embedded, matching the reference site.
+  virtualTourUrl: text("virtual_tour_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const micrositePageFloorPlanImages = sqliteTable("microsite_page_floor_plan_images", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  floorPlanId: integer("floor_plan_id")
+    .notNull()
+    .references(() => micrositePageFloorPlans.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  label: text("label"), // e.g. "Ground Floor Plan", "First Floor Plan"
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// One row per specification category (Structure, Plumbing, Electrical,
+// etc.) — a fixed list of categories (see lib/specificationCategories.ts)
+// rather than a free-form repeater, matching the reference site's own
+// roughly-10-category structure. A category with no row (or blank details)
+// just doesn't render on the public page.
+export const micrositePageSpecifications = sqliteTable("microsite_page_specifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  category: text("category").notNull(),
+  details: text("details").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// One row per "nearby places" grouping for the Location section (e.g.
+// "Schools & Education", "Within 10 Minutes") — admin names the category
+// freely and lists places as plain lines ("Oakridge International School —
+// 3 km"), parsed at render time. Deliberately a text blob per category
+// rather than one row per place: the reference site's groupings are loose
+// and manually curated, not a structured distance calculation.
+export const micrositePageNearbyPlaces = sqliteTable("microsite_page_nearby_places", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  category: text("category").notNull(),
+  items: text("items").notNull(), // newline-separated "Name — distance" entries
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+// Enquiries submitted from a microsite page's contact section — kept fully
+// separate from both `inquiries` (listings) and `projectInquiries` (the
+// /projects/[slug] pages), same parallel-table convention, since this
+// content type has no relationship to either of those.
+export const micrositePageInquiries = sqliteTable("microsite_page_inquiries", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  pageId: integer("page_id")
+    .notNull()
+    .references(() => micrositePages.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  message: text("message").notNull(),
+  respondedAt: text("responded_at"),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const listings = sqliteTable("listings", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   title: text("title").notNull(),

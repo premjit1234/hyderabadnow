@@ -9,6 +9,10 @@ import {
   listings,
   listingImages,
   inquiries,
+  projects,
+  projectInquiries,
+  micrositePages,
+  micrositePageInquiries,
   blogPosts,
   blogComments,
   pageViews,
@@ -43,6 +47,8 @@ import { confirmListingStillAvailable } from "@/lib/staleListings";
 import { generateOtpCode, hashOtpCode, normalizePhoneForOtp } from "@/lib/sms";
 import { sendOtpWhatsApp } from "@/lib/whatsappOtp";
 import { getAppUrl } from "@/lib/site";
+import { sendEmail } from "@/lib/email";
+import { getAdminEmails } from "@/db/queries";
 import { sendBookingConfirmedEmails, sendBookingCancelledEmail } from "@/lib/bookingEmail";
 import { getSiteSettings, getListingQuotaStatus, getUserById } from "@/db/queries";
 import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpayPaymentSignature } from "@/lib/razorpay";
@@ -861,6 +867,108 @@ export async function createInquiryAction(_prev: ActionState, formData: FormData
   await db.insert(inquiries).values({ listingId, name, email, phone, message });
 
   return { success: "Your message has been sent. The lister will be in touch soon." };
+}
+
+function escapeHtmlForEmail(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
+const projectInquirySchema = z.object({
+  projectId: z.coerce.number().int().positive(),
+  name: z.string().min(2, "Enter your name"),
+  email: z.string().email("Enter a valid email"),
+  phone: z.string().optional(),
+  message: z.string().min(5, "Add a short message"),
+});
+
+// Project-level counterpart to createInquiryAction above — see
+// projectInquiries' schema.ts comment for why this is a separate table/
+// action rather than reusing the listing one. A project has no single
+// "owner" user to notify the way a listing does (it's admin-curated, not
+// user-submitted), so every admin account gets an email — persisted to the
+// DB first regardless of whether that email succeeds, so a Resend outage
+// never loses the lead, only the immediate notification (same
+// fail-soft reasoning as every other sendEmail() call in this codebase).
+export async function createProjectInquiryAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = projectInquirySchema.safeParse({
+    projectId: formData.get("projectId"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone") || undefined,
+    message: formData.get("message"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const { projectId, name, email, phone, message } = parsed.data;
+  const project = await db.query.projects.findFirst({ where: eq(projects.id, projectId) });
+  if (!project) return { error: "This project could not be found." };
+
+  await db.insert(projectInquiries).values({ projectId, name, email, phone, message });
+
+  const adminEmails = await getAdminEmails();
+  const appUrl = await getAppUrl();
+  const projectUrl = `${appUrl}/projects/${project.slug ?? project.id}`;
+  const html = `
+    <p>New inquiry on <strong>${escapeHtmlForEmail(project.name)}</strong>:</p>
+    <p><strong>${escapeHtmlForEmail(name)}</strong> (${escapeHtmlForEmail(email)}${phone ? `, ${escapeHtmlForEmail(phone)}` : ""})</p>
+    <p>${escapeHtmlForEmail(message)}</p>
+    <p><a href="${projectUrl}">${projectUrl}</a></p>
+  `;
+  await Promise.all(
+    adminEmails.map((to) => sendEmail({ to, subject: `New inquiry: ${project.name}`, html }))
+  );
+
+  return { success: "Your message has been sent. Our team will be in touch soon." };
+}
+
+const micrositePageInquirySchema = z.object({
+  pageId: z.coerce.number().int().positive(),
+  name: z.string().min(2, "Enter your name"),
+  email: z.string().email("Enter a valid email"),
+  phone: z.string().optional(),
+  message: z.string().min(5, "Add a short message"),
+});
+
+// Third counterpart to createInquiryAction/createProjectInquiryAction above
+// — for microsite pages (schema.ts's micrositePages), a fully independent
+// content type with no relationship to `projects`. Same fail-soft/notify-
+// every-admin reasoning as createProjectInquiryAction.
+export async function createMicrositePageInquiryAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = micrositePageInquirySchema.safeParse({
+    pageId: formData.get("pageId"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    phone: formData.get("phone") || undefined,
+    message: formData.get("message"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+
+  const { pageId, name, email, phone, message } = parsed.data;
+  const page = await db.query.micrositePages.findFirst({ where: eq(micrositePages.id, pageId) });
+  if (!page) return { error: "This page could not be found." };
+
+  await db.insert(micrositePageInquiries).values({ pageId, name, email, phone, message });
+
+  const adminEmails = await getAdminEmails();
+  const appUrl = await getAppUrl();
+  const pageUrl = `${appUrl}/${page.slug}`;
+  const html = `
+    <p>New inquiry on <strong>${escapeHtmlForEmail(page.name)}</strong>:</p>
+    <p><strong>${escapeHtmlForEmail(name)}</strong> (${escapeHtmlForEmail(email)}${phone ? `, ${escapeHtmlForEmail(phone)}` : ""})</p>
+    <p>${escapeHtmlForEmail(message)}</p>
+    <p><a href="${pageUrl}">${pageUrl}</a></p>
+  `;
+  await Promise.all(
+    adminEmails.map((to) => sendEmail({ to, subject: `New inquiry: ${page.name}`, html }))
+  );
+
+  return { success: "Your message has been sent. Our team will be in touch soon." };
 }
 
 // Toggles one inquiry between responded/pending from the owner/agent's

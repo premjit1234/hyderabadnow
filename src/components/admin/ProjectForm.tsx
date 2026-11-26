@@ -59,7 +59,13 @@ type EditableProject = {
   whatsappEnabled: boolean;
   featured: boolean;
   images: { id: number; url: string }[];
+  videos: { id: number; url: string; title: string | null }[];
 };
+
+// How many blank "add a video" rows to show at once — small enough that the
+// form doesn't feel cluttered, generous enough that an admin pasting in a
+// walkthrough + a drone shot + a testimonial doesn't need to save twice.
+const NEW_VIDEO_SLOTS = 3;
 
 const inputClass = "w-full rounded-md border border-stone-200 px-3 py-2.5 text-sm";
 const labelClass = "mb-1 block text-sm font-medium text-stone-700";
@@ -344,17 +350,37 @@ export default function ProjectForm({ project, localities }: { project?: Editabl
         <input name="brochureUrl" defaultValue={project?.brochureUrl ?? ""} placeholder="https://…" className={inputClass} />
       </div>
 
-      <div>
-        <label className={labelClass}>YouTube video link (optional)</label>
-        <input
-          name="videoUrl"
-          defaultValue={project?.videoUrl ?? ""}
-          placeholder="https://www.youtube.com/watch?v=…"
-          className={inputClass}
-        />
-        <p className="mt-1 text-xs text-stone-500">
-          Shown as an embedded video on the project&rsquo;s public page. YouTube or Vimeo links only.
+      <div className="rounded-lg border border-stone-200 p-4">
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-stone-500">Videos</p>
+        <p className="mb-3 text-xs text-stone-500">
+          Walkthroughs, drone shots, testimonials — shown as a video gallery on the project&rsquo;s public page.
+          YouTube or Vimeo links only.
         </p>
+
+        {project && project.videos.length > 0 && (
+          <div className="mb-4 flex flex-col gap-2">
+            {project.videos.map((v) => (
+              <div key={v.id} className="flex items-center gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-2">
+                <span className="min-w-0 flex-1 truncate text-sm text-stone-700">{v.title || v.url}</span>
+                <label className="flex shrink-0 items-center gap-1 text-xs text-red-600">
+                  <input type="checkbox" name="removeVideoId" value={v.id} className="h-3.5 w-3.5" />
+                  Remove
+                </label>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: NEW_VIDEO_SLOTS }).map((_, i) => (
+            <input
+              key={i}
+              name="newVideoUrls"
+              placeholder="https://www.youtube.com/watch?v=…"
+              className={inputClass}
+            />
+          ))}
+        </div>
       </div>
 
       <div>

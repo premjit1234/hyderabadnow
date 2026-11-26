@@ -7,6 +7,16 @@ import {
   homeTiles,
   projects,
   projectImages,
+  projectVideos,
+  projectInquiries,
+  micrositePages,
+  micrositePageImages,
+  micrositePageVideos,
+  micrositePageFloorPlans,
+  micrositePageFloorPlanImages,
+  micrositePageSpecifications,
+  micrositePageNearbyPlaces,
+  micrositePageInquiries,
   siteSettings,
   legalPages,
   socialLinks,
@@ -450,6 +460,57 @@ export async function getAllInquiriesForAdmin() {
     .from(inquiries)
     .leftJoin(listings, eq(inquiries.listingId, listings.id))
     .orderBy(desc(inquiries.createdAt));
+}
+
+/** Every admin account's email — used to notify the admin team of a new
+ * project inquiry (see createProjectInquiryAction in app/actions.ts), since
+ * a project has no single "owner" user the way a listing does. */
+export async function getAdminEmails(): Promise<string[]> {
+  const rows = await db.select({ email: users.email }).from(users).where(eq(users.role, "admin"));
+  return rows.map((r) => r.email);
+}
+
+/** Project-level counterpart to getAllInquiriesForAdmin above — see
+ * projectInquiries' own schema.ts comment for why this is a separate table
+ * (and so a separate query) rather than folded into the listing one. Shown
+ * on the same /admin/inquiries page, in its own section. */
+export async function getAllProjectInquiriesForAdmin() {
+  return db
+    .select({
+      id: projectInquiries.id,
+      name: projectInquiries.name,
+      email: projectInquiries.email,
+      phone: projectInquiries.phone,
+      message: projectInquiries.message,
+      createdAt: projectInquiries.createdAt,
+      projectId: projects.id,
+      projectName: projects.name,
+      projectSlug: projects.slug,
+    })
+    .from(projectInquiries)
+    .leftJoin(projects, eq(projectInquiries.projectId, projects.id))
+    .orderBy(desc(projectInquiries.createdAt));
+}
+
+/** Same pattern again for microsite pages' enquiry forms — a third, fully
+ * separate inquiry source (see micrositePageInquiries' schema.ts comment),
+ * shown in its own section on /admin/inquiries. */
+export async function getAllMicrositePageInquiriesForAdmin() {
+  return db
+    .select({
+      id: micrositePageInquiries.id,
+      name: micrositePageInquiries.name,
+      email: micrositePageInquiries.email,
+      phone: micrositePageInquiries.phone,
+      message: micrositePageInquiries.message,
+      createdAt: micrositePageInquiries.createdAt,
+      pageId: micrositePages.id,
+      pageName: micrositePages.name,
+      pageSlug: micrositePages.slug,
+    })
+    .from(micrositePageInquiries)
+    .leftJoin(micrositePages, eq(micrositePageInquiries.pageId, micrositePages.id))
+    .orderBy(desc(micrositePageInquiries.createdAt));
 }
 
 // ---- Lead management: owner/agent-facing inquiry stats (dashboard) ----
@@ -964,13 +1025,12 @@ export async function getProjectById(id: number) {
   const project = await db.query.projects.findFirst({ where: eq(projects.id, id) });
   if (!project) return null;
 
-  const images = await db
-    .select()
-    .from(projectImages)
-    .where(eq(projectImages.projectId, id))
-    .orderBy(projectImages.sortOrder);
+  const [images, videos] = await Promise.all([
+    db.select().from(projectImages).where(eq(projectImages.projectId, id)).orderBy(projectImages.sortOrder),
+    db.select().from(projectVideos).where(eq(projectVideos.projectId, id)).orderBy(projectVideos.sortOrder),
+  ]);
 
-  return { ...project, images };
+  return { ...project, images, videos };
 }
 
 /** Looks up a project by its public URL slug (/projects/[slug]) — the
@@ -980,13 +1040,105 @@ export async function getProjectBySlug(slug: string) {
   const project = await db.query.projects.findFirst({ where: eq(projects.slug, slug) });
   if (!project) return null;
 
-  const images = await db
-    .select()
-    .from(projectImages)
-    .where(eq(projectImages.projectId, project.id))
-    .orderBy(projectImages.sortOrder);
+  const [images, videos] = await Promise.all([
+    db.select().from(projectImages).where(eq(projectImages.projectId, project.id)).orderBy(projectImages.sortOrder),
+    db.select().from(projectVideos).where(eq(projectVideos.projectId, project.id)).orderBy(projectVideos.sortOrder),
+  ]);
 
-  return { ...project, images };
+  return { ...project, images, videos };
+}
+
+// ---- Microsite pages (see schema.ts's micrositePages) ----
+//
+// A fully independent content type from `projects` above — see that table's
+// own schema.ts comment for why. These three queries mirror
+// getProjectById/getProjectBySlug's shape but additionally join in floor
+// plans (each with its own images), specifications, and nearby-places
+// groupings, none of which a plain project row has.
+
+async function attachMicrositeChildren<T extends { id: number }>(page: T) {
+  const [images, videos, floorPlans, specifications, nearbyPlaces] = await Promise.all([
+    db.select().from(micrositePageImages).where(eq(micrositePageImages.pageId, page.id)).orderBy(micrositePageImages.sortOrder),
+    db.select().from(micrositePageVideos).where(eq(micrositePageVideos.pageId, page.id)).orderBy(micrositePageVideos.sortOrder),
+    db.select().from(micrositePageFloorPlans).where(eq(micrositePageFloorPlans.pageId, page.id)).orderBy(micrositePageFloorPlans.sortOrder),
+    db.select().from(micrositePageSpecifications).where(eq(micrositePageSpecifications.pageId, page.id)).orderBy(micrositePageSpecifications.sortOrder),
+    db.select().from(micrositePageNearbyPlaces).where(eq(micrositePageNearbyPlaces.pageId, page.id)).orderBy(micrositePageNearbyPlaces.sortOrder),
+  ]);
+
+  const floorPlanImages = floorPlans.length
+    ? await db
+        .select()
+        .from(micrositePageFloorPlanImages)
+        .where(inArray(micrositePageFloorPlanImages.floorPlanId, floorPlans.map((f) => f.id)))
+        .orderBy(micrositePageFloorPlanImages.sortOrder)
+    : [];
+  const imagesByFloorPlan = new Map<number, typeof floorPlanImages>();
+  for (const img of floorPlanImages) {
+    const list = imagesByFloorPlan.get(img.floorPlanId) ?? [];
+    list.push(img);
+    imagesByFloorPlan.set(img.floorPlanId, list);
+  }
+
+  return {
+    ...page,
+    images,
+    videos,
+    floorPlans: floorPlans.map((fp) => ({ ...fp, images: imagesByFloorPlan.get(fp.id) ?? [] })),
+    specifications,
+    nearbyPlaces,
+  };
+}
+
+/** Admin edit form's data source — /admin/pages/[id]/edit. No `published`
+ * filter (an admin needs to open and keep editing a draft page). */
+export async function getMicrositePageById(id: number) {
+  const page = await db.query.micrositePages.findFirst({ where: eq(micrositePages.id, id) });
+  if (!page) return null;
+  return attachMicrositeChildren(page);
+}
+
+/** Public page's data source — src/app/(site)/[micrositeSlug]/page.tsx.
+ * Unpublished pages return null here (same as a nonexistent slug), which is
+ * what makes a half-finished page 404 instead of going live the moment a
+ * slug is typed in — see micrositePages.published's schema.ts comment. */
+export async function getPublishedMicrositePageBySlug(slug: string) {
+  const page = await db.query.micrositePages.findFirst({
+    where: and(eq(micrositePages.slug, slug), eq(micrositePages.published, true)),
+  });
+  if (!page) return null;
+  return attachMicrositeChildren(page);
+}
+
+/** The "Explore our other addresses" cross-link cards near the bottom of a
+ * microsite page — other published, featured pages, excluding this one. The
+ * lightweight stand-in for a manually curated "sister project" list; see
+ * micrositePages.featured's schema.ts comment. */
+export async function getRelatedMicrositePages(excludeId: number, limit = 3) {
+  const pages = await db.query.micrositePages.findMany({
+    where: and(eq(micrositePages.published, true), eq(micrositePages.featured, true)),
+    orderBy: desc(micrositePages.updatedAt),
+    limit: limit + 1,
+  });
+  const filtered = pages.filter((p) => p.id !== excludeId).slice(0, limit);
+  if (filtered.length === 0) return [];
+
+  const images = await db
+    .select({ pageId: micrositePageImages.pageId, url: micrositePageImages.url })
+    .from(micrositePageImages)
+    .where(inArray(micrositePageImages.pageId, filtered.map((p) => p.id)))
+    .orderBy(micrositePageImages.sortOrder);
+  const firstImageByPage = new Map<number, string>();
+  for (const img of images) {
+    if (!firstImageByPage.has(img.pageId)) firstImageByPage.set(img.pageId, img.url);
+  }
+
+  return filtered.map((p) => ({ ...p, imageUrl: firstImageByPage.get(p.id) ?? null }));
+}
+
+/** /admin/pages' list view — just enough to show status and link to each
+ * editor, not the full joined shape getMicrositePageById returns. */
+export async function getAllMicrositePagesForAdmin() {
+  return db.query.micrositePages.findMany({ orderBy: desc(micrositePages.updatedAt) });
 }
 
 /** Full project rows (every spec + pricing field) for the /projects/compare

@@ -22,6 +22,7 @@ import AmenityIcon from "@/components/AmenityIcon";
 import ProjectGallery from "@/components/ProjectGallery";
 import ProjectListingsTabs from "@/components/ProjectListingsTabs";
 import ProjectSaveShareButtons from "@/components/ProjectSaveShareButtons";
+import ProjectInquiryForm from "@/components/ProjectInquiryForm";
 import DocumentChecklist from "@/components/DocumentChecklist";
 import { nearestMetroStation, distancesToHubs } from "@/lib/hyderabadGeo";
 import { approvedByLabel } from "@/lib/listingFields";
@@ -266,7 +267,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const amenityKeys = parseAmenities(project.amenities);
   const projectAmenities = AMENITIES.filter((a) => amenityKeys.includes(a.key));
   const bhkList = project.bhkOptions ? project.bhkOptions.split(",").map((s) => s.trim()).filter(Boolean) : [];
-  const videoEmbedUrl = project.videoUrl ? getVideoEmbedUrl(project.videoUrl) : null;
+  // Merge the new multi-video table with the legacy single videoUrl column —
+  // see schema.ts's projectVideos comment and the 0029 migration's backfill.
+  // Every row that already had a videoUrl was copied into project_videos at
+  // migration time, so the dedupe here only matters for the narrow window
+  // where an admin's in-flight edit hasn't been re-saved since. Each is
+  // re-validated with getVideoEmbedUrl (not trusted as already-valid), same
+  // defense-in-depth as the virtual tour URL below.
+  const legacyVideo = project.videoUrl ? { url: project.videoUrl, title: null as string | null } : null;
+  const videoEmbeds = [...project.videos, ...(legacyVideo && !project.videos.some((v) => v.url === legacyVideo.url) ? [legacyVideo] : [])]
+    .map((v) => ({ title: v.title, embedUrl: getVideoEmbedUrl(v.url) }))
+    .filter((v): v is { title: string | null; embedUrl: string } => v.embedUrl !== null);
   // Re-checked here too (not just at save time), same defense-in-depth
   // reasoning as the listing page — see lib/virtualTour.ts.
   const tourEmbedUrl = project.virtualTourUrl && isEmbeddableTourUrl(project.virtualTourUrl) ? project.virtualTourUrl : null;
@@ -658,17 +669,24 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {videoEmbedUrl && (
+      {videoEmbeds.length > 0 && (
         <div className="mt-10">
-          <h2 className="mb-2 text-lg font-bold text-stone-900">Video</h2>
-          <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
-            <iframe
-              src={videoEmbedUrl}
-              title={project.name}
-              className="h-full w-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+          <h2 className="mb-2 text-lg font-bold text-stone-900">Video{videoEmbeds.length > 1 ? "s" : ""}</h2>
+          <div className={videoEmbeds.length > 1 ? "grid grid-cols-1 gap-4 sm:grid-cols-2" : undefined}>
+            {videoEmbeds.map((v, i) => (
+              <div key={i}>
+                <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
+                  <iframe
+                    src={v.embedUrl}
+                    title={v.title || project.name}
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                {v.title && <p className="mt-1.5 text-sm text-stone-600">{v.title}</p>}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -689,6 +707,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
       )}
+
+      <div className="mt-10 rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-1 text-lg font-bold text-stone-900">Interested in {project.name}?</h2>
+        <p className="mb-4 text-sm text-stone-500">Share your details and our team will get back to you.</p>
+        <div className="max-w-md">
+          <ProjectInquiryForm projectId={project.id} projectName={project.name} />
+        </div>
+      </div>
 
       <div id="active-listings" className="mt-10 scroll-mt-24">
         <h2 className="mb-1 text-xl font-bold text-stone-900">Active Listings</h2>
