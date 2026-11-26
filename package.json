@@ -13,6 +13,7 @@
     "db:seed": "tsx src/db/seed.ts",
     "db:seed-lumbini-vana": "tsx src/db/seed-lumbini-vana.ts",
     "db:seed-lumbini-vana-microsite": "tsx src/db/seed-lumbini-vana-microsite.ts",
+    "db:seed-subishi-breeze-microsite": "tsx src/db/seed-subishi-breeze-microsite.ts",
     "db:create-admin": "tsx src/db/create-admin.ts",
     "db:fix-placeholder-images": "tsx src/db/fix-placeholder-images.ts",
     "db:ensure-home-tiles": "tsx src/db/ensure-home-tiles.ts",
